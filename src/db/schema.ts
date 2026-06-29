@@ -118,6 +118,9 @@ export const projects = pgTable("projects", {
     .default("Nuevo lead")
     .notNull(),
   priority: priorityEnum("priority").default("Media").notNull(),
+  // Responsable interno: texto libre en V1 (`responsible`). En Fase 6 se podrá
+  // vincular a team_members vía `responsibleId` (reservado, sin uso aún).
+  responsible: text("responsible"),
   responsibleId: uuid("responsible_id").references(() => teamMembers.id, {
     onDelete: "set null",
   }),

@@ -15,14 +15,14 @@ La app se aloja en **Vercel** (SSR/Server Actions). Cada rama de GitHub genera u
 
 ## 2. Environment Variables (Vercel → Project → Settings → Environment Variables)
 
-| Variable | Valor | Entornos |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://lwnrlkkztctxmlrstddd.supabase.co` | All |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | publishable key (`sb_publishable_…`) | All |
-| `SUPABASE_SERVICE_ROLE_KEY` | secret key (`sb_secret_…`) | All |
-| `DATABASE_URL` | connection string **pooler transacción (puerto 6543)** | All |
-| `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` | `studionomade.cl` | All |
-| `MINDICADOR_API_URL` | `https://mindicador.cl/api` | All |
+| Variable                           | Valor                                                  | Entornos |
+| ---------------------------------- | ------------------------------------------------------ | -------- |
+| `NEXT_PUBLIC_SUPABASE_URL`         | `https://lwnrlkkztctxmlrstddd.supabase.co`             | All      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`    | publishable key (`sb_publishable_…`)                   | All      |
+| `SUPABASE_SERVICE_ROLE_KEY`        | secret key (`sb_secret_…`)                             | All      |
+| `DATABASE_URL`                     | connection string **pooler transacción (puerto 6543)** | All      |
+| `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` | `studionomade.cl`                                      | All      |
+| `MINDICADOR_API_URL`               | `https://mindicador.cl/api`                            | All      |
 
 > **Importante:** en Vercel (serverless) usa el **pooler de transacción, puerto
 > 6543**:
