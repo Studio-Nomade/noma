@@ -45,3 +45,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Datos comerciales reales (Base de Datos | Noma) — NO versionar
+/data/
+# Secretos / credenciales
+*.apps.googleusercontent.com.json
+client_secret*.json
+.venv/
