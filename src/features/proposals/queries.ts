@@ -4,6 +4,7 @@ import {
   proposals,
   proposalServices,
   proposalTeam,
+  proposalNotes,
   teamMembers,
   services,
   projects,
@@ -11,12 +12,13 @@ import {
 } from "@/db/schema";
 
 export async function listProposals() {
-  return db
+  const rows = await db
     .select({
       id: proposals.id,
       title: proposals.title,
       status: proposals.status,
       version: proposals.version,
+      rootId: proposals.rootId,
       updatedAt: proposals.updatedAt,
       estimatedValueAmount: proposals.estimatedValueAmount,
       estimatedValueCurrency: proposals.estimatedValueCurrency,
@@ -28,6 +30,17 @@ export async function listProposals() {
     .innerJoin(projects, eq(proposals.projectId, projects.id))
     .leftJoin(clients, eq(proposals.clientId, clients.id))
     .orderBy(desc(proposals.updatedAt));
+
+  // Una fila por propuesta: nos quedamos con la versión más alta de cada raíz.
+  const latestByRoot = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    const key = r.rootId ?? r.id;
+    const cur = latestByRoot.get(key);
+    if (!cur || r.version > cur.version) latestByRoot.set(key, r);
+  }
+  return [...latestByRoot.values()].sort(
+    (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
+  );
 }
 
 export type ProposalListItem = Awaited<
@@ -74,6 +87,29 @@ export async function getProposalServices(proposalId: string) {
 export type ProposalServiceRow = Awaited<
   ReturnType<typeof getProposalServices>
 >[number];
+
+/** Todas las versiones de una propuesta (misma raíz), ordenadas por versión. */
+export async function getProposalVersions(rootId: string) {
+  return db
+    .select({
+      id: proposals.id,
+      version: proposals.version,
+      status: proposals.status,
+      updatedAt: proposals.updatedAt,
+    })
+    .from(proposals)
+    .where(eq(proposals.rootId, rootId))
+    .orderBy(asc(proposals.version));
+}
+
+/** Hilo de seguimiento (notas) de la propuesta, por raíz. */
+export async function getProposalNotes(rootId: string) {
+  return db
+    .select()
+    .from(proposalNotes)
+    .where(eq(proposalNotes.rootId, rootId))
+    .orderBy(desc(proposalNotes.createdAt));
+}
 
 /** Equipo de la propuesta (con datos del integrante). */
 export async function getProposalTeam(proposalId: string) {

@@ -266,6 +266,8 @@ export const proposals = pgTable("proposals", {
   status: proposalStatusEnum("status").default("Borrador").notNull(),
   nextAction: text("next_action"),
   version: integer("version").default(1).notNull(),
+  // raíz de la cadena de versiones (la v1 apunta a sí misma).
+  rootId: uuid("root_id"),
   ...timestamps,
 });
 
@@ -307,6 +309,23 @@ export const proposalTeam = pgTable(
     position: integer("position").default(0).notNull(),
   },
   (t) => [uniqueIndex("proposal_team_unique").on(t.proposalId, t.memberId)],
+);
+
+// ── proposal_notes (hilo de seguimiento de la propuesta) ─────
+export const proposalNotes = pgTable(
+  "proposal_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // se ancla a la raíz para que el hilo persista entre versiones
+    rootId: uuid("root_id").notNull(),
+    authorId: uuid("author_id"),
+    authorEmail: text("author_email"),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("proposal_notes_root_idx").on(t.rootId)],
 );
 
 // ── resource_links (polimórfica) ─────────────────────────────
@@ -409,6 +428,7 @@ export type Proposal = typeof proposals.$inferSelect;
 export type NewProposal = typeof proposals.$inferInsert;
 export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
+export type ProposalNote = typeof proposalNotes.$inferSelect;
 export type ResourceLink = typeof resourceLinks.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;

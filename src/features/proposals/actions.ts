@@ -7,6 +7,7 @@ import {
   proposals,
   proposalServices,
   proposalTeam,
+  proposalNotes,
   teamMembers,
   projects,
 } from "@/db/schema";
@@ -58,11 +59,121 @@ export async function createProposal(
         createdBy: user.id,
       })
       .returning({ id: proposals.id });
+    // la v1 es su propia raíz
+    await db
+      .update(proposals)
+      .set({ rootId: row.id })
+      .where(eq(proposals.id, row.id));
     revalidatePath("/proposals");
     revalidatePath(`/projects/${projectId}`);
     return { ok: true, data: { id: row.id } };
   } catch (err) {
     return handleActionError(err, "createProposal");
+  }
+}
+
+/** Clona la propuesta como una nueva versión (servicios + equipo + contenido). */
+export async function createProposalVersion(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireUser();
+    const [p] = await db
+      .select()
+      .from(proposals)
+      .where(eq(proposals.id, id))
+      .limit(1);
+    if (!p) return { ok: false, error: "Propuesta no encontrada." };
+    const root = p.rootId ?? p.id;
+
+    const [{ maxV }] = await db
+      .select({ maxV: sql<number>`coalesce(max(version), 1)::int` })
+      .from(proposals)
+      .where(eq(proposals.rootId, root));
+    const nextVersion = (maxV ?? p.version) + 1;
+
+    const [row] = await db
+      .insert(proposals)
+      .values({
+        projectId: p.projectId,
+        clientId: p.clientId,
+        title: p.title,
+        context: p.context,
+        diagnosis: p.diagnosis,
+        mainObjective: p.mainObjective,
+        specificObjectives: p.specificObjectives,
+        scope: p.scope,
+        workStages: p.workStages,
+        deliverables: p.deliverables,
+        timeline: p.timeline,
+        clientRequirements: p.clientRequirements,
+        exclusions: p.exclusions,
+        team: p.team,
+        commercialConditions: p.commercialConditions,
+        nextAction: p.nextAction,
+        status: "Borrador",
+        version: nextVersion,
+        rootId: root,
+        createdBy: user.id,
+      })
+      .returning({ id: proposals.id });
+
+    // copiar servicios y equipo
+    const svc = await db
+      .select()
+      .from(proposalServices)
+      .where(eq(proposalServices.proposalId, id));
+    if (svc.length) {
+      await db.insert(proposalServices).values(
+        svc.map((s) => ({
+          proposalId: row.id,
+          serviceId: s.serviceId,
+          position: s.position,
+          customPriceAmount: s.customPriceAmount,
+          customPriceCurrency: s.customPriceCurrency,
+        })),
+      );
+    }
+    const tm = await db
+      .select()
+      .from(proposalTeam)
+      .where(eq(proposalTeam.proposalId, id));
+    if (tm.length) {
+      await db.insert(proposalTeam).values(
+        tm.map((t) => ({
+          proposalId: row.id,
+          memberId: t.memberId,
+          roleInProject: t.roleInProject,
+          position: t.position,
+        })),
+      );
+    }
+
+    revalidatePath("/proposals");
+    return { ok: true, data: { id: row.id } };
+  } catch (err) {
+    return handleActionError(err, "createProposalVersion");
+  }
+}
+
+export async function addProposalNote(
+  rootId: string,
+  body: string,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const text = body.trim();
+    if (!text) return { ok: false, error: "El comentario está vacío." };
+    await db.insert(proposalNotes).values({
+      rootId,
+      authorId: user.id,
+      authorEmail: user.email ?? null,
+      body: text,
+    });
+    revalidatePath("/proposals");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "addProposalNote");
   }
 }
 

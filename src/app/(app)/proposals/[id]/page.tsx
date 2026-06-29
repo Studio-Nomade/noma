@@ -8,6 +8,8 @@ import {
   getProposal,
   getProposalServices,
   getProposalTeam,
+  getProposalVersions,
+  getProposalNotes,
   listServicesForArea,
   listTeamForSelect,
 } from "@/features/proposals/queries";
@@ -16,6 +18,8 @@ import { TeamSelector } from "@/features/proposals/team-selector";
 import { ProposalStatusSelect } from "@/features/proposals/proposal-status";
 import { ProposalContentForm } from "@/features/proposals/proposal-content-form";
 import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
+import { ProposalVersions } from "@/features/proposals/proposal-versions";
+import { ProposalNotes } from "@/features/proposals/proposal-notes";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
 
 export default async function ProposalDetailPage({
@@ -28,13 +32,17 @@ export default async function ProposalDetailPage({
   if (!row) notFound();
   const { proposal, clientName, projectName, projectArea } = row;
 
-  const [selected, catalog, rates, team, members] = await Promise.all([
-    getProposalServices(id),
-    listServicesForArea(projectArea),
-    getLatestRates(),
-    getProposalTeam(id),
-    listTeamForSelect(),
-  ]);
+  const root = proposal.rootId ?? proposal.id;
+  const [selected, catalog, rates, team, members, versions, notes] =
+    await Promise.all([
+      getProposalServices(id),
+      listServicesForArea(projectArea),
+      getLatestRates(),
+      getProposalTeam(id),
+      listTeamForSelect(),
+      getProposalVersions(root),
+      getProposalNotes(root),
+    ]);
 
   const ufClp = Number(rates.ufClp) || 0;
   const items: LineItem[] = selected.map((s) => ({
@@ -143,6 +151,14 @@ export default async function ProposalDetailPage({
                 ? `UF ${ufClp.toLocaleString("es-CL")} · ${rates.stale ? "tasa desactualizada" : "tasa del día"}`
                 : "Sin tasa UF — corre npm run rates:sync"}
             </p>
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <ProposalVersions currentId={id} versions={versions} />
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <ProposalNotes rootId={root} notes={notes} />
           </div>
         </div>
       </div>
