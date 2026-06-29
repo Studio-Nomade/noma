@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/shared/field";
-import { CLIENT_STATUSES } from "@/types/enums";
+import { CLIENT_STATUSES, FINANCIAL_STATUSES } from "@/types/enums";
 import type { Client } from "@/db/schema";
 import { clientSchema, type ClientFormValues } from "./schema";
 import { createClient, updateClient } from "./actions";
@@ -42,6 +42,13 @@ function toDefaults(client?: Client | null): ClientFormValues {
     linkedin: client?.linkedin ?? "",
     status: client?.status ?? "Prospecto",
     internalNotes: client?.internalNotes ?? "",
+    rut: client?.rut ?? "",
+    legalName: client?.legalName ?? "",
+    taxActivity: client?.taxActivity ?? "",
+    taxAddress: client?.taxAddress ?? "",
+    billingEmail: client?.billingEmail ?? "",
+    financialStatus: client?.financialStatus ?? "Sin información",
+    billingNotes: client?.billingNotes ?? "",
   };
 }
 
@@ -172,6 +179,53 @@ export function ClientDialog({
           <Field label="Notas internas" error={errors.internalNotes?.message}>
             <Textarea rows={3} {...register("internalNotes")} />
           </Field>
+
+          {/* ── Datos de facturación (Chipax/Nubox) ── */}
+          <div className="border-border border-t pt-4">
+            <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+              Datos de facturación
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="RUT" error={errors.rut?.message}>
+                <Input placeholder="76.123.456-7" {...register("rut")} />
+              </Field>
+              <Field label="Razón social" error={errors.legalName?.message}>
+                <Input {...register("legalName")} />
+              </Field>
+              <Field label="Giro" error={errors.taxActivity?.message}>
+                <Input {...register("taxActivity")} />
+              </Field>
+              <Field label="Email de facturación" error={errors.billingEmail?.message}>
+                <Input type="email" {...register("billingEmail")} />
+              </Field>
+              <Field label="Dirección tributaria" error={errors.taxAddress?.message}>
+                <Input {...register("taxAddress")} />
+              </Field>
+              <Field label="Estado financiero" error={errors.financialStatus?.message}>
+                <Controller
+                  control={control}
+                  name="financialStatus"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FINANCIAL_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            </div>
+            <Field label="Notas de facturación" error={errors.billingNotes?.message} className="mt-4">
+              <Textarea rows={2} {...register("billingNotes")} />
+            </Field>
+          </div>
 
           <DialogFooter>
             <Button

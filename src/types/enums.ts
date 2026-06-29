@@ -143,6 +143,31 @@ export type ComplexityLevel = (typeof COMPLEXITY_LEVELS)[number];
 export const PRICE_TYPES = ["uf", "unit", "range", "variable"] as const;
 export type PriceType = (typeof PRICE_TYPES)[number];
 
+// ── Finanzas / Facturación (preparación V2/V3) ───────────────
+export const INVOICE_STATUSES = [
+  "No facturado",
+  "Preparado para facturar",
+  "Borrador creado en Nubox",
+  "Emitido",
+  "Pagado",
+  "Vencido",
+  "Anulado",
+] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+// Estado financiero manual del cliente (mientras no haya sync con Chipax)
+export const FINANCIAL_STATUSES = [
+  "Sin información",
+  "Al día",
+  "Con saldo pendiente",
+  "Moroso",
+] as const;
+export type FinancialStatus = (typeof FINANCIAL_STATUSES)[number];
+
+// Integraciones externas (para el registro de sincronización)
+export const INTEGRATIONS = ["chipax", "nubox"] as const;
+export type Integration = (typeof INTEGRATIONS)[number];
+
 // ── Equipo / roles ───────────────────────────────────────────
 export const TEAM_ROLES = ["admin", "user"] as const;
 export type TeamRole = (typeof TEAM_ROLES)[number];

@@ -24,6 +24,9 @@ import {
   SERVICE_STATUSES,
   COMPLEXITY_LEVELS,
   PRICE_TYPES,
+  INVOICE_STATUSES,
+  FINANCIAL_STATUSES,
+  INTEGRATIONS,
   TEAM_ROLES,
   LINK_TYPES,
   LINK_ENTITY_TYPES,
@@ -49,6 +52,12 @@ export const complexityLevelEnum = pgEnum(
   COMPLEXITY_LEVELS,
 );
 export const priceTypeEnum = pgEnum("price_type", PRICE_TYPES);
+export const invoiceStatusEnum = pgEnum("invoice_status", INVOICE_STATUSES);
+export const financialStatusEnum = pgEnum(
+  "financial_status",
+  FINANCIAL_STATUSES,
+);
+export const integrationEnum = pgEnum("integration", INTEGRATIONS);
 export const teamRoleEnum = pgEnum("team_role", TEAM_ROLES);
 export const linkTypeEnum = pgEnum("link_type", LINK_TYPES);
 export const linkEntityTypeEnum = pgEnum("link_entity_type", LINK_ENTITY_TYPES);
@@ -84,6 +93,17 @@ export const clients = pgTable("clients", {
   linkedin: text("linkedin"),
   status: clientStatusEnum("status").default("Prospecto").notNull(),
   internalNotes: text("internal_notes"),
+  // ── Datos tributarios / facturación (preparación Chipax/Nubox) ──
+  rut: text("rut"),
+  legalName: text("legal_name"), // razón social
+  taxActivity: text("tax_activity"), // giro
+  taxAddress: text("tax_address"),
+  billingEmail: text("billing_email"),
+  billingNotes: text("billing_notes"),
+  financialStatus: financialStatusEnum("financial_status").default(
+    "Sin información",
+  ),
+  chipaxId: text("chipax_id"), // ID externo en Chipax
   ...timestamps,
 });
 
@@ -452,6 +472,66 @@ export const activityLog = pgTable(
   (t) => [index("activity_log_created_idx").on(t.createdAt)],
 );
 
+// ── invoices (preparación Nubox; sin emisión automática) ─────
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    proposalId: uuid("proposal_id").references(() => proposals.id, {
+      onDelete: "set null",
+    }),
+    status: invoiceStatusEnum("status").default("No facturado").notNull(),
+    // ID externo del documento en Nubox (al crear el borrador/emisión).
+    nuboxId: text("nubox_id"),
+    folio: text("folio"),
+    glosa: text("glosa"),
+    paymentTerms: text("payment_terms"), // condición de pago
+    currency: currencyEnum("currency").default("CLP"),
+    netAmount: numeric("net_amount", { precision: 14, scale: 2 }),
+    ivaAmount: numeric("iva_amount", { precision: 14, scale: 2 }),
+    totalAmount: numeric("total_amount", { precision: 14, scale: 2 }),
+    balanceDue: numeric("balance_due", { precision: 14, scale: 2 }),
+    // Servicios facturados (snapshot): [{ serviceId, name, amount }]
+    lineItems: jsonb("line_items")
+      .$type<{ serviceId?: string; name: string; amount: number }[]>()
+      .default([]),
+    documentCreatedAt: timestamp("document_created_at", { withTimezone: true }),
+    issuedAt: date("issued_at"),
+    dueAt: date("due_at"),
+    paidAt: date("paid_at"),
+    ...timestamps,
+  },
+  (t) => [
+    index("invoices_client_idx").on(t.clientId),
+    index("invoices_project_idx").on(t.projectId),
+  ],
+);
+
+// ── integration_sync_log (registro de sincronización Chipax/Nubox) ──
+export const integrationSyncLog = pgTable(
+  "integration_sync_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    integration: integrationEnum("integration").notNull(),
+    entityType: text("entity_type"), // 'client' | 'invoice' | ...
+    entityId: uuid("entity_id"),
+    action: text("action").notNull(), // 'pull' | 'push' | 'create' ...
+    status: text("status").notNull(), // 'ok' | 'error'
+    message: text("message"),
+    payload: jsonb("payload"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("integration_sync_log_idx").on(t.integration, t.createdAt)],
+);
+
 // ── Tipos inferidos ──────────────────────────────────────────
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
@@ -470,6 +550,9 @@ export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ProposalNote = typeof proposalNotes.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
+export type Invoice = typeof invoices.$inferSelect;
+export type NewInvoice = typeof invoices.$inferInsert;
+export type IntegrationSyncLog = typeof integrationSyncLog.$inferSelect;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
 export type ResourceLink = typeof resourceLinks.$inferSelect;
