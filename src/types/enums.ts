@@ -4,7 +4,7 @@
  */
 
 // ── Áreas del estudio ────────────────────────────────────────
-export const AREAS = ["B&D", "WD", "A&D", "A&A", "CE", "SN"] as const;
+export const AREAS = ["B&D", "WD", "A&D", "A&A", "CE", "MP", "SN"] as const;
 export type Area = (typeof AREAS)[number];
 
 export const AREA_LABELS: Record<Area, string> = {
@@ -13,6 +13,7 @@ export const AREA_LABELS: Record<Area, string> = {
   "A&D": "Architecture & Design",
   "A&A": "Audiovisual & Animation",
   CE: "Clínica de Emprendimientos",
+  MP: "Mercado Público",
   SN: "Studio Nomade · Operations",
 };
 
@@ -76,6 +77,19 @@ export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 // ── Servicio ─────────────────────────────────────────────────
 export const SERVICE_STATUSES = ["Activo", "Inactivo"] as const;
 export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
+
+// Nivel de complejidad de servicios compuestos (Desarrollo de Marca, planes…)
+export const COMPLEXITY_LEVELS = [
+  "Light",
+  "Medium",
+  "Regular",
+  "Bold",
+] as const;
+export type ComplexityLevel = (typeof COMPLEXITY_LEVELS)[number];
+
+// Tipo de precio: UF (servicio), unitario CLP (merch), rango o variable
+export const PRICE_TYPES = ["uf", "unit", "range", "variable"] as const;
+export type PriceType = (typeof PRICE_TYPES)[number];
 
 // ── Equipo / roles ───────────────────────────────────────────
 export const TEAM_ROLES = ["admin", "user"] as const;

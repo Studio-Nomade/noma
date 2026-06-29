@@ -5,6 +5,7 @@ import {
   text,
   numeric,
   integer,
+  boolean,
   date,
   timestamp,
   jsonb,
@@ -21,6 +22,8 @@ import {
   BRIEF_STATUSES,
   PROPOSAL_STATUSES,
   SERVICE_STATUSES,
+  COMPLEXITY_LEVELS,
+  PRICE_TYPES,
   TEAM_ROLES,
   LINK_TYPES,
   LINK_ENTITY_TYPES,
@@ -41,6 +44,8 @@ export const priorityEnum = pgEnum("priority", PRIORITIES);
 export const briefStatusEnum = pgEnum("brief_status", BRIEF_STATUSES);
 export const proposalStatusEnum = pgEnum("proposal_status", PROPOSAL_STATUSES);
 export const serviceStatusEnum = pgEnum("service_status", SERVICE_STATUSES);
+export const complexityLevelEnum = pgEnum("complexity_level", COMPLEXITY_LEVELS);
+export const priceTypeEnum = pgEnum("price_type", PRICE_TYPES);
 export const teamRoleEnum = pgEnum("team_role", TEAM_ROLES);
 export const linkTypeEnum = pgEnum("link_type", LINK_TYPES);
 export const linkEntityTypeEnum = pgEnum("link_entity_type", LINK_ENTITY_TYPES);
@@ -165,17 +170,62 @@ export const services = pgTable("services", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   area: areaEnum("area").notNull(),
+  subarea: text("subarea"),
+  category: text("category"),
   description: text("description"),
   deliverables: text("deliverables"),
   estimatedTime: text("estimated_time"),
+  complexityLevel: complexityLevelEnum("complexity_level"),
+  priceType: priceTypeEnum("price_type").default("uf").notNull(),
   priceMinAmount: numeric("price_min_amount", { precision: 14, scale: 2 }),
   priceMaxAmount: numeric("price_max_amount", { precision: 14, scale: 2 }),
   priceCurrency: currencyEnum("price_currency").default("UF"),
+  unit: text("unit"),
   requirements: text("requirements"),
+  isComposite: boolean("is_composite").default(false).notNull(),
   status: serviceStatusEnum("status").default("Activo").notNull(),
   relatedServices: uuid("related_services").array().default([]),
+  // trazabilidad del insumo de origen (Excel/PDF)
+  sourceFile: text("source_file"),
+  sourceYear: text("source_year"),
   ...timestamps,
 });
+
+// ── service_modules (módulos combinables) ────────────────────
+export const serviceModules = pgTable("service_modules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  area: areaEnum("area").notNull(),
+  subarea: text("subarea"),
+  description: text("description"),
+  deliverables: text("deliverables"),
+  estimatedTime: text("estimated_time"),
+  priceAmount: numeric("price_amount", { precision: 14, scale: 2 }),
+  priceCurrency: currencyEnum("price_currency").default("UF"),
+  canBeSoldIndependently: boolean("can_be_sold_independently")
+    .default(true)
+    .notNull(),
+  status: serviceStatusEnum("status").default("Activo").notNull(),
+  sourceFile: text("source_file"),
+  ...timestamps,
+});
+
+// ── service_module_links (servicio compuesto ↔ módulos, N:N) ──
+export const serviceModuleLinks = pgTable(
+  "service_module_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "cascade" }),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => serviceModules.id, { onDelete: "cascade" }),
+    order: integer("order").default(0).notNull(),
+    includedByDefault: boolean("included_by_default").default(true).notNull(),
+  },
+  (t) => [index("service_module_links_service_idx").on(t.serviceId)],
+);
 
 // ── proposals ────────────────────────────────────────────────
 export const proposals = pgTable("proposals", {
@@ -329,6 +379,9 @@ export type Brief = typeof briefs.$inferSelect;
 export type NewBrief = typeof briefs.$inferInsert;
 export type Service = typeof services.$inferSelect;
 export type NewService = typeof services.$inferInsert;
+export type ServiceModule = typeof serviceModules.$inferSelect;
+export type NewServiceModule = typeof serviceModules.$inferInsert;
+export type ServiceModuleLink = typeof serviceModuleLinks.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type NewProposal = typeof proposals.$inferInsert;
 export type ProposalService = typeof proposalServices.$inferSelect;

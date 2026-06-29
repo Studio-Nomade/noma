@@ -15,6 +15,13 @@
       "when": 1782721274096,
       "tag": "0001_yielding_puma",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782745037679,
+      "tag": "0002_late_jazinda",
+      "breakpoints": true
     }
   ]
 }

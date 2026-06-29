@@ -32,6 +32,12 @@ function ServiceCard({ service }: { service: Service }) {
               service.priceMaxAmount,
               service.priceCurrency ?? "UF",
             )}
+            {service.unit && (
+              <span className="text-muted-foreground font-normal">
+                {" · "}
+                {service.unit}
+              </span>
+            )}
           </span>
           {service.estimatedTime && (
             <span className="text-muted-foreground text-xs">
@@ -69,15 +75,39 @@ export function ServicesList({ services }: { services: Service[] }) {
         {groups.map((a) => {
           const items = visible.filter((s) => s.area === a);
           if (items.length === 0) return null;
+          // subáreas en orden de aparición; los sin subárea van al final
+          const subareas = [
+            ...new Set(items.map((s) => s.subarea).filter(Boolean)),
+          ] as string[];
+          const noSub = items.filter((s) => !s.subarea);
           return (
             <section key={a}>
-              <h2 className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+              <h2 className="mb-4 text-sm font-medium tracking-wide">
                 {a} · {AREA_LABELS[a]}
+                <span className="text-muted-foreground"> · {items.length}</span>
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {items.map((s) => (
-                  <ServiceCard key={s.id} service={s} />
+              <div className="space-y-6">
+                {subareas.map((sub) => (
+                  <div key={sub}>
+                    <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+                      {sub}
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {items
+                        .filter((s) => s.subarea === sub)
+                        .map((s) => (
+                          <ServiceCard key={s.id} service={s} />
+                        ))}
+                    </div>
+                  </div>
                 ))}
+                {noSub.length > 0 && (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {noSub.map((s) => (
+                      <ServiceCard key={s.id} service={s} />
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           );
