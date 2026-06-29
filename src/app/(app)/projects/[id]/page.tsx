@@ -13,6 +13,7 @@ import {
 import { listClients } from "@/features/clients/queries";
 import { ProjectDialog } from "@/features/projects/project-dialog";
 import { ProjectLinks } from "@/features/projects/project-links";
+import { NewProposalButton } from "@/features/proposals/new-proposal-button";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -132,12 +133,14 @@ export default async function ProjectDetailPage({
           </div>
 
           <div className="border-border bg-card rounded-xl border p-6">
-            <h2 className="font-heading mb-2 text-sm font-medium">
-              Brief y propuesta
+            <h2 className="font-heading mb-3 text-sm font-medium">
+              Cotización
             </h2>
-            <p className="text-muted-foreground text-sm">
-              El brief (Fase 3) y las propuestas (Fase 4) se vincularán aquí.
+            <p className="text-muted-foreground mb-3 text-sm">
+              Genera una cotización con los servicios del catálogo, totales en
+              UF + IVA y secciones editables.
             </p>
+            <NewProposalButton projectId={project.id} />
           </div>
         </div>
       </div>
