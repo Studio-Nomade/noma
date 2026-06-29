@@ -343,6 +343,45 @@ export const resourceLinks = pgTable(
   (t) => [index("resource_links_entity_idx").on(t.entityType, t.entityId)],
 );
 
+// ── client_contacts (varios correos por cliente) ────────────
+export const clientContacts = pgTable(
+  "client_contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name"),
+    email: text("email").notNull(),
+    role: text("role"),
+    isPrimary: boolean("is_primary").default(false).notNull(),
+    ...timestamps,
+  },
+  (t) => [index("client_contacts_client_idx").on(t.clientId)],
+);
+
+// ── email_templates (mantenedor de plantillas de correo) ─────
+export const emailTemplates = pgTable("email_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  area: areaEnum("area"),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  status: text("status").default("Activo").notNull(),
+  ...timestamps,
+});
+
+// ── user_integrations (token de Google para enviar como el usuario) ──
+export const userIntegrations = pgTable("user_integrations", {
+  userId: uuid("user_id").primaryKey(), // auth.users.id
+  email: text("email"),
+  googleRefreshToken: text("google_refresh_token"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 // ── studio_config (singleton) ────────────────────────────────
 export const studioConfig = pgTable("studio_config", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -429,6 +468,9 @@ export type NewProposal = typeof proposals.$inferInsert;
 export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ProposalNote = typeof proposalNotes.$inferSelect;
+export type ClientContact = typeof clientContacts.$inferSelect;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
 export type ResourceLink = typeof resourceLinks.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;

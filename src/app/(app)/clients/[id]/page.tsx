@@ -3,9 +3,14 @@ import Link from "next/link";
 import { ArrowLeft, Pencil, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { getClient, getClientProjects } from "@/features/clients/queries";
+import {
+  getClient,
+  getClientProjects,
+  getClientContacts,
+} from "@/features/clients/queries";
 import { ClientDialog } from "@/features/clients/client-dialog";
 import { CloseClientButton } from "@/features/clients/close-client-button";
+import { ContactsManager } from "@/features/clients/contacts-manager";
 import { AREA_LABELS } from "@/types/enums";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -28,7 +33,10 @@ export default async function ClientDetailPage({
   const client = await getClient(id);
   if (!client) notFound();
 
-  const projects = await getClientProjects(id);
+  const [projects, contacts] = await Promise.all([
+    getClientProjects(id),
+    getClientContacts(id),
+  ]);
 
   return (
     <>
@@ -125,6 +133,13 @@ export default async function ClientDetailPage({
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="border-border bg-card rounded-xl border p-6 lg:col-span-3">
+          <h2 className="font-heading mb-4 text-sm font-medium">
+            Contactos (correos)
+          </h2>
+          <ContactsManager clientId={client.id} contacts={contacts} />
         </div>
       </div>
     </>

@@ -26,7 +26,8 @@ declare
     'team_members', 'knowledge_docs', 'context_documents',
     'exchange_rates', 'activity_log',
     'service_modules', 'service_module_links', 'proposal_team',
-    'proposal_notes'
+    'proposal_notes', 'client_contacts', 'email_templates',
+    'user_integrations'
   ];
 begin
   foreach t in array tables loop
