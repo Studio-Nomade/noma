@@ -20,6 +20,9 @@ export default function LoginPage() {
         redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(
           redirectTo,
         )}`,
+        // Permite enviar correos como el usuario (Gmail API) y obtener refresh token.
+        scopes: "email profile https://www.googleapis.com/auth/gmail.send",
+        queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
     if (error) {

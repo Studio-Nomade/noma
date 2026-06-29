@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, Eye, Download, Send } from "lucide-react";
 import { formatMoney } from "@/lib/currency/format";
 import { getLatestRates } from "@/lib/currency/rates";
 import { AREA_LABELS } from "@/types/enums";
+import { requireUser } from "@/lib/auth";
 import {
   getProposal,
   getProposalServices,
@@ -13,6 +14,8 @@ import {
   listServicesForArea,
   listTeamForSelect,
 } from "@/features/proposals/queries";
+import { getClientContacts } from "@/features/clients/queries";
+import { listTemplatesForArea } from "@/features/email/queries";
 import { ServiceSelector } from "@/features/proposals/service-selector";
 import { TeamSelector } from "@/features/proposals/team-selector";
 import { ProposalStatusSelect } from "@/features/proposals/proposal-status";
@@ -20,6 +23,8 @@ import { ProposalContentForm } from "@/features/proposals/proposal-content-form"
 import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
 import { ProposalVersions } from "@/features/proposals/proposal-versions";
 import { ProposalNotes } from "@/features/proposals/proposal-notes";
+import { SendProposalDialog } from "@/features/proposals/send-dialog";
+import { Button } from "@/components/ui/button";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
 
 export default async function ProposalDetailPage({
@@ -33,16 +38,31 @@ export default async function ProposalDetailPage({
   const { proposal, clientName, projectName, projectArea } = row;
 
   const root = proposal.rootId ?? proposal.id;
-  const [selected, catalog, rates, team, members, versions, notes] =
-    await Promise.all([
-      getProposalServices(id),
-      listServicesForArea(projectArea),
-      getLatestRates(),
-      getProposalTeam(id),
-      listTeamForSelect(),
-      getProposalVersions(root),
-      getProposalNotes(root),
-    ]);
+  const [
+    user,
+    selected,
+    catalog,
+    rates,
+    team,
+    members,
+    versions,
+    notes,
+    contacts,
+    templates,
+  ] = await Promise.all([
+    requireUser(),
+    getProposalServices(id),
+    listServicesForArea(projectArea),
+    getLatestRates(),
+    getProposalTeam(id),
+    listTeamForSelect(),
+    getProposalVersions(root),
+    getProposalNotes(root),
+    proposal.clientId
+      ? getClientContacts(proposal.clientId)
+      : Promise.resolve([]),
+    listTemplatesForArea(projectArea),
+  ]);
 
   const ufClp = Number(rates.ufClp) || 0;
   const items: LineItem[] = selected.map((s) => ({
@@ -52,6 +72,17 @@ export default async function ProposalDetailPage({
       "UF") as LineItem["currency"],
   }));
   const totals = computeTotals(items, ufClp);
+
+  const sendVars = {
+    cliente: clientName ?? "",
+    contacto: contacts[0]?.name ?? clientName ?? "",
+    proyecto: projectName,
+    propuesta: proposal.title,
+    total: formatMoney(totals.totalClp, "CLP"),
+    remitente: user.email ?? "",
+  };
+  // CC al equipo: por ahora vacío (los correos del equipo se cargan en Fase 6).
+  const teamEmails: string[] = [];
 
   return (
     <>
@@ -82,6 +113,34 @@ export default async function ProposalDetailPage({
             <Eye className="size-4" />
             Vista previa
           </Link>
+          <a
+            href={`/proposals/${id}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-border hover:bg-accent inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium"
+          >
+            <Download className="size-4" />
+            PDF
+          </a>
+          <SendProposalDialog
+            proposalId={id}
+            senderEmail={user.email ?? ""}
+            contacts={contacts.map((c) => ({ email: c.email, name: c.name }))}
+            teamEmails={teamEmails}
+            templates={templates.map((t) => ({
+              id: t.id,
+              name: t.name,
+              subject: t.subject,
+              body: t.body,
+            }))}
+            vars={sendVars}
+            trigger={
+              <Button>
+                <Send className="size-4" />
+                Enviar
+              </Button>
+            }
+          />
           <ProposalDeleteButton id={id} redirectTo="/proposals" />
         </div>
       </div>
