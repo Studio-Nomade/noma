@@ -53,7 +53,10 @@ export function ContactsManager({
       {contacts.length > 0 && (
         <ul className="divide-border divide-y">
           {contacts.map((c) => (
-            <li key={c.id} className="flex items-center justify-between gap-2 py-2">
+            <li
+              key={c.id}
+              className="flex items-center justify-between gap-2 py-2"
+            >
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-sm font-medium">
                   {c.isPrimary && <Star className="size-3 fill-current" />}
@@ -79,9 +82,22 @@ export function ContactsManager({
       )}
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input placeholder="Cargo" value={role} onChange={(e) => setRole(e.target.value)} />
+        <Input
+          placeholder="Nombre"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          placeholder="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Input
+          placeholder="Cargo"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+        />
       </div>
       <Button size="sm" variant="outline" onClick={add} disabled={pending}>
         <Plus className="size-4" />

@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { db } from "@/db";
-import { studioConfig, teamMembers } from "@/db/schema";
+import { studioConfig, teamMembers, emailTemplates } from "@/db/schema";
 import type { NewTeamMember } from "@/db/schema";
 
 /**
@@ -35,6 +35,28 @@ async function main() {
     console.log(`✓ ${team.length} integrantes del equipo cargados`);
   } else {
     console.log("• team_members ya tiene datos, se omite");
+  }
+
+  const existingTpl = await db.select().from(emailTemplates).limit(1);
+  if (existingTpl.length === 0) {
+    await db.insert(emailTemplates).values({
+      name: "Envío de propuesta",
+      subject: "Propuesta Comercial · {{proyecto}}",
+      isDefault: true,
+      body: `Hola {{contacto}},
+
+Junto con saludar, adjuntamos la propuesta comercial para {{proyecto}}.
+El valor total considerado es {{total}}.
+
+Quedamos atentos a tus comentarios.
+
+Saludos,
+{{remitente}}
+Studio Nomade`,
+    });
+    console.log("✓ plantilla de correo por defecto creada");
+  } else {
+    console.log("• email_templates ya tiene datos, se omite");
   }
 
   console.log("Seed completado.");
