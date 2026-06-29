@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx -y create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(rm -rf /private/tmp/claude-501/-Users-sebastian-oaks-Sites-Noma/a26b0ba0-5787-458a-ab65-57e008654c98/scratchpad/noma-scaffold)",
+      "Bash(npx -y create-next-app@latest noma-scaffold --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --skip-install --no-turbopack)"
+    ]
+  }
+}
