@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { ArrowLeft, Eye } from "lucide-react";
 import { formatMoney } from "@/lib/currency/format";
 import { getLatestRates } from "@/lib/currency/rates";
 import { AREA_LABELS } from "@/types/enums";
@@ -67,8 +66,14 @@ export default async function ProposalDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge value={proposal.status} />
           <ProposalStatusSelect id={id} status={proposal.status} />
+          <Link
+            href={`/proposals/${id}/preview`}
+            className="border-border hover:bg-accent inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium"
+          >
+            <Eye className="size-4" />
+            Vista previa
+          </Link>
         </div>
       </div>
 
