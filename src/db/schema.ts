@@ -116,7 +116,8 @@ export const projects = pgTable("projects", {
   clientId: uuid("client_id")
     .notNull()
     .references(() => clients.id, { onDelete: "restrict" }),
-  area: areaEnum("area").notNull(),
+  area: areaEnum("area").notNull(), // área principal (= areas[0])
+  areas: areaEnum("areas").array().default([]).notNull(),
   projectType: text("project_type"),
   description: text("description"),
   mainObjective: text("main_objective"),

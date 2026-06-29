@@ -66,7 +66,9 @@ export async function buildProposalPdfData(
     accent: AREA_THEME[projectArea].accent,
     date,
     version: proposal.version,
+    multiArea: new Set(services.map((sv) => sv.area)).size > 1,
     services: services.map((sv) => ({
+      area: sv.area,
       name: sv.name,
       subarea: sv.subarea,
       value: formatMoney(

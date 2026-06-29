@@ -43,6 +43,13 @@
       "when": 1782755574261,
       "tag": "0005_mature_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782759714573,
+      "tag": "0006_third_stature",
+      "breakpoints": true
     }
   ]
 }

@@ -54,8 +54,11 @@ export default async function ProposalPreviewPage({
   const { id } = await params;
   const row = await getProposal(id);
   if (!row) notFound();
-  const { proposal, clientName, projectName, projectArea } = row;
+  const { proposal, clientName, projectName, projectArea, projectAreas } = row;
+  const areas = projectAreas?.length ? projectAreas : [projectArea];
   const theme = AREA_THEME[projectArea];
+  const areasLabel = areas.map((a) => AREA_THEME[a].label).join(" + ");
+  const multiArea = areas.length > 1;
 
   const [selected, rates, team] = await Promise.all([
     getProposalServices(id),
@@ -139,7 +142,7 @@ export default async function ProposalPreviewPage({
                 className="mb-2 text-sm font-medium tracking-widest uppercase"
                 style={{ color: theme.accent }}
               >
-                {theme.label}
+                {areasLabel}
               </p>
               <h1 className="font-heading text-5xl font-semibold tracking-tight">
                 {proposal.title}
@@ -158,33 +161,47 @@ export default async function ProposalPreviewPage({
         {section("Objetivo general", proposal.mainObjective)}
         {section("Alcance", proposal.scope)}
 
-        {/* Servicios */}
+        {/* Servicios, agrupados por área */}
         {selected.length > 0 && (
           <Slide accent={theme.accent}>
             <Heading>Servicios incluidos</Heading>
-            <ul className="divide-y divide-[#ecf0ee]">
-              {selected.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-baseline justify-between gap-4 py-2.5"
-                >
-                  <div>
-                    <p className="font-medium">{s.name}</p>
-                    {s.subarea && (
-                      <p className="text-muted-foreground text-xs">
-                        {s.subarea}
-                      </p>
-                    )}
-                  </div>
-                  <span className="font-medium whitespace-nowrap">
-                    {formatMoney(
-                      s.customPriceAmount ?? s.priceAmount,
-                      s.customPriceCurrency ?? s.priceCurrency ?? "UF",
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {[...new Set(selected.map((s) => s.area))].map((area) => (
+              <div key={area} className="mb-4">
+                {multiArea && (
+                  <p
+                    className="mb-1 text-xs font-medium tracking-widest uppercase"
+                    style={{ color: theme.accent }}
+                  >
+                    {AREA_THEME[area].label}
+                  </p>
+                )}
+                <ul className="divide-y divide-[#ecf0ee]">
+                  {selected
+                    .filter((s) => s.area === area)
+                    .map((s) => (
+                      <li
+                        key={s.id}
+                        className="flex items-baseline justify-between gap-4 py-2.5"
+                      >
+                        <div>
+                          <p className="font-medium">{s.name}</p>
+                          {s.subarea && (
+                            <p className="text-muted-foreground text-xs">
+                              {s.subarea}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-medium whitespace-nowrap">
+                          {formatMoney(
+                            s.customPriceAmount ?? s.priceAmount,
+                            s.customPriceCurrency ?? s.priceCurrency ?? "UF",
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
           </Slide>
         )}
 

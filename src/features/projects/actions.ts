@@ -15,7 +15,8 @@ function normalize(values: ProjectFormValues) {
   return {
     name: d.name,
     clientId: d.clientId,
-    area: d.area,
+    area: d.areas[0], // área principal
+    areas: d.areas,
     projectType: n(d.projectType),
     description: n(d.description),
     mainObjective: n(d.mainObjective),

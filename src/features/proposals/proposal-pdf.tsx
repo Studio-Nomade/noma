@@ -16,7 +16,13 @@ export type ProposalPdfData = {
   accent: string;
   date: string;
   version: number;
-  services: { name: string; subarea: string | null; value: string }[];
+  services: {
+    area: string;
+    name: string;
+    subarea: string | null;
+    value: string;
+  }[];
+  multiArea: boolean;
   totals: { subtotalUf: string; net: string; iva: string; total: string };
   team: { name: string; role: string }[];
   sections: { label: string; value: string }[];
@@ -87,15 +93,34 @@ function ProposalPdf({ data }: { data: ProposalPdfData }) {
         {data.services.length > 0 && (
           <View>
             <Text style={s.h2}>Servicios incluidos</Text>
-            {data.services.map((sv, i) => (
-              <View key={i} style={s.row}>
-                <View>
-                  <Text style={s.svcName}>{sv.name}</Text>
-                  {sv.subarea ? (
-                    <Text style={s.svcSub}>{sv.subarea}</Text>
-                  ) : null}
-                </View>
-                <Text>{sv.value}</Text>
+            {[...new Set(data.services.map((x) => x.area))].map((area) => (
+              <View key={area}>
+                {data.multiArea && (
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      color: "#6b7280",
+                      textTransform: "uppercase",
+                      marginTop: 6,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {area}
+                  </Text>
+                )}
+                {data.services
+                  .filter((x) => x.area === area)
+                  .map((sv, i) => (
+                    <View key={i} style={s.row}>
+                      <View>
+                        <Text style={s.svcName}>{sv.name}</Text>
+                        {sv.subarea ? (
+                          <Text style={s.svcSub}>{sv.subarea}</Text>
+                        ) : null}
+                      </View>
+                      <Text>{sv.value}</Text>
+                    </View>
+                  ))}
               </View>
             ))}
             <View style={s.totalsBox}>

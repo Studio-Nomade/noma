@@ -17,7 +17,7 @@ const optionalMoney = z
 export const projectSchema = z.object({
   name: z.string().trim().min(1, "El nombre del proyecto es obligatorio"),
   clientId: z.string().min(1, "Selecciona un cliente"),
-  area: z.enum(AREAS),
+  areas: z.array(z.enum(AREAS)).min(1, "Selecciona al menos un área"),
   projectType: optionalText,
   description: optionalText,
   mainObjective: optionalText,

@@ -11,7 +11,7 @@ import {
   getProposalTeam,
   getProposalVersions,
   getProposalNotes,
-  listServicesForArea,
+  listServicesForAreas,
   listTeamForSelect,
 } from "@/features/proposals/queries";
 import { getClientContacts } from "@/features/clients/queries";
@@ -35,7 +35,8 @@ export default async function ProposalDetailPage({
   const { id } = await params;
   const row = await getProposal(id);
   if (!row) notFound();
-  const { proposal, clientName, projectName, projectArea } = row;
+  const { proposal, clientName, projectName, projectArea, projectAreas } = row;
+  const areas = projectAreas?.length ? projectAreas : [projectArea];
 
   const root = proposal.rootId ?? proposal.id;
   const [
@@ -52,7 +53,7 @@ export default async function ProposalDetailPage({
   ] = await Promise.all([
     requireUser(),
     getProposalServices(id),
-    listServicesForArea(projectArea),
+    listServicesForAreas(areas),
     getLatestRates(),
     getProposalTeam(id),
     listTeamForSelect(),

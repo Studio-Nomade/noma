@@ -48,7 +48,11 @@ function toDefaults(
   return {
     name: project?.name ?? "",
     clientId: project?.clientId ?? presetClientId ?? "",
-    area: project?.area ?? "B&D",
+    areas: project?.areas?.length
+      ? project.areas
+      : project?.area
+        ? [project.area]
+        : ["B&D"],
     projectType: project?.projectType ?? "",
     description: project?.description ?? "",
     mainObjective: project?.mainObjective ?? "",
@@ -131,8 +135,10 @@ export function ProjectDialog({
     defaultValues: toDefaults(project, presetClientId),
   });
 
-  const selectedArea = watch("area");
-  const projectTypeOptions = PROJECT_TYPES_BY_AREA[selectedArea] ?? [];
+  const selectedAreas = watch("areas") ?? [];
+  const projectTypeOptions = [
+    ...new Set(selectedAreas.flatMap((a) => PROJECT_TYPES_BY_AREA[a] ?? [])),
+  ];
 
   async function onSubmit(values: ProjectFormValues) {
     const result = isEdit
@@ -196,12 +202,42 @@ export function ProjectDialog({
                 )}
               />
             </Field>
-            <Field label="Área" error={errors.area?.message}>
-              <EnumSelect
+            <Field
+              label="Áreas (una o más)"
+              error={errors.areas?.message as string | undefined}
+            >
+              <Controller
                 control={control}
-                name="area"
-                options={AREAS}
-                labels={AREA_LABELS}
+                name="areas"
+                render={({ field }) => (
+                  <div className="flex flex-wrap gap-1.5">
+                    {AREAS.map((a) => {
+                      const active = field.value?.includes(a);
+                      return (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() =>
+                            field.onChange(
+                              active
+                                ? field.value.filter((x) => x !== a)
+                                : [...(field.value ?? []), a],
+                            )
+                          }
+                          className={
+                            "rounded-full px-2.5 py-1 text-xs transition-colors " +
+                            (active
+                              ? "bg-foreground text-background"
+                              : "bg-accent text-muted-foreground hover:text-foreground")
+                          }
+                          title={AREA_LABELS[a]}
+                        >
+                          {a}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               />
             </Field>
           </div>

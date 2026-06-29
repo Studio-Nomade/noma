@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   proposals,
@@ -54,6 +54,7 @@ export async function getProposal(id: string) {
       clientName: clients.companyName,
       projectName: projects.name,
       projectArea: projects.area,
+      projectAreas: projects.areas,
     })
     .from(proposals)
     .innerJoin(projects, eq(proposals.projectId, projects.id))
@@ -74,6 +75,7 @@ export async function getProposalServices(proposalId: string) {
       customPriceCurrency: proposalServices.customPriceCurrency,
       name: services.name,
       subarea: services.subarea,
+      area: services.area,
       priceAmount: services.priceMinAmount,
       priceCurrency: services.priceCurrency,
       unit: services.unit,
@@ -158,4 +160,19 @@ export async function listServicesForArea(area: string) {
     .from(services)
     .where(and(eq(services.area, area as never), eq(services.status, "Activo")))
     .orderBy(asc(services.subarea), asc(services.name));
+}
+
+/** Catálogo de servicios activos de varias áreas (proyectos multi-área). */
+export async function listServicesForAreas(areas: string[]) {
+  const list = areas.length ? areas : ["B&D"];
+  return db
+    .select()
+    .from(services)
+    .where(
+      and(
+        inArray(services.area, list as never[]),
+        eq(services.status, "Activo"),
+      ),
+    )
+    .orderBy(asc(services.area), asc(services.subarea), asc(services.name));
 }
