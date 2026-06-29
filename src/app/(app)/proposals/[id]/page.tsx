@@ -11,7 +11,8 @@ import {
 } from "@/features/proposals/queries";
 import { ServiceSelector } from "@/features/proposals/service-selector";
 import { ProposalStatusSelect } from "@/features/proposals/proposal-status";
-import { EditableField } from "@/features/proposals/editable-field";
+import { ProposalContentForm } from "@/features/proposals/proposal-content-form";
+import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
 
 export default async function ProposalDetailPage({
@@ -51,21 +52,15 @@ export default async function ProposalDetailPage({
 
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="max-w-xl">
-            <EditableField
-              proposalId={id}
-              field="title"
-              label="Título"
-              value={proposal.title}
-              multiline={false}
-            />
-          </div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            {proposal.title}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {clientName ?? "—"} · {projectName} · {AREA_LABELS[projectArea]} · v
             {proposal.version}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <ProposalStatusSelect id={id} status={proposal.status} />
           <Link
             href={`/proposals/${id}/preview`}
@@ -74,6 +69,7 @@ export default async function ProposalDetailPage({
             <Eye className="size-4" />
             Vista previa
           </Link>
+          <ProposalDeleteButton id={id} redirectTo="/proposals" />
         </div>
       </div>
 
@@ -88,64 +84,22 @@ export default async function ProposalDetailPage({
             />
           </div>
 
-          <div className="border-border bg-card space-y-5 rounded-xl border p-6">
-            <h2 className="font-heading text-sm font-medium">
-              Contenido de la propuesta
-            </h2>
-            <EditableField
+          <div className="border-border bg-card rounded-xl border p-6">
+            <ProposalContentForm
               proposalId={id}
-              field="context"
-              label="Contexto"
-              value={proposal.context}
-            />
-            <EditableField
-              proposalId={id}
-              field="mainObjective"
-              label="Objetivo general"
-              value={proposal.mainObjective}
-            />
-            <EditableField
-              proposalId={id}
-              field="scope"
-              label="Alcance"
-              value={proposal.scope}
-            />
-            <EditableField
-              proposalId={id}
-              field="workStages"
-              label="Etapas de trabajo"
-              value={proposal.workStages}
-            />
-            <EditableField
-              proposalId={id}
-              field="deliverables"
-              label="Entregables"
-              value={proposal.deliverables}
-            />
-            <EditableField
-              proposalId={id}
-              field="timeline"
-              label="Cronograma"
-              value={proposal.timeline}
-            />
-            <EditableField
-              proposalId={id}
-              field="exclusions"
-              label="Exclusiones"
-              value={proposal.exclusions}
-            />
-            <EditableField
-              proposalId={id}
-              field="team"
-              label="Equipo"
-              value={proposal.team}
-              placeholder="Ej: Anna Sanhueza · Dirección Creativa"
-            />
-            <EditableField
-              proposalId={id}
-              field="commercialConditions"
-              label="Condiciones comerciales"
-              value={proposal.commercialConditions}
+              initial={{
+                title: proposal.title,
+                context: proposal.context,
+                mainObjective: proposal.mainObjective,
+                scope: proposal.scope,
+                workStages: proposal.workStages,
+                deliverables: proposal.deliverables,
+                timeline: proposal.timeline,
+                exclusions: proposal.exclusions,
+                team: proposal.team,
+                commercialConditions: proposal.commercialConditions,
+                nextAction: proposal.nextAction,
+              }}
             />
           </div>
         </div>
@@ -180,17 +134,6 @@ export default async function ProposalDetailPage({
                 ? `UF ${ufClp.toLocaleString("es-CL")} · ${rates.stale ? "tasa desactualizada" : "tasa del día"}`
                 : "Sin tasa UF — corre npm run rates:sync"}
             </p>
-          </div>
-
-          <div className="border-border bg-card rounded-xl border p-6">
-            <EditableField
-              proposalId={id}
-              field="nextAction"
-              label="Próxima acción"
-              value={proposal.nextAction}
-              multiline={false}
-              placeholder="Ej: Enviar al cliente · seguimiento en 3 días"
-            />
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/currency/format";
 import { listProposals } from "@/features/proposals/queries";
+import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
 
 export const metadata = { title: "Propuestas" };
 
@@ -37,7 +38,7 @@ export default async function ProposalsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {["Propuesta", "Cliente", "Valor", "Estado"].map((h) => (
+                {["Propuesta", "Cliente", "Valor", "Estado", ""].map((h) => (
                   <TableHead
                     key={h}
                     className="text-xs tracking-wide uppercase"
@@ -69,6 +70,9 @@ export default async function ProposalsPage() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge value={p.status} size="xs" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <ProposalDeleteButton id={p.id} compact />
                   </TableCell>
                 </TableRow>
               ))}

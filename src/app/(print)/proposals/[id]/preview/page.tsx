@@ -64,11 +64,16 @@ export default async function ProposalPreviewPage({
       "UF") as LineItem["currency"],
   }));
   const totals = computeTotals(items, ufClp);
-  const date = new Date(proposal.createdAt).toLocaleDateString("es-CL", {
+  const created = new Date(proposal.createdAt);
+  const date = created.toLocaleDateString("es-CL", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
+  // Nombre del PDF: AREA_AAMMDD | Cliente - Proyecto
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const code = `${String(created.getFullYear()).slice(2)}${pad(created.getMonth() + 1)}${pad(created.getDate())}`;
+  const filename = `${projectArea}_${code} | ${clientName ?? "Cliente"} - ${projectName}`;
 
   const section = (title: string, value: string | null) =>
     value ? (
@@ -105,7 +110,7 @@ export default async function ProposalPreviewPage({
           <ArrowLeft className="size-4" />
           Volver al editor
         </Link>
-        <PrintButton />
+        <PrintButton filename={filename} />
       </div>
 
       <div className="deck mx-auto flex max-w-5xl flex-col gap-6 p-6">

@@ -140,3 +140,37 @@ export async function removeProposalService(
     return handleActionError(err, "removeProposalService");
   }
 }
+
+/** Guarda todas las secciones de la propuesta de una vez (un solo "Guardar"). */
+export async function saveProposalContent(
+  id: string,
+  values: Partial<Record<EditableField, string>>,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const patch: Record<string, string | null> = {};
+    for (const f of EDITABLE_FIELDS) {
+      if (f in values) patch[f] = (values[f] ?? "").trim() || null;
+    }
+    await db
+      .update(proposals)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(proposals.id, id));
+    revalidatePath(`/proposals/${id}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "saveProposalContent");
+  }
+}
+
+/** Las propuestas sí se eliminan (a diferencia de clientes/proyectos). */
+export async function deleteProposal(id: string): Promise<ActionResult> {
+  try {
+    await requireUser();
+    await db.delete(proposals).where(eq(proposals.id, id));
+    revalidatePath("/proposals");
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "deleteProposal");
+  }
+}
