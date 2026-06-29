@@ -7,6 +7,7 @@ import {
   Boxes,
   GraduationCap,
   Library,
+  Plug,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -25,6 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/proposals", label: "Propuestas", icon: FileSignature },
   { href: "/services", label: "Servicios", icon: Boxes },
   { href: "/onboarding", label: "Onboarding", icon: GraduationCap },
+  { href: "/integrations", label: "Integraciones", icon: Plug },
   { href: "/context-docs", label: "Documentación", icon: Library },
   { href: "/settings", label: "Configuración", icon: Settings },
 ];
