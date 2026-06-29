@@ -31,8 +31,11 @@ import {
   PROJECT_STATUSES,
   COMMERCIAL_STAGES,
   PRIORITIES,
+  PROJECT_TYPES_BY_AREA,
 } from "@/types/enums";
 import type { Project } from "@/db/schema";
+
+type TeamOption = { id: string; name: string };
 import { projectSchema, type ProjectFormValues } from "./schema";
 import { createProject, updateProject } from "./actions";
 
@@ -102,11 +105,13 @@ function EnumSelect({
 export function ProjectDialog({
   project,
   clients,
+  teamMembers = [],
   presetClientId,
   trigger,
 }: {
   project?: Project | null;
   clients: ClientOption[];
+  teamMembers?: TeamOption[];
   presetClientId?: string;
   trigger: React.ReactElement;
 }) {
@@ -119,11 +124,15 @@ export function ProjectDialog({
     handleSubmit,
     control,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: toDefaults(project, presetClientId),
   });
+
+  const selectedArea = watch("area");
+  const projectTypeOptions = PROJECT_TYPES_BY_AREA[selectedArea] ?? [];
 
   async function onSubmit(values: ProjectFormValues) {
     const result = isEdit
@@ -199,7 +208,27 @@ export function ProjectDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Tipo de proyecto" error={errors.projectType?.message}>
-              <Input {...register("projectType")} />
+              <Controller
+                control={control}
+                name="projectType"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || ""}
+                    onValueChange={(v) => field.onChange(v)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Según el área…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectTypeOptions.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </Field>
             <Field label="Prioridad" error={errors.priority?.message}>
               <EnumSelect
@@ -262,7 +291,27 @@ export function ProjectDialog({
               />
             </Field>
             <Field label="Responsable" error={errors.responsible?.message}>
-              <Input {...register("responsible")} />
+              <Controller
+                control={control}
+                name="responsible"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || ""}
+                    onValueChange={(v) => field.onChange(v)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Equipo…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((m) => (
+                        <SelectItem key={m.id} value={m.name}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </Field>
           </div>
 

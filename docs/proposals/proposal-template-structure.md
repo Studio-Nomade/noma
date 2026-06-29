@@ -6,22 +6,22 @@ exporta a PDF. Ver svg-assets-map.md (por qué HTML y no SVG).
 
 ## Slides (tipo · obligatorio · repetible · fuente de datos)
 
-| # | Slide | Oblig. | Repetible | Fuente |
-|---|---|---|---|---|
-| 1 | Portada | ✅ | — | cliente, proyecto, código, área(s), fecha |
-| 2 | Contexto del proyecto | — | — | editable / brief |
-| 3 | Objetivo general | — | — | proyecto / editable |
-| 4 | Diagnóstico inicial | — | — | editable |
-| 5 | Alcance de servicios | ✅ | — | servicios seleccionados |
-| 6 | Servicio (bloque) | ✅ | ✅ | por cada servicio: valor UF+IVA, incluye, no incluye, unidad |
-| 7 | Metodología / etapas | — | ✅ | etapas por semana (Branding) |
-| 8 | Entregables | — | — | agregado de servicios/módulos |
-| 9 | Equipo principal | — | — | personas + rol (editable) |
-| 10 | Cronograma | — | — | semanas / fechas |
-| 11 | Inversión | ✅ | — | subtotal UF → CLP → **+IVA 19%** → total |
-| 12 | Condiciones comerciales | — | — | plantilla `studio_config` |
-| 13 | Próximos pasos | — | — | editable |
-| 14 | Cierre Studio Nomade | ✅ | — | contacto |
+| #   | Slide                   | Oblig. | Repetible | Fuente                                                       |
+| --- | ----------------------- | ------ | --------- | ------------------------------------------------------------ |
+| 1   | Portada                 | ✅     | —         | cliente, proyecto, código, área(s), fecha                    |
+| 2   | Contexto del proyecto   | —      | —         | editable / brief                                             |
+| 3   | Objetivo general        | —      | —         | proyecto / editable                                          |
+| 4   | Diagnóstico inicial     | —      | —         | editable                                                     |
+| 5   | Alcance de servicios    | ✅     | —         | servicios seleccionados                                      |
+| 6   | Servicio (bloque)       | ✅     | ✅        | por cada servicio: valor UF+IVA, incluye, no incluye, unidad |
+| 7   | Metodología / etapas    | —      | ✅        | etapas por semana (Branding)                                 |
+| 8   | Entregables             | —      | —         | agregado de servicios/módulos                                |
+| 9   | Equipo principal        | —      | —         | personas + rol (editable)                                    |
+| 10  | Cronograma              | —      | —         | semanas / fechas                                             |
+| 11  | Inversión               | ✅     | —         | subtotal UF → CLP → **+IVA 19%** → total                     |
+| 12  | Condiciones comerciales | —      | —         | plantilla `studio_config`                                    |
+| 13  | Próximos pasos          | —      | —         | editable                                                     |
+| 14  | Cierre Studio Nomade    | ✅     | —         | contacto                                                     |
 
 ## Cómo se arma (flujo)
 
@@ -39,6 +39,7 @@ subtotal_clp = subtotal_uf × UF_diaria      (presentación)
 iva = total_neto × 0.19
 total = neto + iva
 ```
+
 Recurrentes (mensual/trimestral) se muestran aparte de los valores únicos.
 
 ## Tema visual

@@ -14,10 +14,10 @@ Basado en `branding_services_master.xlsx` (56 servicios). Salida en
 
 ## Tipos de precio (`price_type`)
 
-| Tipo | Qué es | Filas | Ejemplo |
-|---|---|---|---|
-| `uf` | Servicio tarifado en UF | 43 | Identidad de Marca Completa (15 UF) |
-| `clp_unit` | Precio unitario en CLP (merch/impresión) | 13 | tazas, lápices, etc. (sin UF) |
+| Tipo       | Qué es                                   | Filas | Ejemplo                             |
+| ---------- | ---------------------------------------- | ----- | ----------------------------------- |
+| `uf`       | Servicio tarifado en UF                  | 43    | Identidad de Marca Completa (15 UF) |
+| `clp_unit` | Precio unitario en CLP (merch/impresión) | 13    | tazas, lápices, etc. (sin UF)       |
 
 Los `clp_unit` corresponden a **Merchandising & Impresión** (precios por unidad,
 volumen variable) → en Noma conviene modelarlos como `price_type = unit` con

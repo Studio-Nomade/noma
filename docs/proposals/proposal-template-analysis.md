@@ -13,7 +13,7 @@ SVG del deck. Insumo para el generador de propuestas (Fase 4).
    Levantamiento → Identidad → Cambios → Manual).
 5. **Servicios** — un bloque por servicio con:
    `título · valor (UF + IVA) · incluye (alcance) · "no considera" (exclusiones) ·
-   unidad (único/mensual/trimestral)`.
+unidad (único/mensual/trimestral)`.
 6. **Equipo Principal** — persona + **rol** (ej. Anna Sanhueza · Dirección Creativa).
    El rol es texto editable por propuesta.
 7. **Inversión / valores** — subtotal en UF, **IVA 19%**, total.

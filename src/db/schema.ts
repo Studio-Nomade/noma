@@ -44,7 +44,10 @@ export const priorityEnum = pgEnum("priority", PRIORITIES);
 export const briefStatusEnum = pgEnum("brief_status", BRIEF_STATUSES);
 export const proposalStatusEnum = pgEnum("proposal_status", PROPOSAL_STATUSES);
 export const serviceStatusEnum = pgEnum("service_status", SERVICE_STATUSES);
-export const complexityLevelEnum = pgEnum("complexity_level", COMPLEXITY_LEVELS);
+export const complexityLevelEnum = pgEnum(
+  "complexity_level",
+  COMPLEXITY_LEVELS,
+);
 export const priceTypeEnum = pgEnum("price_type", PRICE_TYPES);
 export const teamRoleEnum = pgEnum("team_role", TEAM_ROLES);
 export const linkTypeEnum = pgEnum("link_type", LINK_TYPES);
@@ -387,6 +390,7 @@ export type NewProposal = typeof proposals.$inferInsert;
 export type ProposalService = typeof proposalServices.$inferSelect;
 export type ResourceLink = typeof resourceLinks.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
+export type NewTeamMember = typeof teamMembers.$inferInsert;
 export type KnowledgeDoc = typeof knowledgeDocs.$inferSelect;
 export type ContextDocument = typeof contextDocuments.$inferSelect;
 export type ExchangeRate = typeof exchangeRates.$inferSelect;

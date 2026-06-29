@@ -6,13 +6,13 @@ modifican.
 
 ## Resumen
 
-| Tipo | Cantidad |
-|---|---|
-| PDF | 97 (94 presupuestos + 3 SLA) |
-| SVG | 23 |
-| XLSX | 1 |
+| Tipo              | Cantidad                        |
+| ----------------- | ------------------------------- |
+| PDF               | 97 (94 presupuestos + 3 SLA)    |
+| SVG               | 23                              |
+| XLSX              | 1                               |
 | JSON (credencial) | 1 — **secreto, fuera del repo** |
-| **Total** | 122 |
+| **Total**         | 122                             |
 
 ## Estructura
 

@@ -221,12 +221,8 @@
           "name": "briefs_project_id_projects_id_fk",
           "tableFrom": "briefs",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -234,12 +230,8 @@
           "name": "briefs_client_id_clients_id_fk",
           "tableFrom": "briefs",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -734,12 +726,8 @@
           "name": "projects_client_id_clients_id_fk",
           "tableFrom": "projects",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -747,12 +735,8 @@
           "name": "projects_responsible_id_team_members_id_fk",
           "tableFrom": "projects",
           "tableTo": "team_members",
-          "columnsFrom": [
-            "responsible_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["responsible_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -835,12 +819,8 @@
           "name": "proposal_services_proposal_id_proposals_id_fk",
           "tableFrom": "proposal_services",
           "tableTo": "proposals",
-          "columnsFrom": [
-            "proposal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["proposal_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -848,12 +828,8 @@
           "name": "proposal_services_service_id_services_id_fk",
           "tableFrom": "proposal_services",
           "tableTo": "services",
-          "columnsFrom": [
-            "service_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["service_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1027,12 +1003,8 @@
           "name": "proposals_project_id_projects_id_fk",
           "tableFrom": "proposals",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1040,12 +1012,8 @@
           "name": "proposals_client_id_clients_id_fk",
           "tableFrom": "proposals",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1211,12 +1179,8 @@
           "name": "service_module_links_service_id_services_id_fk",
           "tableFrom": "service_module_links",
           "tableTo": "services",
-          "columnsFrom": [
-            "service_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["service_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1224,12 +1188,8 @@
           "name": "service_module_links_module_id_service_modules_id_fk",
           "tableFrom": "service_module_links",
           "tableTo": "service_modules",
-          "columnsFrom": [
-            "module_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["module_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1711,23 +1671,12 @@
     "public.area": {
       "name": "area",
       "schema": "public",
-      "values": [
-        "B&D",
-        "WD",
-        "A&D",
-        "A&A",
-        "CE",
-        "MP",
-        "SN"
-      ]
+      "values": ["B&D", "WD", "A&D", "A&A", "CE", "MP", "SN"]
     },
     "public.brief_status": {
       "name": "brief_status",
       "schema": "public",
-      "values": [
-        "Borrador",
-        "Completado"
-      ]
+      "values": ["Borrador", "Completado"]
     },
     "public.client_status": {
       "name": "client_status",
@@ -1757,21 +1706,12 @@
     "public.complexity_level": {
       "name": "complexity_level",
       "schema": "public",
-      "values": [
-        "Light",
-        "Medium",
-        "Regular",
-        "Bold"
-      ]
+      "values": ["Light", "Medium", "Regular", "Bold"]
     },
     "public.currency": {
       "name": "currency",
       "schema": "public",
-      "values": [
-        "CLP",
-        "USD",
-        "UF"
-      ]
+      "values": ["CLP", "USD", "UF"]
     },
     "public.doc_category": {
       "name": "doc_category",
@@ -1788,21 +1728,12 @@
     "public.knowledge_category": {
       "name": "knowledge_category",
       "schema": "public",
-      "values": [
-        "process",
-        "best-practice",
-        "tool-guide",
-        "onboarding"
-      ]
+      "values": ["process", "best-practice", "tool-guide", "onboarding"]
     },
     "public.link_entity_type": {
       "name": "link_entity_type",
       "schema": "public",
-      "values": [
-        "client",
-        "project",
-        "proposal"
-      ]
+      "values": ["client", "project", "proposal"]
     },
     "public.link_type": {
       "name": "link_type",
@@ -1822,21 +1753,12 @@
     "public.price_type": {
       "name": "price_type",
       "schema": "public",
-      "values": [
-        "uf",
-        "unit",
-        "range",
-        "variable"
-      ]
+      "values": ["uf", "unit", "range", "variable"]
     },
     "public.priority": {
       "name": "priority",
       "schema": "public",
-      "values": [
-        "Alta",
-        "Media",
-        "Baja"
-      ]
+      "values": ["Alta", "Media", "Baja"]
     },
     "public.project_status": {
       "name": "project_status",
@@ -1855,29 +1777,17 @@
     "public.proposal_status": {
       "name": "proposal_status",
       "schema": "public",
-      "values": [
-        "Borrador",
-        "En revisión",
-        "Enviada",
-        "Aprobada",
-        "Rechazada"
-      ]
+      "values": ["Borrador", "En revisión", "Enviada", "Aprobada", "Rechazada"]
     },
     "public.service_status": {
       "name": "service_status",
       "schema": "public",
-      "values": [
-        "Activo",
-        "Inactivo"
-      ]
+      "values": ["Activo", "Inactivo"]
     },
     "public.team_role": {
       "name": "team_role",
       "schema": "public",
-      "values": [
-        "admin",
-        "user"
-      ]
+      "values": ["admin", "user"]
     }
   },
   "schemas": {},

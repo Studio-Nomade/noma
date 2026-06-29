@@ -8,7 +8,7 @@ viven en `/data` (gitignored): `normalized/` (datos limpios) y `processed/`
 
 - 1 hoja (`Sheet1`), 56 servicios (filas 2–57), columnas A–J.
 - Columnas: `ID Servicio · Subárea · Servicio · Descripción · Entregables ·
-  Tiempo · Valor UF · Valor CLP · Unidad · Service(J)`.
+Tiempo · Valor UF · Valor CLP · Unidad · Service(J)`.
 - **El nombre del servicio está en col C o, si está vacía, en col J** (overflow).
 - Extraído por `scripts/data/extract_services_excel.py` →
   `data/normalized/branding_services.{json,csv}`.
@@ -25,11 +25,11 @@ viven en `/data` (gitignored): `normalized/` (datos limpios) y `processed/`
 
 ### Archivos a revisar manualmente (baja confianza)
 
-| Archivo | Problema |
-|---|---|
-| `…/A&A_N251022-v3 - Natura …` | sufijo de versión `-v3` rompe el código |
-| `…/B&D_N252710 - lentes` | código `N252710` → mes 27 inválido (typo real) |
-| `…/B&D_N251201-2 -EQUIFAX` | sufijo `-2` y guion pegado |
+| Archivo                       | Problema                                       |
+| ----------------------------- | ---------------------------------------------- |
+| `…/A&A_N251022-v3 - Natura …` | sufijo de versión `-v3` rompe el código        |
+| `…/B&D_N252710 - lentes`      | código `N252710` → mes 27 inválido (typo real) |
+| `…/B&D_N251201-2 -EQUIFAX`    | sufijo `-2` y guion pegado                     |
 
 ## SLA PDF — 3 archivos
 

@@ -12,15 +12,15 @@ Cómo clasificamos los servicios en Noma (no como lista plana).
 
 ## Áreas (catálogo Noma)
 
-| Código | Nombre | En enum hoy |
-|---|---|---|
-| B&D | Branding & Design | ✅ |
-| WD | Web Design | ✅ |
-| A&D | Architecture & Design | ✅ |
-| A&A | Audiovisual & Animation | ✅ |
-| CE | Clínica de Emprendimientos | ✅ |
-| **MP** | **Mercado Público** | ❌ **agregar** |
-| SN | Studio Nomade · Operations & Governance | ✅ |
+| Código | Nombre                                  | En enum hoy    |
+| ------ | --------------------------------------- | -------------- |
+| B&D    | Branding & Design                       | ✅             |
+| WD     | Web Design                              | ✅             |
+| A&D    | Architecture & Design                   | ✅             |
+| A&A    | Audiovisual & Animation                 | ✅             |
+| CE     | Clínica de Emprendimientos              | ✅             |
+| **MP** | **Mercado Público**                     | ❌ **agregar** |
+| SN     | Studio Nomade · Operations & Governance | ✅             |
 
 > Acción: añadir `MP` al enum de áreas (`src/types/enums.ts` + migración).
 

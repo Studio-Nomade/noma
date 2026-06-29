@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
 import { AREA_LABELS } from "@/types/enums";
-import { getProject, getProjectLinks } from "@/features/projects/queries";
+import {
+  getProject,
+  getProjectLinks,
+  listTeamMembers,
+} from "@/features/projects/queries";
 import { listClients } from "@/features/clients/queries";
 import { ProjectDialog } from "@/features/projects/project-dialog";
 import { ProjectLinks } from "@/features/projects/project-links";
@@ -31,9 +35,10 @@ export default async function ProjectDetailPage({
   if (!row) notFound();
   const { project, clientName } = row;
 
-  const [links, clients] = await Promise.all([
+  const [links, clients, team] = await Promise.all([
     getProjectLinks(id),
     listClients(),
+    listTeamMembers(),
   ]);
   const clientOptions = clients.map((c) => ({
     id: c.id,
@@ -74,6 +79,7 @@ export default async function ProjectDetailPage({
         <ProjectDialog
           project={project}
           clients={clientOptions}
+          teamMembers={team}
           trigger={
             <Button variant="outline">
               <Pencil className="size-4" />

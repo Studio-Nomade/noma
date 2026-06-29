@@ -5,15 +5,16 @@ De `scripts/data/extract_sla_modules.py` sobre 3 SLA. Texto en
 
 ## Muestras
 
-| SLA | Páginas | Servicios cubiertos |
-|---|---|---|
-| Alianza Ciberseguridad (B&D+WD) | 8 | Benchmark, Key Visual & Guía, Web (WP+Elementor), Propuesta socios + **anexo Mantención** |
-| Todo Carnes (B&D) | 11 | Estrategia, Catálogo, Audiovisual, Stand, LinkedIn B2B, Web |
-| IDEA (WD) | 4 | UX/UI, Desarrollo Web, Migración |
+| SLA                             | Páginas | Servicios cubiertos                                                                       |
+| ------------------------------- | ------- | ----------------------------------------------------------------------------------------- |
+| Alianza Ciberseguridad (B&D+WD) | 8       | Benchmark, Key Visual & Guía, Web (WP+Elementor), Propuesta socios + **anexo Mantención** |
+| Todo Carnes (B&D)               | 11      | Estrategia, Catálogo, Audiovisual, Stand, LinkedIn B2B, Web                               |
+| IDEA (WD)                       | 4       | UX/UI, Desarrollo Web, Migración                                                          |
 
 ## Estructura común (muy consistente)
 
 **Secciones generales (en los 3):**
+
 1. **Información General** — partes, cliente, proyecto, fecha.
 2. **Esquema de Responsabilidades** — Studio Nomade vs cliente.
 3. **Descripción de los Servicios** — un sub-bloque por servicio.

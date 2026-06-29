@@ -5,6 +5,7 @@ campo **Tipo de Proyecto** del modal de proyecto debe ser un **desplegable
 dependiente del área** (no texto libre). Propuesta de opciones por área:
 
 ## B&D · Branding & Design
+
 - Desarrollo de Marca / Identidad
 - Rediseño / Refresh de Marca
 - Manual de Marca
@@ -16,6 +17,7 @@ dependiente del área** (no texto libre). Propuesta de opciones por área:
 - Merchandising
 
 ## WD · Web Design
+
 - Diseño y Desarrollo Web
 - Rediseño Web
 - Landing / Minisitio
@@ -25,6 +27,7 @@ dependiente del área** (no texto libre). Propuesta de opciones por área:
 - SEO / Google Ads
 
 ## A&A · Audiovisual & Animation
+
 - Video Corporativo
 - Comercial / Spot
 - Cápsula / Documental
@@ -33,6 +36,7 @@ dependiente del área** (no texto libre). Propuesta de opciones por área:
 - Fotografía / Sesión
 
 ## A&D · Architecture & Design
+
 - Diseño de Stand / Ferias
 - Interiorismo / Remodelación
 - Memoria Constructiva
@@ -41,11 +45,13 @@ dependiente del área** (no texto libre). Propuesta de opciones por área:
 - Packaging (con B&D)
 
 ## CE · Clínica de Emprendimientos
+
 - Branding para Emprendimientos
 - Identidad Express
 - Plan Clínica de Emprendimiento
 
 ## MP · Mercado Público
+
 - Producción Gráfica / Impresión
 - Licitación / Mercado Público
 - Gestión RRSS Sector Público
@@ -60,6 +66,6 @@ dependiente del área** (no texto libre). Propuesta de opciones por área:
   (`COMMERCIAL_STAGES` ya existe; ver nota de pipeline abajo).
 
 > **Pipeline**: el orden actual `Nuevo lead → Levantamiento → Diagnóstico →
-> Propuesta → Negociación → Aprobado → Perdido/Stand by` sirve como pipeline. Se
+Propuesta → Negociación → Aprobado → Perdido/Stand by` sirve como pipeline. Se
 > puede visualizar como tablero (kanban) en el Dashboard (Fase 5) para que avance
 > con el cliente.

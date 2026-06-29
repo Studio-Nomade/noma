@@ -11,18 +11,18 @@ De `scripts/data/extract_pdf_budgets.py` sobre 94 PDFs. Texto en
 
 ## Frecuencia de secciones (keyword match, aproximada)
 
-| Sección | PDFs |
-|---|---|
-| Inversión / valores | 94 |
-| Equipo | 64 |
-| Objetivo | 41 |
-| Entregables | 34 |
-| Alcance | 25 |
-| Metodología / etapas | 15 |
-| Contexto | 9 |
-| Condiciones | 6 |
-| Diagnóstico | 4 |
-| Cronograma | 3 |
+| Sección              | PDFs |
+| -------------------- | ---- |
+| Inversión / valores  | 94   |
+| Equipo               | 64   |
+| Objetivo             | 41   |
+| Entregables          | 34   |
+| Alcance              | 25   |
+| Metodología / etapas | 15   |
+| Contexto             | 9    |
+| Condiciones          | 6    |
+| Diagnóstico          | 4    |
+| Cronograma           | 3    |
 
 > Los conteos bajos no implican ausencia: muchos rótulos están como gráfica
 > vectorizada (ver svg-assets-map.md) y no siempre coinciden con la keyword.

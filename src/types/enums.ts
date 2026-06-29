@@ -60,6 +60,58 @@ export type CommercialStage = (typeof COMMERCIAL_STAGES)[number];
 export const PRIORITIES = ["Alta", "Media", "Baja"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
+// Tipos de proyecto por área (desplegable dependiente del área).
+// Derivado del levantamiento de presupuestos — ver docs/services/project-types.md.
+export const PROJECT_TYPES_BY_AREA: Record<Area, string[]> = {
+  "B&D": [
+    "Desarrollo de Marca / Identidad",
+    "Rediseño / Refresh de Marca",
+    "Manual de Marca",
+    "Naming",
+    "Packaging",
+    "Editorial & Presentaciones",
+    "Papelería & Implementación",
+    "Gestión de RRSS / Marketing Digital",
+    "Merchandising",
+  ],
+  WD: [
+    "Diseño y Desarrollo Web",
+    "Rediseño Web",
+    "Landing / Minisitio",
+    "E-commerce",
+    "Migración Web",
+    "Mantención Web",
+    "SEO / Google Ads",
+  ],
+  "A&D": [
+    "Diseño de Stand / Ferias",
+    "Interiorismo / Remodelación",
+    "Memoria Constructiva",
+    "Supervisión & Ejecución de Obra",
+    "Render & Modelado 3D",
+    "Packaging",
+  ],
+  "A&A": [
+    "Video Corporativo",
+    "Comercial / Spot",
+    "Cápsula / Documental",
+    "Cobertura de Evento",
+    "Animación / Motion Graphics",
+    "Fotografía / Sesión",
+  ],
+  CE: [
+    "Branding para Emprendimientos",
+    "Identidad Express",
+    "Plan Clínica de Emprendimiento",
+  ],
+  MP: [
+    "Producción Gráfica / Impresión",
+    "Licitación / Mercado Público",
+    "Gestión RRSS Sector Público",
+  ],
+  SN: ["Operaciones", "Gobernanza", "Interno"],
+};
+
 // ── Brief ────────────────────────────────────────────────────
 export const BRIEF_STATUSES = ["Borrador", "Completado"] as const;
 export type BriefStatus = (typeof BRIEF_STATUSES)[number];

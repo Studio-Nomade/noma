@@ -72,9 +72,7 @@ async function main() {
 
   const deleted = await db
     .delete(services)
-    .where(
-      and(eq(services.area, "B&D"), eq(services.sourceFile, SOURCE_FILE)),
-    )
+    .where(and(eq(services.area, "B&D"), eq(services.sourceFile, SOURCE_FILE)))
     .returning({ id: services.id });
 
   const payload = rows.map(toService);

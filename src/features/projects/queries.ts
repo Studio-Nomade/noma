@@ -1,6 +1,15 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { projects, clients, resourceLinks } from "@/db/schema";
+import { projects, clients, resourceLinks, teamMembers } from "@/db/schema";
+
+/** Integrantes activos del equipo (para el desplegable de Responsable). */
+export async function listTeamMembers() {
+  return db
+    .select({ id: teamMembers.id, name: teamMembers.name })
+    .from(teamMembers)
+    .where(eq(teamMembers.status, "Activo"))
+    .orderBy(asc(teamMembers.name));
+}
 
 export async function listProjects() {
   return db

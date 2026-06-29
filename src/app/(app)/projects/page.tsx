@@ -2,7 +2,7 @@ import { Plus, FolderKanban } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { listProjects } from "@/features/projects/queries";
+import { listProjects, listTeamMembers } from "@/features/projects/queries";
 import { listClients } from "@/features/clients/queries";
 import { ProjectDialog } from "@/features/projects/project-dialog";
 import { ProjectsTable } from "@/features/projects/projects-table";
@@ -10,9 +10,10 @@ import { ProjectsTable } from "@/features/projects/projects-table";
 export const metadata = { title: "Proyectos" };
 
 export default async function ProjectsPage() {
-  const [projects, clients] = await Promise.all([
+  const [projects, clients, team] = await Promise.all([
     listProjects(),
     listClients(),
+    listTeamMembers(),
   ]);
   const clientOptions = clients.map((c) => ({
     id: c.id,
@@ -23,6 +24,7 @@ export default async function ProjectsPage() {
   const newButton = hasClients ? (
     <ProjectDialog
       clients={clientOptions}
+      teamMembers={team}
       trigger={
         <Button>
           <Plus className="size-4" />

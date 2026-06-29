@@ -5,10 +5,10 @@ De `scripts/data/extract_svg_assets.py` sobre 23 SVG. Datos en
 
 ## Sets
 
-| Set | SVG | Qué es |
-|---|---|---|
-| `ARCHIVO MAESTRO NOMADE` | 15 | Plantilla maestra del deck |
-| `WD_N260623 - Punta Volcanes …` | 8 | Propuesta real (ejemplo) |
+| Set                             | SVG | Qué es                     |
+| ------------------------------- | --- | -------------------------- |
+| `ARCHIVO MAESTRO NOMADE`        | 15  | Plantilla maestra del deck |
+| `WD_N260623 - Punta Volcanes …` | 8   | Propuesta real (ejemplo)   |
 
 - **Formato slide: viewBox `1440×810` (16:9)** en los 23.
 
@@ -27,13 +27,13 @@ ritmo de slides) y el **contenido** desde la base de datos + PDFs.
 
 ## Paleta de marca (fills más frecuentes)
 
-| Color | Uso probable |
-|---|---|
-| `#ffffff` | Fondo claro |
-| `#ecf0ee` | Crema / gris muy claro (fondos) |
-| `#f48134` | **Naranja Nomade (acento)** |
-| `#1d1d1b` / `#191919` / `#000000` | Negro editorial / texto |
-| `#a0de00` | Verde lima (acento de proyecto, ej. Punta Volcanes) |
+| Color                             | Uso probable                                        |
+| --------------------------------- | --------------------------------------------------- |
+| `#ffffff`                         | Fondo claro                                         |
+| `#ecf0ee`                         | Crema / gris muy claro (fondos)                     |
+| `#f48134`                         | **Naranja Nomade (acento)**                         |
+| `#1d1d1b` / `#191919` / `#000000` | Negro editorial / texto                             |
+| `#a0de00`                         | Verde lima (acento de proyecto, ej. Punta Volcanes) |
 
 > Cotejar con los tokens de `src/app/globals.css`; el naranja `#f48134` es el
 > acento de marca a incorporar en el tema del deck.
