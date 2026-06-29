@@ -119,9 +119,13 @@ export default async function ProposalDetailPage({
               }}
             />
           </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <ProposalNotes rootId={root} notes={notes} />
+          </div>
         </div>
 
-        {/* Totales (sticky) */}
+        {/* Columna derecha: Inversión (sticky) + Versiones */}
         <div className="space-y-6">
           <div className="border-border bg-card sticky top-6 rounded-xl border p-6">
             <h2 className="font-heading mb-4 text-sm font-medium">Inversión</h2>
@@ -151,14 +155,10 @@ export default async function ProposalDetailPage({
                 ? `UF ${ufClp.toLocaleString("es-CL")} · ${rates.stale ? "tasa desactualizada" : "tasa del día"}`
                 : "Sin tasa UF — corre npm run rates:sync"}
             </p>
-          </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
-            <ProposalVersions currentId={id} versions={versions} />
-          </div>
-
-          <div className="border-border bg-card rounded-xl border p-6">
-            <ProposalNotes rootId={root} notes={notes} />
+            <div className="border-border mt-4 border-t pt-4">
+              <ProposalVersions currentId={id} versions={versions} />
+            </div>
           </div>
         </div>
       </div>
