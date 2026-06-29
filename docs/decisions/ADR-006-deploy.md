@@ -13,8 +13,10 @@ prototipo, y producción en **`app.studionomade.cl`**. El estudio tiene servidor
 - **Alojar la app en Vercel.** Next.js con SSR/Server Actions requiere un runtime Node
   persistente; Vercel es el camino de menor fricción y aporta preview deployments (el "deploy
   rápido" para testear cada rama/PR).
-- **Producción:** `app.studionomade.cl` apuntado por **DNS (Cloudflare)** hacia Vercel.
-- **SiteGround** sigue sirviendo el sitio público `studionomade.cl` (no la app).
+- **Producción:** `app.studionomade.cl` apuntado hacia Vercel mediante un **CNAME** en el
+  DNS actual del dominio (**Bluehosting**, `*.dnsmisitio.net`). No se mueve el DNS.
+- El **hosting compartido actual** (Bluehosting/SiteGround) sigue sirviendo el sitio público
+  `studionomade.cl` (no la app, que requiere Node/SSR).
 - **GitHub** (repo de Studio Nomade) como remoto y respaldo; Vercel despliega desde GitHub.
 
 ## Por qué no SiteGround para la app

@@ -48,13 +48,26 @@ Con la URL de Vercel ya conocida:
 Ahora cualquier persona del equipo (con cuenta `@studionomade.cl`) puede entrar
 desde cualquier computador con esa URL.
 
-## 4. Dominio propio (cuando estén listos)
+## 4. Dominio propio `app.studionomade.cl`
 
-`app.studionomade.cl`:
-1. Vercel → Project → **Settings → Domains** → agrega `app.studionomade.cl`.
-2. En **Cloudflare** (o el DNS del dominio) crea el registro CNAME que indique
-   Vercel.
-3. Agrega `https://app.studionomade.cl/**` a las Redirect URLs de Supabase.
+El dominio `studionomade.cl` vive en **Bluehosting** (DNS `*.dnsmisitio.net`). La app
+**no** puede correr en Bluehosting (hosting compartido PHP, sin Node/SSR), así que el
+subdominio solo apunta a Vercel. No hay que mover el DNS.
+
+1. Vercel → Project → **Settings → Domains** → agrega `app.studionomade.cl`. Vercel
+   muestra el valor exacto del **CNAME** (p. ej. `cname.vercel-dns.com`).
+2. En **Bluehosting → cPanel → Editor de Zona DNS** de `studionomade.cl`, agrega un
+   registro **CNAME**: nombre `app`, destino el que indicó Vercel.
+3. Espera la propagación; Vercel emite el certificado SSL automáticamente.
+4. Agrega `https://app.studionomade.cl/**` a las **Redirect URLs** de Supabase.
+
+> En Vercel, `main` se publica en producción (asígnale `app.studionomade.cl`) y
+> `testing` genera una URL de preview para QA.
+
+### Costo
+
+Vercel **Hobby es gratis** y suficiente para testear (incluye dominio propio + SSL).
+Para uso comercial formal, **Pro = US$20/usuario/mes**. Se puede partir en Hobby.
 
 ## 5. Migraciones en producción
 
