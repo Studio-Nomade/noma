@@ -15,6 +15,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:policies": "tsx scripts/apply-sql.ts src/db/policies.sql",
     "data:import-services": "tsx scripts/data/import_services.ts",
+    "data:import-services-extra": "tsx scripts/data/import_services_extra.ts",
     "rates:sync": "tsx scripts/sync-rates.ts"
   },
   "dependencies": {
