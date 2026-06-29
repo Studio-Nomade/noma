@@ -1,0 +1,151 @@
+/**
+ * Enums de dominio de Noma — fuente única de verdad.
+ * Se usan en el schema Drizzle, los schemas Zod y la UI (labels).
+ */
+
+// ── Áreas del estudio ────────────────────────────────────────
+export const AREAS = ["B&D", "WD", "A&D", "A&A", "CE", "SN"] as const;
+export type Area = (typeof AREAS)[number];
+
+export const AREA_LABELS: Record<Area, string> = {
+  "B&D": "Branding & Design",
+  WD: "Web Design",
+  "A&D": "Architecture & Design",
+  "A&A": "Audiovisual & Animation",
+  CE: "Clínica de Emprendimientos",
+  SN: "Studio Nomade · Operations",
+};
+
+// ── Moneda ───────────────────────────────────────────────────
+export const CURRENCIES = ["CLP", "USD", "UF"] as const;
+export type Currency = (typeof CURRENCIES)[number];
+export const DEFAULT_CURRENCY: Currency = "UF";
+
+// ── Cliente ──────────────────────────────────────────────────
+export const CLIENT_STATUSES = [
+  "Prospecto",
+  "Cliente activo",
+  "Cliente recurrente",
+  "Pausado",
+  "Cerrado",
+] as const;
+export type ClientStatus = (typeof CLIENT_STATUSES)[number];
+
+// ── Proyecto ─────────────────────────────────────────────────
+export const PROJECT_STATUSES = [
+  "Levantamiento",
+  "Brief recibido",
+  "Propuesta en desarrollo",
+  "Propuesta enviada",
+  "Aprobado",
+  "En desarrollo",
+  "Pausado",
+  "Cerrado",
+] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const COMMERCIAL_STAGES = [
+  "Nuevo lead",
+  "Levantamiento",
+  "Diagnóstico",
+  "Propuesta",
+  "Negociación",
+  "Aprobado",
+  "Perdido",
+  "Stand by",
+] as const;
+export type CommercialStage = (typeof COMMERCIAL_STAGES)[number];
+
+export const PRIORITIES = ["Alta", "Media", "Baja"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+
+// ── Brief ────────────────────────────────────────────────────
+export const BRIEF_STATUSES = ["Borrador", "Completado"] as const;
+export type BriefStatus = (typeof BRIEF_STATUSES)[number];
+
+// ── Propuesta ────────────────────────────────────────────────
+export const PROPOSAL_STATUSES = [
+  "Borrador",
+  "En revisión",
+  "Enviada",
+  "Aprobada",
+  "Rechazada",
+] as const;
+export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
+
+// ── Servicio ─────────────────────────────────────────────────
+export const SERVICE_STATUSES = ["Activo", "Inactivo"] as const;
+export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
+
+// ── Equipo / roles ───────────────────────────────────────────
+export const TEAM_ROLES = ["admin", "user"] as const;
+export type TeamRole = (typeof TEAM_ROLES)[number];
+
+// ── Enlaces externos ─────────────────────────────────────────
+export const LINK_TYPES = [
+  "drive",
+  "figma",
+  "asana",
+  "notion",
+  "slack",
+  "canva",
+  "meet",
+  "calendar",
+  "other",
+] as const;
+export type LinkType = (typeof LINK_TYPES)[number];
+
+export const LINK_ENTITY_TYPES = ["client", "project", "proposal"] as const;
+export type LinkEntityType = (typeof LINK_ENTITY_TYPES)[number];
+
+// ── Documentos de contexto ───────────────────────────────────
+export const DOC_CATEGORIES = [
+  "presupuesto",
+  "sla",
+  "proceso",
+  "plantilla",
+  "referencia",
+  "otro",
+] as const;
+export type DocCategory = (typeof DOC_CATEGORIES)[number];
+
+// ── Base de conocimiento ─────────────────────────────────────
+export const KNOWLEDGE_CATEGORIES = [
+  "process",
+  "best-practice",
+  "tool-guide",
+  "onboarding",
+] as const;
+export type KnowledgeCategory = (typeof KNOWLEDGE_CATEGORIES)[number];
+
+// ── Secciones de propuesta (orden de render + contrato IA) ───
+export const PROPOSAL_SECTIONS = [
+  "context",
+  "diagnosis",
+  "main_objective",
+  "specific_objectives",
+  "scope",
+  "work_stages",
+  "deliverables",
+  "timeline",
+  "client_requirements",
+  "exclusions",
+  "team",
+  "commercial_conditions",
+] as const;
+export type ProposalSection = (typeof PROPOSAL_SECTIONS)[number];
+
+export const PROPOSAL_SECTION_LABELS: Record<ProposalSection, string> = {
+  context: "Contexto",
+  diagnosis: "Diagnóstico inicial",
+  main_objective: "Objetivo general",
+  specific_objectives: "Objetivos específicos",
+  scope: "Alcance",
+  work_stages: "Etapas de trabajo",
+  deliverables: "Entregables",
+  timeline: "Cronograma estimado",
+  client_requirements: "Requerimientos al cliente",
+  exclusions: "Exclusiones",
+  team: "Equipo involucrado",
+  commercial_conditions: "Condiciones comerciales",
+};
