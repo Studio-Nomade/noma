@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { proposals, proposalServices, projects } from "@/db/schema";
+import {
+  proposals,
+  proposalServices,
+  proposalTeam,
+  teamMembers,
+  projects,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import type { ProposalStatus } from "@/types/enums";
@@ -138,6 +144,69 @@ export async function removeProposalService(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "removeProposalService");
+  }
+}
+
+export async function addProposalTeamMember(
+  proposalId: string,
+  memberId: string,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const [member] = await db
+      .select({ roleTitle: teamMembers.roleTitle })
+      .from(teamMembers)
+      .where(eq(teamMembers.id, memberId))
+      .limit(1);
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(proposalTeam)
+      .where(eq(proposalTeam.proposalId, proposalId));
+    await db
+      .insert(proposalTeam)
+      .values({
+        proposalId,
+        memberId,
+        roleInProject: member?.roleTitle ?? null,
+        position: count,
+      })
+      .onConflictDoNothing();
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "addProposalTeamMember");
+  }
+}
+
+export async function removeProposalTeamMember(
+  rowId: string,
+  proposalId: string,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    await db.delete(proposalTeam).where(eq(proposalTeam.id, rowId));
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "removeProposalTeamMember");
+  }
+}
+
+export async function updateProposalTeamRole(
+  rowId: string,
+  proposalId: string,
+  roleInProject: string,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    await db
+      .update(proposalTeam)
+      .set({ roleInProject: roleInProject.trim() || null })
+      .where(eq(proposalTeam.id, rowId));
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateProposalTeamRole");
   }
 }
 

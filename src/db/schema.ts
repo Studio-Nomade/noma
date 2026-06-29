@@ -93,6 +93,9 @@ export const teamMembers = pgTable("team_members", {
   userId: uuid("user_id"), // auth.users.id
   name: text("name").notNull(),
   teamRole: teamRoleEnum("team_role").default("user").notNull(),
+  // cargo por defecto (ej. "Dirección Creativa") + foto de perfil para el deck
+  roleTitle: text("role_title"),
+  photoUrl: text("photo_url"),
   area: areaEnum("area"),
   email: text("email"),
   status: text("status").default("Activo").notNull(),
@@ -289,6 +292,23 @@ export const proposalServices = pgTable(
   ],
 );
 
+// ── proposal_team (equipo de la propuesta, con rol por proyecto) ──
+export const proposalTeam = pgTable(
+  "proposal_team",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    roleInProject: text("role_in_project"),
+    position: integer("position").default(0).notNull(),
+  },
+  (t) => [uniqueIndex("proposal_team_unique").on(t.proposalId, t.memberId)],
+);
+
 // ── resource_links (polimórfica) ─────────────────────────────
 export const resourceLinks = pgTable(
   "resource_links",
@@ -388,6 +408,7 @@ export type ServiceModuleLink = typeof serviceModuleLinks.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type NewProposal = typeof proposals.$inferInsert;
 export type ProposalService = typeof proposalServices.$inferSelect;
+export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ResourceLink = typeof resourceLinks.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;

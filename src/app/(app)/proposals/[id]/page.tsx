@@ -7,9 +7,12 @@ import { AREA_LABELS } from "@/types/enums";
 import {
   getProposal,
   getProposalServices,
+  getProposalTeam,
   listServicesForArea,
+  listTeamForSelect,
 } from "@/features/proposals/queries";
 import { ServiceSelector } from "@/features/proposals/service-selector";
+import { TeamSelector } from "@/features/proposals/team-selector";
 import { ProposalStatusSelect } from "@/features/proposals/proposal-status";
 import { ProposalContentForm } from "@/features/proposals/proposal-content-form";
 import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
@@ -25,10 +28,12 @@ export default async function ProposalDetailPage({
   if (!row) notFound();
   const { proposal, clientName, projectName, projectArea } = row;
 
-  const [selected, catalog, rates] = await Promise.all([
+  const [selected, catalog, rates, team, members] = await Promise.all([
     getProposalServices(id),
     listServicesForArea(projectArea),
     getLatestRates(),
+    getProposalTeam(id),
+    listTeamForSelect(),
   ]);
 
   const ufClp = Number(rates.ufClp) || 0;
@@ -82,6 +87,10 @@ export default async function ProposalDetailPage({
               selected={selected}
               catalog={catalog}
             />
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <TeamSelector proposalId={id} team={team} members={members} />
           </div>
 
           <div className="border-border bg-card rounded-xl border p-6">

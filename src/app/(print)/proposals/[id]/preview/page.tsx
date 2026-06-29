@@ -4,9 +4,14 @@ import { ArrowLeft } from "lucide-react";
 import { formatMoney } from "@/lib/currency/format";
 import { getLatestRates } from "@/lib/currency/rates";
 import { BRAND, AREA_THEME } from "@/lib/brand/brand";
-import { getProposal, getProposalServices } from "@/features/proposals/queries";
+import {
+  getProposal,
+  getProposalServices,
+  getProposalTeam,
+} from "@/features/proposals/queries";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
 import { PrintButton } from "@/features/proposals/print-button";
+import { AvatarCircle } from "@/components/shared/avatar-circle";
 
 export const metadata = { title: "Vista previa" };
 
@@ -52,9 +57,10 @@ export default async function ProposalPreviewPage({
   const { proposal, clientName, projectName, projectArea } = row;
   const theme = AREA_THEME[projectArea];
 
-  const [selected, rates] = await Promise.all([
+  const [selected, rates, team] = await Promise.all([
     getProposalServices(id),
     getLatestRates(),
+    getProposalTeam(id),
   ]);
   const ufClp = Number(rates.ufClp) || 0;
   const items: LineItem[] = selected.map((s) => ({
@@ -185,7 +191,33 @@ export default async function ProposalPreviewPage({
         {section("Etapas de trabajo", proposal.workStages)}
         {section("Entregables", proposal.deliverables)}
         {section("Cronograma", proposal.timeline)}
-        {section("Equipo", proposal.team)}
+
+        {/* Equipo: grilla de avatares si hay equipo estructurado; si no, texto */}
+        {team.length > 0 ? (
+          <Slide accent={theme.accent}>
+            <Heading>Equipo principal</Heading>
+            <div className="mt-4 grid grid-cols-4 gap-x-6 gap-y-8">
+              {team.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex flex-col items-center text-center"
+                >
+                  <AvatarCircle
+                    name={m.name}
+                    photoUrl={m.photoUrl}
+                    className="size-24 text-xl"
+                  />
+                  <p className="mt-3 text-sm font-semibold">{m.name}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {m.roleInProject ?? m.roleTitle ?? ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Slide>
+        ) : (
+          section("Equipo", proposal.team)
+        )}
 
         {/* Inversión */}
         <Slide accent={theme.accent}>
