@@ -5,10 +5,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { handleActionError, type ActionResult } from "@/lib/actions";
 import { clientSchema, type ClientFormValues } from "./schema";
-
-export type ActionResult<T = void> =
-  { ok: true; data: T } | { ok: false; error: string };
 
 function normalize(values: ClientFormValues) {
   const data = clientSchema.parse(values);
@@ -39,7 +37,7 @@ export async function createClient(
     revalidatePath("/clients");
     return { ok: true, data: { id: row.id } };
   } catch (err) {
-    return { ok: false, error: errorMessage(err) };
+    return handleActionError(err, "createClient");
   }
 }
 
@@ -58,7 +56,7 @@ export async function updateClient(
     revalidatePath(`/clients/${id}`);
     return { ok: true, data: undefined };
   } catch (err) {
-    return { ok: false, error: errorMessage(err) };
+    return handleActionError(err, "updateClient");
   }
 }
 
@@ -74,11 +72,6 @@ export async function closeClient(id: string): Promise<ActionResult> {
     revalidatePath(`/clients/${id}`);
     return { ok: true, data: undefined };
   } catch (err) {
-    return { ok: false, error: errorMessage(err) };
+    return handleActionError(err, "closeClient");
   }
-}
-
-function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return "Ocurrió un error inesperado.";
 }

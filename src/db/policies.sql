@@ -1,13 +1,20 @@
 -- ─────────────────────────────────────────────────────────────
--- Noma · Row Level Security (baseline V1)
--- Aplicar en Supabase (SQL editor) DESPUÉS de correr las migraciones.
+-- Noma · Row Level Security (deny-by-default)
+-- Aplicar en Supabase (SQL editor) o con: npm run db:policies
 --
--- V1: todos los usuarios internos autenticados ven y editan todo.
--- La autorización fina (borrado/config por rol admin) se hace en la capa de
--- servidor (server actions). La RLS granular por cliente llega con el portal
--- cliente (V2). Ver docs/decisions/ADR-003-auth-permisos.md.
+-- Modelo de seguridad de V1:
+--   · La app accede a los datos SOLO server-side, vía Drizzle/DATABASE_URL con
+--     el rol `postgres` (owner), que OMITE RLS. Las server actions validan la
+--     sesión (requireUser) y el rol cuando corresponde (requireAdmin).
+--   · La API de datos pública (PostgREST/supabase-js) NO se usa. Por eso los
+--     roles `anon` y `authenticated` NO deben tener acceso directo a las tablas.
 --
--- Nota: las operaciones con service role (seed, sync de tasas) omiten RLS.
+-- Esto resuelve el linter `rls_policy_always_true`: en vez de políticas
+-- permisivas (USING true), dejamos RLS activa SIN políticas (deny-by-default)
+-- y revocamos los privilegios de los roles del API.
+--
+-- Cuando llegue el portal cliente (V2) se agregarán políticas específicas por
+-- cliente y los grants necesarios. Ver docs/decisions/ADR-003-auth-permisos.md.
 -- ─────────────────────────────────────────────────────────────
 
 do $$
@@ -21,18 +28,16 @@ declare
   ];
 begin
   foreach t in array tables loop
+    -- RLS activa (sin políticas permisivas → deny-by-default para no-owners).
     execute format('alter table public.%I enable row level security;', t);
 
-    -- Acceso completo para usuarios autenticados (V1).
+    -- Quitar la política permisiva baseline previa, si existe.
     execute format(
       'drop policy if exists %I on public.%I;',
       t || '_authenticated_all', t
     );
-    execute format(
-      'create policy %I on public.%I
-         for all to authenticated
-         using (true) with check (true);',
-      t || '_authenticated_all', t
-    );
+
+    -- Revocar acceso directo de los roles del API de datos (defensa en profundidad).
+    execute format('revoke all on public.%I from anon, authenticated;', t);
   end loop;
 end $$;
