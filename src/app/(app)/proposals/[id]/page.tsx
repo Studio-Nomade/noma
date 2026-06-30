@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Eye, Download, Send } from "lucide-react";
+import { ArrowLeft, Eye, Download, Send, FileCheck, Lock } from "lucide-react";
 import { formatMoney } from "@/lib/currency/format";
 import { getLatestRates } from "@/lib/currency/rates";
 import { AREA_LABELS } from "@/types/enums";
+import { AREA_THEME } from "@/lib/brand/brand";
+import { ProposalReadonly } from "@/features/proposals/proposal-readonly";
 import { requireUser } from "@/lib/auth";
 import {
   getProposal,
@@ -86,6 +88,9 @@ export default async function ProposalDetailPage({
   // CC al equipo: por ahora vacío (los correos del equipo se cargan en Fase 6).
   const teamEmails: string[] = [];
 
+  const locked = proposal.status === "Aprobada";
+  const accent = AREA_THEME[projectArea].accent;
+
   return (
     <>
       <Link
@@ -147,44 +152,73 @@ export default async function ProposalDetailPage({
         </div>
       </div>
 
+      {locked && (
+        <div className="border-border bg-accent/40 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+          <p className="flex items-center gap-2 text-sm">
+            <Lock className="size-4" />
+            <strong>Propuesta aprobada.</strong> El editor está bloqueado (solo
+            lectura). Genera el SLA para continuar.
+          </p>
+          <Link
+            href={`/proposals/${id}/sla`}
+            className="bg-foreground text-background inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            <FileCheck className="size-4" />
+            Generar / ver SLA
+          </Link>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Servicios + secciones */}
         <div className="space-y-6 lg:col-span-2">
-          <div className="border-border bg-card rounded-xl border p-6">
-            <ServiceSelector
-              proposalId={id}
-              selected={selected}
-              catalog={catalog}
+          {locked ? (
+            <ProposalReadonly
+              proposal={proposal}
+              services={selected}
+              team={team}
+              totals={totals}
+              accent={accent}
             />
-          </div>
+          ) : (
+            <>
+              <div className="border-border bg-card rounded-xl border p-6">
+                <ServiceSelector
+                  proposalId={id}
+                  selected={selected}
+                  catalog={catalog}
+                />
+              </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
-            <TeamSelector proposalId={id} team={team} members={members} />
-          </div>
+              <div className="border-border bg-card rounded-xl border p-6">
+                <TeamSelector proposalId={id} team={team} members={members} />
+              </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
-            <ProposalContentForm
-              proposalId={id}
-              initial={{
-                title: proposal.title,
-                context: proposal.context,
-                mainObjective: proposal.mainObjective,
-                scope: proposal.scope,
-                workStages: proposal.workStages,
-                deliverables: proposal.deliverables,
-                exclusions: proposal.exclusions,
-                commercialConditions: proposal.commercialConditions,
-                nextAction: proposal.nextAction,
-              }}
-            />
-          </div>
+              <div className="border-border bg-card rounded-xl border p-6">
+                <ProposalContentForm
+                  proposalId={id}
+                  initial={{
+                    title: proposal.title,
+                    context: proposal.context,
+                    mainObjective: proposal.mainObjective,
+                    scope: proposal.scope,
+                    workStages: proposal.workStages,
+                    deliverables: proposal.deliverables,
+                    exclusions: proposal.exclusions,
+                    commercialConditions: proposal.commercialConditions,
+                    nextAction: proposal.nextAction,
+                  }}
+                />
+              </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
-            <StagesEditor
-              proposalId={id}
-              initial={proposal.timelineStages ?? []}
-            />
-          </div>
+              <div className="border-border bg-card rounded-xl border p-6">
+                <StagesEditor
+                  proposalId={id}
+                  initial={proposal.timelineStages ?? []}
+                />
+              </div>
+            </>
+          )}
 
           <div className="border-border bg-card rounded-xl border p-6">
             <ProposalNotes rootId={root} notes={notes} />

@@ -143,6 +143,15 @@ export type ComplexityLevel = (typeof COMPLEXITY_LEVELS)[number];
 export const PRICE_TYPES = ["uf", "unit", "range", "variable"] as const;
 export type PriceType = (typeof PRICE_TYPES)[number];
 
+// ── SLA (Acuerdo de Nivel de Servicio) ───────────────────────
+export const SLA_STATUSES = [
+  "Borrador",
+  "Revisado",
+  "Firmado",
+  "Enviado",
+] as const;
+export type SlaStatus = (typeof SLA_STATUSES)[number];
+
 // ── Finanzas / Facturación (preparación V2/V3) ───────────────
 export const INVOICE_STATUSES = [
   "No facturado",

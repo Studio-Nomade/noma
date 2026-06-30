@@ -27,7 +27,7 @@ declare
     'exchange_rates', 'activity_log',
     'service_modules', 'service_module_links', 'proposal_team',
     'proposal_notes', 'client_contacts', 'email_templates',
-    'user_integrations', 'invoices', 'integration_sync_log'
+    'user_integrations', 'invoices', 'integration_sync_log', 'slas'
   ];
 begin
   foreach t in array tables loop

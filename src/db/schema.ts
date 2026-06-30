@@ -24,6 +24,7 @@ import {
   SERVICE_STATUSES,
   COMPLEXITY_LEVELS,
   PRICE_TYPES,
+  SLA_STATUSES,
   INVOICE_STATUSES,
   FINANCIAL_STATUSES,
   INTEGRATIONS,
@@ -52,6 +53,7 @@ export const complexityLevelEnum = pgEnum(
   COMPLEXITY_LEVELS,
 );
 export const priceTypeEnum = pgEnum("price_type", PRICE_TYPES);
+export const slaStatusEnum = pgEnum("sla_status", SLA_STATUSES);
 export const invoiceStatusEnum = pgEnum("invoice_status", INVOICE_STATUSES);
 export const financialStatusEnum = pgEnum(
   "financial_status",
@@ -475,6 +477,39 @@ export const activityLog = pgTable(
   (t) => [index("activity_log_created_idx").on(t.createdAt)],
 );
 
+// ── slas (Acuerdo de Nivel de Servicio, generado desde la propuesta) ──
+export const slas = pgTable("slas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  proposalId: uuid("proposal_id")
+    .notNull()
+    .references(() => proposals.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
+  clientId: uuid("client_id").references(() => clients.id, {
+    onDelete: "set null",
+  }),
+  status: slaStatusEnum("status").default("Borrador").notNull(),
+  // parámetros que ayudan a redactar el documento
+  params: jsonb("params")
+    .$type<{
+      lugar?: string;
+      rondasCambios?: number;
+      plazoAprobacionDias?: number;
+      vigenciaMeses?: number;
+      condicionesPago?: string;
+    }>()
+    .default({}),
+  // secciones redactadas (generadas + editadas)
+  sections: jsonb("sections")
+    .$type<{ label: string; body: string }[]>()
+    .default([]),
+  // firma electrónica (representante legal)
+  signedByName: text("signed_by_name"),
+  signedAt: timestamp("signed_at", { withTimezone: true }),
+  ...timestamps,
+});
+
 // ── invoices (preparación Nubox; sin emisión automática) ─────
 export const invoices = pgTable(
   "invoices",
@@ -553,6 +588,7 @@ export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ProposalNote = typeof proposalNotes.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
+export type Sla = typeof slas.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type IntegrationSyncLog = typeof integrationSyncLog.$inferSelect;
