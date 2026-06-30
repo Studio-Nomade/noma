@@ -8,14 +8,17 @@ financiero.
 ## Dos líneas de integración
 
 ### 1. Chipax — visualización financiera (lectura)
+
 Consultar facturas emitidas, estados de pago, vencimientos, montos pendientes,
 historial y métricas (cuentas por cobrar, días promedio de pago). La ficha del
 cliente mostrará una sección tipo portal:
+
 - Datos del cliente: RUT, razón social, giro.
 - Facturación histórica · Total pendiente · Días promedio de pago.
 - Tabla de facturas: folio, emisión, total, saldo, estado, vencimiento, PDF/XML.
 
 ### 2. Nubox — creación de factura (escritura, sin emisión automática)
+
 Desde una **propuesta aprobada** → seleccionar servicios facturables → revisar
 datos tributarios → calcular neto/IVA/total → **crear borrador** en Nubox →
 guardar `nuboxId` → actualizar estado de facturación → sincronizar seguimiento
@@ -36,12 +39,15 @@ desde Chipax. **Nunca emite sin revisión humana.**
   en V1.
 
 ## Estados de facturación (`invoices.status`)
+
 `No facturado → Preparado para facturar → Borrador creado en Nubox → Emitido →
 Pagado / Vencido / Anulado`.
 
 ## Estado financiero del cliente (manual, mientras no haya Chipax)
+
 `Sin información · Al día · Con saldo pendiente · Moroso`.
 
 ## Documentación técnica
+
 - [chipax.md](../technical/integrations/chipax.md)
 - [nubox.md](../technical/integrations/nubox.md)

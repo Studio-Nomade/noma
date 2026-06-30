@@ -1,6 +1,6 @@
 {
-  "id": "dba087c7-d99b-43d3-b805-b043bf2d0920",
-  "prevId": "2857b2d5-a2b4-40e2-92da-83fc59da9810",
+  "id": "05d9f1b5-7e68-494f-9ae3-0615f1cb2708",
+  "prevId": "dba087c7-d99b-43d3-b805-b043bf2d0920",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1607,6 +1607,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "timeline_stages": {
+          "name": "timeline_stages",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
         },
         "client_requirements": {
           "name": "client_requirements",

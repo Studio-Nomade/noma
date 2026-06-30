@@ -100,9 +100,8 @@ export const clients = pgTable("clients", {
   taxAddress: text("tax_address"),
   billingEmail: text("billing_email"),
   billingNotes: text("billing_notes"),
-  financialStatus: financialStatusEnum("financial_status").default(
-    "Sin información",
-  ),
+  financialStatus:
+    financialStatusEnum("financial_status").default("Sin información"),
   chipaxId: text("chipax_id"), // ID externo en Chipax
   ...timestamps,
 });
@@ -273,6 +272,10 @@ export const proposals = pgTable("proposals", {
   workStages: text("work_stages"),
   deliverables: text("deliverables"),
   timeline: text("timeline"),
+  // Etapas con rango de fechas para la carta Gantt del deck/PDF.
+  timelineStages: jsonb("timeline_stages")
+    .$type<{ name: string; start: string; end: string }[]>()
+    .default([]),
   clientRequirements: text("client_requirements"),
   exclusions: text("exclusions"),
   team: text("team"),

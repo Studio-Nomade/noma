@@ -1,0 +1,1 @@
+ALTER TABLE "proposals" ADD COLUMN "timeline_stages" jsonb DEFAULT '[]'::jsonb;

@@ -4,6 +4,7 @@ import { AREA_LABELS } from "@/types/enums";
 import { AREA_THEME } from "@/lib/brand/brand";
 import { getProposal, getProposalServices, getProposalTeam } from "./queries";
 import { computeTotals, type LineItem } from "./totals";
+import { computeGantt } from "./gantt";
 import type { ProposalPdfData } from "./proposal-pdf";
 
 export type PdfBundle = {
@@ -42,7 +43,6 @@ export async function buildProposalPdfData(
     ["Alcance", proposal.scope],
     ["Etapas de trabajo", proposal.workStages],
     ["Entregables", proposal.deliverables],
-    ["Cronograma", proposal.timeline],
     ["Exclusiones", proposal.exclusions],
     ["Condiciones comerciales", proposal.commercialConditions],
   ];
@@ -82,6 +82,8 @@ export async function buildProposalPdfData(
       iva: formatMoney(totals.iva, "CLP"),
       total: totalLabel,
     },
+    gantt: computeGantt(proposal.timelineStages),
+    accentColor: AREA_THEME[projectArea].accent,
     team: team.map((m) => ({
       name: m.name,
       role: m.roleInProject ?? m.roleTitle ?? "",

@@ -17,9 +17,7 @@ type FieldKey =
   | "scope"
   | "workStages"
   | "deliverables"
-  | "timeline"
   | "exclusions"
-  | "team"
   | "commercialConditions"
   | "nextAction";
 
@@ -35,14 +33,7 @@ const FIELDS: {
   { key: "scope", label: "Alcance", multiline: true },
   { key: "workStages", label: "Etapas de trabajo", multiline: true },
   { key: "deliverables", label: "Entregables", multiline: true },
-  { key: "timeline", label: "Cronograma", multiline: true },
   { key: "exclusions", label: "Exclusiones", multiline: true },
-  {
-    key: "team",
-    label: "Equipo (texto libre)",
-    multiline: true,
-    placeholder: "Ej: Anna Sanhueza · Dirección Creativa",
-  },
   {
     key: "commercialConditions",
     label: "Condiciones comerciales",

@@ -195,18 +195,30 @@ export function ClientDialog({
               <Field label="Giro" error={errors.taxActivity?.message}>
                 <Input {...register("taxActivity")} />
               </Field>
-              <Field label="Email de facturación" error={errors.billingEmail?.message}>
+              <Field
+                label="Email de facturación"
+                error={errors.billingEmail?.message}
+              >
                 <Input type="email" {...register("billingEmail")} />
               </Field>
-              <Field label="Dirección tributaria" error={errors.taxAddress?.message}>
+              <Field
+                label="Dirección tributaria"
+                error={errors.taxAddress?.message}
+              >
                 <Input {...register("taxAddress")} />
               </Field>
-              <Field label="Estado financiero" error={errors.financialStatus?.message}>
+              <Field
+                label="Estado financiero"
+                error={errors.financialStatus?.message}
+              >
                 <Controller
                   control={control}
                   name="financialStatus"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) => field.onChange(v)}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -222,7 +234,11 @@ export function ClientDialog({
                 />
               </Field>
             </div>
-            <Field label="Notas de facturación" error={errors.billingNotes?.message} className="mt-4">
+            <Field
+              label="Notas de facturación"
+              error={errors.billingNotes?.message}
+              className="mt-4"
+            >
               <Textarea rows={2} {...register("billingNotes")} />
             </Field>
           </div>

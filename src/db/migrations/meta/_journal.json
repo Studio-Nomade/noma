@@ -57,6 +57,13 @@
       "when": 1782761460581,
       "tag": "0007_last_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782784564116,
+      "tag": "0008_big_namora",
+      "breakpoints": true
     }
   ]
 }

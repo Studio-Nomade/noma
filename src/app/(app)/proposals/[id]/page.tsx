@@ -20,6 +20,7 @@ import { ServiceSelector } from "@/features/proposals/service-selector";
 import { TeamSelector } from "@/features/proposals/team-selector";
 import { ProposalStatusSelect } from "@/features/proposals/proposal-status";
 import { ProposalContentForm } from "@/features/proposals/proposal-content-form";
+import { StagesEditor } from "@/features/proposals/stages-editor";
 import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
 import { ProposalVersions } from "@/features/proposals/proposal-versions";
 import { ProposalNotes } from "@/features/proposals/proposal-notes";
@@ -171,12 +172,17 @@ export default async function ProposalDetailPage({
                 scope: proposal.scope,
                 workStages: proposal.workStages,
                 deliverables: proposal.deliverables,
-                timeline: proposal.timeline,
                 exclusions: proposal.exclusions,
-                team: proposal.team,
                 commercialConditions: proposal.commercialConditions,
                 nextAction: proposal.nextAction,
               }}
+            />
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <StagesEditor
+              proposalId={id}
+              initial={proposal.timelineStages ?? []}
             />
           </div>
 

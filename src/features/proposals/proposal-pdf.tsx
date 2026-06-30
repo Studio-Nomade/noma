@@ -7,6 +7,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { BRAND } from "@/lib/brand/brand";
+import type { GanttData } from "./gantt";
 
 export type ProposalPdfData = {
   title: string;
@@ -25,6 +26,8 @@ export type ProposalPdfData = {
   multiArea: boolean;
   totals: { subtotalUf: string; net: string; iva: string; total: string };
   team: { name: string; role: string }[];
+  gantt: GanttData | null;
+  accentColor?: string;
   sections: { label: string; value: string }[];
 };
 
@@ -164,6 +167,42 @@ function ProposalPdf({ data }: { data: ProposalPdfData }) {
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {data.gantt && (
+          <View wrap={false}>
+            <Text style={s.h2}>Cronograma</Text>
+            {data.gantt.rows.map((r, i) => (
+              <View
+                key={i}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 4,
+                }}
+              >
+                <Text style={{ width: "30%", fontSize: 9 }}>{r.name}</Text>
+                <View
+                  style={{
+                    flex: 1,
+                    height: 10,
+                    backgroundColor: "#ecf0ee",
+                    borderRadius: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      marginLeft: `${r.leftPct}%`,
+                      width: `${r.widthPct}%`,
+                      height: 10,
+                      backgroundColor: data.accentColor ?? "#f48134",
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+              </View>
+            ))}
           </View>
         )}
 

@@ -321,6 +321,27 @@ export async function updateProposalTeamRole(
   }
 }
 
+/** Guarda las etapas del cronograma (para la carta Gantt). */
+export async function updateProposalStages(
+  id: string,
+  stages: { name: string; start: string; end: string }[],
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const clean = stages
+      .filter((s) => s.name.trim() && s.start && s.end)
+      .map((s) => ({ name: s.name.trim(), start: s.start, end: s.end }));
+    await db
+      .update(proposals)
+      .set({ timelineStages: clean, updatedAt: new Date() })
+      .where(eq(proposals.id, id));
+    revalidatePath(`/proposals/${id}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateProposalStages");
+  }
+}
+
 /** Guarda todas las secciones de la propuesta de una vez (un solo "Guardar"). */
 export async function saveProposalContent(
   id: string,

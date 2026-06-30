@@ -10,6 +10,7 @@ import {
   getProposalTeam,
 } from "@/features/proposals/queries";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
+import { computeGantt } from "@/features/proposals/gantt";
 import { PrintButton } from "@/features/proposals/print-button";
 import { AvatarCircle } from "@/components/shared/avatar-circle";
 
@@ -73,6 +74,7 @@ export default async function ProposalPreviewPage({
       "UF") as LineItem["currency"],
   }));
   const totals = computeTotals(items, ufClp);
+  const gantt = computeGantt(proposal.timelineStages);
   const created = new Date(proposal.createdAt);
   const date = created.toLocaleDateString("es-CL", {
     day: "2-digit",
@@ -207,7 +209,31 @@ export default async function ProposalPreviewPage({
 
         {section("Etapas de trabajo", proposal.workStages)}
         {section("Entregables", proposal.deliverables)}
-        {section("Cronograma", proposal.timeline)}
+        {gantt && (
+          <Slide accent={theme.accent}>
+            <Heading>Cronograma</Heading>
+            <div className="mt-2 space-y-2">
+              {gantt.rows.map((r, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <span className="w-40 shrink-0 truncate">{r.name}</span>
+                  <div className="relative h-4 flex-1 rounded bg-[#ecf0ee]">
+                    <div
+                      className="absolute top-0 h-4 rounded"
+                      style={{
+                        left: `${r.leftPct}%`,
+                        width: `${r.widthPct}%`,
+                        background: theme.accent,
+                      }}
+                    />
+                  </div>
+                  <span className="text-muted-foreground w-44 shrink-0 text-right text-xs">
+                    {r.start} → {r.end}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Slide>
+        )}
 
         {/* Equipo: grilla de avatares si hay equipo estructurado; si no, texto */}
         {team.length > 0 ? (
