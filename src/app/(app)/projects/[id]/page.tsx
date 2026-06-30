@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
@@ -141,6 +141,21 @@ export default async function ProjectDetailPage({
               UF + IVA y secciones editables.
             </p>
             <NewProposalButton projectId={project.id} />
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <h2 className="font-heading mb-3 text-sm font-medium">Brief</h2>
+            <p className="text-muted-foreground mb-3 text-sm">
+              Levantamiento estructurado del proyecto (general + preguntas del
+              área).
+            </p>
+            <Link
+              href={`/briefs/${project.id}`}
+              className="border-border hover:bg-accent inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium"
+            >
+              <FileText className="size-4" />
+              Abrir brief
+            </Link>
           </div>
         </div>
       </div>
