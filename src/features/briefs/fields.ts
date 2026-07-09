@@ -84,4 +84,36 @@ export const BRIEF_FIELDS_BY_AREA: Record<Area, BriefField[]> = {
     { key: "areas_involved", label: "Áreas involucradas" },
     { key: "goal", label: "Objetivo interno", multiline: true },
   ],
+  CSM: [
+    { key: "channels", label: "¿Qué canales necesita trabajar?" },
+    { key: "active_socials", label: "¿Ya existen redes sociales activas?" },
+    {
+      key: "main_goal",
+      label: "Objetivo principal (alcance, conversión, comunidad, leads…)",
+    },
+    { key: "audience", label: "Público objetivo", multiline: true },
+    { key: "tone", label: "Tono de comunicación" },
+    { key: "frequency", label: "Frecuencia esperada" },
+    {
+      key: "needs",
+      label: "Necesidades (grilla, piezas, reels, CM, pauta…)",
+      multiline: true,
+    },
+    { key: "ads_budget", label: "¿Inversión mensual para ads?" },
+    { key: "extra_channels", label: "Google Business / LinkedIn / Email mkt" },
+  ],
+  STR: [
+    { key: "challenge", label: "Desafío estratégico principal", multiline: true },
+    { key: "decision", label: "¿Qué decisión busca tomar el cliente?" },
+    { key: "info_available", label: "Información existente", multiline: true },
+    { key: "info_missing", label: "Información que falta", multiline: true },
+    { key: "areas_involved", label: "Áreas del negocio involucradas" },
+    { key: "expected_results", label: "Resultados esperados", multiline: true },
+    { key: "metrics", label: "¿Métricas o indicadores definidos?" },
+    {
+      key: "deliverables",
+      label: "Necesidades (diagnóstico, workshop, documento, acompañamiento…)",
+      multiline: true,
+    },
+  ],
 };

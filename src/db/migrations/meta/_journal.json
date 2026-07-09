@@ -71,6 +71,48 @@
       "when": 1782798320440,
       "tag": "0009_zippy_may_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782816884188,
+      "tag": "0010_high_carlie_cooper",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783046131251,
+      "tag": "0011_warm_patch",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783048344668,
+      "tag": "0012_careless_caretaker",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783070073108,
+      "tag": "0013_mature_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783544894296,
+      "tag": "0014_spooky_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1783560885815,
+      "tag": "0015_narrow_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }

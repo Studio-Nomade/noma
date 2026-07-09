@@ -13,6 +13,15 @@ export const BRAND = {
   phone: "+56 9 3404 5111",
   address: "Av. Providencia 1208, Of. 207 · Santa Beatriz 100, Of. 1101",
   instagram: "@studionomade_",
+  // Datos de transferencia (del pie de los presupuestos reales)
+  bank: {
+    razonSocial: "Studio Nomade SpA",
+    rut: "77.333.406-4",
+    banco: "Banco de Crédito e Inversiones",
+    tipoCuenta: "Cuenta Corriente",
+    numeroCuenta: "89784081",
+    email: "contact@studionomade.cl",
+  },
   // Assets (placeholders hasta el Design System). Reemplazar en public/brand/.
   logo: "/brand/logo/nomade.svg",
   colors: {
@@ -42,4 +51,6 @@ export const AREA_THEME: Record<Area, AreaTheme> = {
   CE: { label: "Clínica de Emprendimientos", accent: "#c96a4a" },
   MP: { label: "Mercado Público", accent: "#2f6f6f" },
   SN: { label: "Studio Nomade", accent: "#1d1d1b" },
+  CSM: { label: "Content & Social Media", accent: "#d4467a" },
+  STR: { label: "Strategy / Consultoría", accent: "#5b5bd6" },
 };

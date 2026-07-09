@@ -1,6 +1,44 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { briefs, projects, clients } from "@/db/schema";
+import {
+  briefs,
+  briefMeetings,
+  briefNotes,
+  briefVersions,
+  projects,
+  clients,
+} from "@/db/schema";
+
+/** Notas importadas de una oportunidad (más recientes primero). */
+export async function listBriefNotes(projectId: string) {
+  return db
+    .select()
+    .from(briefNotes)
+    .where(eq(briefNotes.projectId, projectId))
+    .orderBy(desc(briefNotes.createdAt));
+}
+
+/** Historial de versiones del brief. */
+export async function listBriefVersions(briefId: string) {
+  return db
+    .select()
+    .from(briefVersions)
+    .where(eq(briefVersions.briefId, briefId))
+    .orderBy(desc(briefVersions.version));
+}
+
+/** Reuniones de brief de una oportunidad (cronológicas). */
+export async function listBriefMeetings(projectId: string) {
+  return db
+    .select()
+    .from(briefMeetings)
+    .where(eq(briefMeetings.projectId, projectId))
+    .orderBy(asc(briefMeetings.startsAt));
+}
+
+export type BriefMeetingRow = Awaited<
+  ReturnType<typeof listBriefMeetings>
+>[number];
 
 export async function getBriefByProject(projectId: string) {
   const [row] = await db

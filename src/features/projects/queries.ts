@@ -1,6 +1,23 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { projects, clients, resourceLinks, teamMembers } from "@/db/schema";
+import {
+  projects,
+  clients,
+  resourceLinks,
+  teamMembers,
+  cfoRequests,
+} from "@/db/schema";
+
+/** Solicitud CFO más reciente de una oportunidad (visor de operación). */
+export async function getCfoRequest(projectId: string) {
+  const [row] = await db
+    .select()
+    .from(cfoRequests)
+    .where(eq(cfoRequests.projectId, projectId))
+    .orderBy(desc(cfoRequests.createdAt))
+    .limit(1);
+  return row ?? null;
+}
 
 /** Integrantes activos del equipo (para el desplegable de Responsable). */
 export async function listTeamMembers() {

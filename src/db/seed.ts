@@ -4,6 +4,7 @@ config({ path: ".env.local" });
 import { db } from "@/db";
 import { studioConfig, teamMembers, emailTemplates } from "@/db/schema";
 import type { NewTeamMember } from "@/db/schema";
+import { seedFinance } from "@/features/finance/seed-finance";
 
 /**
  * Seed base: singleton studio_config + equipo interno (placeholder hasta el sync
@@ -58,6 +59,9 @@ Studio Nomade`,
   } else {
     console.log("• email_templates ya tiene datos, se omite");
   }
+
+  // ── Módulo CFO / Finanzas ──────────────────────────────────
+  await seedFinance();
 
   console.log("Seed completado.");
   process.exit(0);

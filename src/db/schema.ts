@@ -11,6 +11,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import {
   AREAS,
@@ -20,6 +21,9 @@ import {
   COMMERCIAL_STAGES,
   PRIORITIES,
   BRIEF_STATUSES,
+  MEETING_STATUSES,
+  NOTE_SOURCES,
+  CFO_REQUEST_STATUSES,
   PROPOSAL_STATUSES,
   SERVICE_STATUSES,
   COMPLEXITY_LEVELS,
@@ -33,6 +37,20 @@ import {
   LINK_ENTITY_TYPES,
   DOC_CATEGORIES,
   KNOWLEDGE_CATEGORIES,
+  CONTACT_TYPES,
+  DOCUMENT_DIRECTIONS,
+  FIN_DOCUMENT_TYPES,
+  FIN_DOCUMENT_STATUSES,
+  RECORD_STATUSES,
+  BANK_TXN_TYPES,
+  BANK_TXN_STATUSES,
+  LEDGER_ACCOUNT_TYPES,
+  IMPORT_TYPES,
+  IMPORT_STATUSES,
+  RECONCILIATION_STATUSES,
+  RULE_MATCH_FIELDS,
+  COBRANZA_MOMENTS,
+  COBRANZA_STATUSES,
 } from "@/types/enums";
 
 // ── Enums (Postgres) ─────────────────────────────────────────
@@ -46,6 +64,12 @@ export const commercialStageEnum = pgEnum(
 );
 export const priorityEnum = pgEnum("priority", PRIORITIES);
 export const briefStatusEnum = pgEnum("brief_status", BRIEF_STATUSES);
+export const meetingStatusEnum = pgEnum("meeting_status", MEETING_STATUSES);
+export const noteSourceEnum = pgEnum("note_source", NOTE_SOURCES);
+export const cfoRequestStatusEnum = pgEnum(
+  "cfo_request_status",
+  CFO_REQUEST_STATUSES,
+);
 export const proposalStatusEnum = pgEnum("proposal_status", PROPOSAL_STATUSES);
 export const serviceStatusEnum = pgEnum("service_status", SERVICE_STATUSES);
 export const complexityLevelEnum = pgEnum(
@@ -68,6 +92,37 @@ export const knowledgeCategoryEnum = pgEnum(
   "knowledge_category",
   KNOWLEDGE_CATEGORIES,
 );
+
+// ── Enums del módulo CFO / Finanzas ──────────────────────────
+export const contactTypeEnum = pgEnum("contact_type", CONTACT_TYPES);
+export const documentDirectionEnum = pgEnum(
+  "document_direction",
+  DOCUMENT_DIRECTIONS,
+);
+export const finDocumentTypeEnum = pgEnum(
+  "fin_document_type",
+  FIN_DOCUMENT_TYPES,
+);
+export const finDocumentStatusEnum = pgEnum(
+  "fin_document_status",
+  FIN_DOCUMENT_STATUSES,
+);
+export const recordStatusEnum = pgEnum("record_status", RECORD_STATUSES);
+export const bankTxnTypeEnum = pgEnum("bank_txn_type", BANK_TXN_TYPES);
+export const bankTxnStatusEnum = pgEnum("bank_txn_status", BANK_TXN_STATUSES);
+export const ledgerAccountTypeEnum = pgEnum(
+  "ledger_account_type",
+  LEDGER_ACCOUNT_TYPES,
+);
+export const importTypeEnum = pgEnum("import_type", IMPORT_TYPES);
+export const importStatusEnum = pgEnum("import_status", IMPORT_STATUSES);
+export const reconciliationStatusEnum = pgEnum(
+  "reconciliation_status",
+  RECONCILIATION_STATUSES,
+);
+export const ruleMatchFieldEnum = pgEnum("rule_match_field", RULE_MATCH_FIELDS);
+export const cobranzaMomentEnum = pgEnum("cobranza_moment", COBRANZA_MOMENTS);
+export const cobranzaStatusEnum = pgEnum("cobranza_status", COBRANZA_STATUSES);
 
 // Columnas comunes a todas las tablas.
 const timestamps = {
@@ -187,10 +242,132 @@ export const briefs = pgTable(
     specificFields: jsonb("specific_fields")
       .$type<Record<string, unknown>>()
       .default({}),
-    status: briefStatusEnum("status").default("Borrador").notNull(),
+    // ── Brief inteligente (Inc. B) ──
+    // Bloque general ampliado
+    contextGeneral: text("context_general"),
+    budgetMentioned: text("budget_mentioned"),
+    decisionMakers: text("decision_makers"),
+    urgency: text("urgency"),
+    restrictions: text("restrictions"),
+    pendingInfo: text("pending_info"),
+    recommendedNextAction: text("recommended_next_action"),
+    // Bloques del brief sugerido
+    commercialRecs: text("commercial_recs"),
+    risks: text("risks"),
+    nextSteps: text("next_steps"),
+    // Respuestas por área: { [area]: { [questionKey]: string } }
+    areaBlocks: jsonb("area_blocks")
+      .$type<Record<string, Record<string, string>>>()
+      .default({}),
+    // Áreas involucradas del brief (la principal es `area`)
+    involvedAreas: areaEnum("involved_areas").array().default([]).notNull(),
+    // Extracción estructurada de la IA (contrato en features/ai/brief-processor)
+    aiExtraction: jsonb("ai_extraction").$type<Record<string, unknown>>(),
+    // Aprobación / versionado
+    approvedVersionId: uuid("approved_version_id"),
+    approvedBy: uuid("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    status: briefStatusEnum("status")
+      .default("Sin reunión agendada")
+      .notNull(),
     ...timestamps,
   },
   (t) => [uniqueIndex("briefs_project_id_unique").on(t.projectId)],
+);
+
+// ── brief_notes (notas de reunión importadas) ────────────────
+export const briefNotes = pgTable(
+  "brief_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    meetingId: uuid("meeting_id").references(() => briefMeetings.id, {
+      onDelete: "set null",
+    }),
+    source: noteSourceEnum("source").notNull(),
+    // Origen (Drive) — se completa en Inc. D
+    driveFileId: text("drive_file_id"),
+    driveUrl: text("drive_url"),
+    fileName: text("file_name"),
+    rawText: text("raw_text"),
+    // Matching sugerido (Inc. D)
+    matchStatus: text("match_status"),
+    matchCandidates: jsonb("match_candidates")
+      .$type<Record<string, unknown>[]>()
+      .default([]),
+    importedBy: uuid("imported_by"),
+    importedByEmail: text("imported_by_email"),
+    ...timestamps,
+  },
+  (t) => [index("brief_notes_project_idx").on(t.projectId)],
+);
+
+// ── brief_versions (historial/aprobaciones del brief) ────────
+export const briefVersions = pgTable(
+  "brief_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    briefId: uuid("brief_id")
+      .notNull()
+      .references(() => briefs.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    version: integer("version").default(1).notNull(),
+    // Snapshot completo del brief al momento de generar/aprobar.
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().default({}),
+    aiExtraction: jsonb("ai_extraction").$type<Record<string, unknown>>(),
+    isApproved: boolean("is_approved").default(false).notNull(),
+    approvedBy: uuid("approved_by"),
+    approvedByEmail: text("approved_by_email"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("brief_versions_brief_idx").on(t.briefId)],
+);
+
+// ── brief_meetings (reuniones de brief; Calendar/Meet en Inc. C) ──
+export const briefMeetings = pgTable(
+  "brief_meetings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    objective: text("objective"),
+    agenda: text("agenda"),
+    // área principal + áreas involucradas de la reunión
+    area: areaEnum("area"),
+    areas: areaEnum("areas").array().default([]).notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    durationMin: integer("duration_min").default(45).notNull(),
+    // responsable comercial (team_member) + organizador (usuario que agenda)
+    responsibleId: uuid("responsible_id").references(() => teamMembers.id, {
+      onDelete: "set null",
+    }),
+    organizerId: uuid("organizer_id"), // auth.users.id
+    organizerEmail: text("organizer_email"),
+    // participantes internos (equipo) y externos (contactos del cliente)
+    internalParticipants: jsonb("internal_participants")
+      .$type<{ id?: string; name?: string; email?: string }[]>()
+      .default([]),
+    externalParticipants: jsonb("external_participants")
+      .$type<{ name?: string; email: string }[]>()
+      .default([]),
+    // metadata de Google (se completa al integrar Calendar/Meet — Inc. C)
+    calendarEventId: text("calendar_event_id"),
+    calendarLink: text("calendar_link"),
+    meetLink: text("meet_link"),
+    status: meetingStatusEnum("status").default("Agendada").notNull(),
+    ...timestamps,
+  },
+  (t) => [index("brief_meetings_project_idx").on(t.projectId)],
 );
 
 // ── services (biblioteca global) ─────────────────────────────
@@ -528,6 +705,9 @@ export const invoices = pgTable(
     // ID externo del documento en Nubox (al crear el borrador/emisión).
     nuboxId: text("nubox_id"),
     folio: text("folio"),
+    // archivos de la factura (Nubox) — link a PDF/XML
+    pdfUrl: text("pdf_url"),
+    xmlUrl: text("xml_url"),
     glosa: text("glosa"),
     paymentTerms: text("payment_terms"), // condición de pago
     currency: currencyEnum("currency").default("CLP"),
@@ -551,6 +731,31 @@ export const invoices = pgTable(
   ],
 );
 
+// ── cfo_requests (solicitud a finanzas al traspasar a operación) ──
+export const cfoRequests = pgTable(
+  "cfo_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    proposalId: uuid("proposal_id").references(() => proposals.id, {
+      onDelete: "set null",
+    }),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    status: cfoRequestStatusEnum("status").default("Pendiente").notNull(),
+    notes: text("notes"),
+    requestedBy: uuid("requested_by"),
+    requestedByEmail: text("requested_by_email"),
+    resolvedBy: uuid("resolved_by"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("cfo_requests_project_idx").on(t.projectId)],
+);
+
 // ── integration_sync_log (registro de sincronización Chipax/Nubox) ──
 export const integrationSyncLog = pgTable(
   "integration_sync_log",
@@ -570,6 +775,362 @@ export const integrationSyncLog = pgTable(
   (t) => [index("integration_sync_log_idx").on(t.integration, t.createdAt)],
 );
 
+// ═════════════════════════════════════════════════════════════
+// Módulo CFO / Finanzas — capa contable (portada del MVP)
+// Montos en numeric(16,2): CLP puede acumular agregados grandes; se usa
+// mayor precisión que el 14,2 del resto de Noma (que trabaja en UF).
+// Eliminación lógica vía `record_status` (nunca borrado físico).
+// ═════════════════════════════════════════════════════════════
+
+// ── import_batches (auditoría de cada carga) ─────────────────
+export const importBatches = pgTable(
+  "import_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: importTypeEnum("type").notNull(),
+    status: importStatusEnum("status").default("BORRADOR").notNull(),
+    fileName: text("file_name").notNull(),
+    storagePath: text("storage_path"),
+    rowsDetected: integer("rows_detected").default(0).notNull(),
+    rowsValid: integer("rows_valid").default(0).notNull(),
+    rowsRejected: integer("rows_rejected").default(0).notNull(),
+    rowsInserted: integer("rows_inserted").default(0).notNull(),
+    totalNeto: numeric("total_neto", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    totalIva: numeric("total_iva", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    totalBruto: numeric("total_bruto", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    summary: jsonb("summary").$type<Record<string, unknown>>(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("import_batches_type_status_idx").on(t.type, t.status)],
+);
+
+// ── import_templates (mapeo de columnas reutilizable) ────────
+export const importTemplates = pgTable("import_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  type: importTypeEnum("type").notNull(),
+  columnMapping: jsonb("column_mapping")
+    .$type<Record<string, string>>()
+    .default({})
+    .notNull(),
+  ...timestamps,
+});
+
+// ── fin_contacts (clientes/proveedores contables) ───────────
+// Noma `clients` no modela proveedores; esta tabla los cubre y enlaza
+// (opcionalmente) con el cliente comercial vía client_id.
+export const finContacts = pgTable(
+  "fin_contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rut: text("rut").notNull(),
+    name: text("name").notNull(),
+    type: contactTypeEnum("type").default("AMBOS").notNull(),
+    email: text("email"),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    status: recordStatusEnum("status").default("ACTIVO").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("fin_contacts_rut_type_unique").on(t.rut, t.type),
+    index("fin_contacts_name_idx").on(t.name),
+  ],
+);
+
+// ── ledger_accounts (plan de cuentas, árbol) ─────────────────
+export const ledgerAccounts = pgTable("ledger_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  type: ledgerAccountTypeEnum("type").notNull(),
+  parentId: uuid("parent_id").references((): AnyPgColumn => ledgerAccounts.id, {
+    onDelete: "set null",
+  }),
+  // Cruce opcional con las áreas del estudio (servicios ↔ plan de cuentas).
+  area: areaEnum("area"),
+  status: recordStatusEnum("status").default("ACTIVO").notNull(),
+  ...timestamps,
+});
+
+// ── cost_centers ─────────────────────────────────────────────
+export const costCenters = pgTable("cost_centers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  status: recordStatusEnum("status").default("ACTIVO").notNull(),
+  ...timestamps,
+});
+
+// ── business_lines ───────────────────────────────────────────
+export const businessLines = pgTable("business_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  status: recordStatusEnum("status").default("ACTIVO").notNull(),
+  ...timestamps,
+});
+
+// ── classification_rules (clasificación automática de docs) ──
+export const classificationRules = pgTable(
+  "classification_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    matchField: ruleMatchFieldEnum("match_field").notNull(),
+    matchOperator: text("match_operator").default("equals").notNull(), // equals|contains|gte|lte
+    matchValue: text("match_value").notNull(),
+    ledgerAccountId: uuid("ledger_account_id").references(
+      () => ledgerAccounts.id,
+      { onDelete: "set null" },
+    ),
+    costCenterId: uuid("cost_center_id").references(() => costCenters.id, {
+      onDelete: "set null",
+    }),
+    businessLineId: uuid("business_line_id").references(() => businessLines.id, {
+      onDelete: "set null",
+    }),
+    priority: integer("priority").default(100).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    ...timestamps,
+  },
+  (t) => [index("classification_rules_active_idx").on(t.isActive, t.priority)],
+);
+
+// ── bank_accounts ────────────────────────────────────────────
+export const bankAccounts = pgTable("bank_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bank: text("bank").notNull(),
+  name: text("name").notNull(),
+  number: text("number"),
+  currency: currencyEnum("currency").default("CLP").notNull(),
+  saldo: numeric("saldo", { precision: 16, scale: 2 }).default("0").notNull(),
+  ...timestamps,
+});
+
+// ── fin_documents (ventas + compras, vista contable) ─────────
+export const finDocuments = pgTable(
+  "fin_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    direction: documentDirectionEnum("direction").notNull(),
+    type: finDocumentTypeEnum("type").notNull(),
+    folio: text("folio").notNull(),
+    contactId: uuid("contact_id").references(() => finContacts.id, {
+      onDelete: "set null",
+    }),
+    // Enlace opcional a la factura comercial del proyecto (Noma `invoices`).
+    invoiceId: uuid("invoice_id").references(() => invoices.id, {
+      onDelete: "set null",
+    }),
+    fechaEmision: date("fecha_emision").notNull(),
+    fechaVencimiento: date("fecha_vencimiento"),
+    neto: numeric("neto", { precision: 16, scale: 2 }).default("0").notNull(),
+    iva: numeric("iva", { precision: 16, scale: 2 }).default("0").notNull(),
+    exento: numeric("exento", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    total: numeric("total", { precision: 16, scale: 2 }).default("0").notNull(),
+    montoConciliado: numeric("monto_conciliado", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    status: finDocumentStatusEnum("status").default("EMITIDA").notNull(),
+    recordStatus: recordStatusEnum("record_status").default("ACTIVO").notNull(),
+    periodoSii: text("periodo_sii"), // YYYY-MM
+    ledgerAccountId: uuid("ledger_account_id").references(
+      () => ledgerAccounts.id,
+      { onDelete: "set null" },
+    ),
+    costCenterId: uuid("cost_center_id").references(() => costCenters.id, {
+      onDelete: "set null",
+    }),
+    businessLineId: uuid("business_line_id").references(() => businessLines.id, {
+      onDelete: "set null",
+    }),
+    importBatchId: uuid("import_batch_id").references(() => importBatches.id, {
+      onDelete: "set null",
+    }),
+    sourceFile: text("source_file"),
+    observacion: text("observacion"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("fin_documents_natural_unique").on(
+      t.direction,
+      t.type,
+      t.folio,
+      t.contactId,
+    ),
+    index("fin_documents_direction_fecha_idx").on(t.direction, t.fechaEmision),
+    index("fin_documents_status_idx").on(t.status),
+    index("fin_documents_periodo_idx").on(t.periodoSii),
+  ],
+);
+
+// ── fin_document_lines (detalle de líneas) ───────────────────
+export const finDocumentLines = pgTable(
+  "fin_document_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => finDocuments.id, { onDelete: "cascade" }),
+    descripcion: text("descripcion").notNull(),
+    cantidad: numeric("cantidad", { precision: 16, scale: 2 })
+      .default("1")
+      .notNull(),
+    precio: numeric("precio", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    monto: numeric("monto", { precision: 16, scale: 2 }).default("0").notNull(),
+  },
+  (t) => [index("fin_document_lines_document_idx").on(t.documentId)],
+);
+
+// ── bank_transactions (movimientos de cartola) ───────────────
+export const bankTransactions = pgTable(
+  "bank_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bankAccountId: uuid("bank_account_id")
+      .notNull()
+      .references(() => bankAccounts.id, { onDelete: "cascade" }),
+    fecha: date("fecha").notNull(),
+    glosa: text("glosa").notNull(),
+    monto: numeric("monto", { precision: 16, scale: 2 }).notNull(),
+    tipo: bankTxnTypeEnum("tipo").notNull(),
+    saldo: numeric("saldo", { precision: 16, scale: 2 }),
+    status: bankTxnStatusEnum("status").default("PENDIENTE").notNull(),
+    recordStatus: recordStatusEnum("record_status").default("ACTIVO").notNull(),
+    montoConciliado: numeric("monto_conciliado", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    importBatchId: uuid("import_batch_id").references(() => importBatches.id, {
+      onDelete: "set null",
+    }),
+    sourceFile: text("source_file"),
+    ...timestamps,
+  },
+  (t) => [
+    index("bank_transactions_account_fecha_idx").on(t.bankAccountId, t.fecha),
+    index("bank_transactions_status_idx").on(t.status),
+  ],
+);
+
+// ── reconciliations (conciliación N-a-N, reversible) ─────────
+export const reconciliations = pgTable(
+  "reconciliations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    status: reconciliationStatusEnum("status").default("ACTIVA").notNull(),
+    note: text("note"),
+    difference: numeric("difference", { precision: 16, scale: 2 })
+      .default("0")
+      .notNull(),
+    createdById: uuid("created_by_id"), // auth.users.id (sin FK)
+    revertedById: uuid("reverted_by_id"),
+    revertedAt: timestamp("reverted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("reconciliations_status_idx").on(t.status)],
+);
+
+export const reconciliationDocuments = pgTable(
+  "reconciliation_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reconciliationId: uuid("reconciliation_id")
+      .notNull()
+      .references(() => reconciliations.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => finDocuments.id, { onDelete: "cascade" }),
+    amountApplied: numeric("amount_applied", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+  },
+  (t) => [index("reconciliation_documents_doc_idx").on(t.documentId)],
+);
+
+export const reconciliationTransactions = pgTable(
+  "reconciliation_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reconciliationId: uuid("reconciliation_id")
+      .notNull()
+      .references(() => reconciliations.id, { onDelete: "cascade" }),
+    bankTransactionId: uuid("bank_transaction_id")
+      .notNull()
+      .references(() => bankTransactions.id, { onDelete: "cascade" }),
+    amountApplied: numeric("amount_applied", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+  },
+  (t) => [
+    index("reconciliation_transactions_txn_idx").on(t.bankTransactionId),
+  ],
+);
+
+// ── cobranza_templates (plantillas de correo de cobranza) ────
+export const cobranzaTemplates = pgTable("cobranza_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  moment: cobranzaMomentEnum("moment").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  status: text("status").default("Activo").notNull(),
+  ...timestamps,
+});
+
+// ── cobranza_messages (bitácora de correos enviados/en cola) ──
+export const cobranzaMessages = pgTable(
+  "cobranza_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    invoiceId: uuid("invoice_id").references(() => invoices.id, {
+      onDelete: "set null",
+    }),
+    templateId: uuid("template_id").references(() => cobranzaTemplates.id, {
+      onDelete: "set null",
+    }),
+    moment: cobranzaMomentEnum("moment").notNull(),
+    fromEmail: text("from_email").notNull(),
+    toEmail: text("to_email").notNull(),
+    ccEmails: jsonb("cc_emails").$type<string[]>().default([]),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    status: cobranzaStatusEnum("status").default("PENDIENTE").notNull(),
+    error: text("error"),
+    sentById: uuid("sent_by_id"), // auth.users.id
+    sentByEmail: text("sent_by_email"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("cobranza_messages_client_idx").on(t.clientId),
+    index("cobranza_messages_created_idx").on(t.createdAt),
+  ],
+);
+
 // ── Tipos inferidos ──────────────────────────────────────────
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
@@ -577,6 +1138,12 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Brief = typeof briefs.$inferSelect;
 export type NewBrief = typeof briefs.$inferInsert;
+export type BriefMeeting = typeof briefMeetings.$inferSelect;
+export type NewBriefMeeting = typeof briefMeetings.$inferInsert;
+export type BriefNote = typeof briefNotes.$inferSelect;
+export type NewBriefNote = typeof briefNotes.$inferInsert;
+export type BriefVersion = typeof briefVersions.$inferSelect;
+export type NewBriefVersion = typeof briefVersions.$inferInsert;
 export type Service = typeof services.$inferSelect;
 export type NewService = typeof services.$inferInsert;
 export type ServiceModule = typeof serviceModules.$inferSelect;
@@ -591,6 +1158,8 @@ export type ClientContact = typeof clientContacts.$inferSelect;
 export type Sla = typeof slas.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
+export type CfoRequest = typeof cfoRequests.$inferSelect;
+export type NewCfoRequest = typeof cfoRequests.$inferInsert;
 export type IntegrationSyncLog = typeof integrationSyncLog.$inferSelect;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
@@ -601,3 +1170,33 @@ export type KnowledgeDoc = typeof knowledgeDocs.$inferSelect;
 export type ContextDocument = typeof contextDocuments.$inferSelect;
 export type ExchangeRate = typeof exchangeRates.$inferSelect;
 export type StudioConfig = typeof studioConfig.$inferSelect;
+
+// ── Módulo CFO / Finanzas ────────────────────────────────────
+export type FinContact = typeof finContacts.$inferSelect;
+export type NewFinContact = typeof finContacts.$inferInsert;
+export type LedgerAccount = typeof ledgerAccounts.$inferSelect;
+export type NewLedgerAccount = typeof ledgerAccounts.$inferInsert;
+export type CostCenter = typeof costCenters.$inferSelect;
+export type BusinessLine = typeof businessLines.$inferSelect;
+export type ClassificationRule = typeof classificationRules.$inferSelect;
+export type FinDocument = typeof finDocuments.$inferSelect;
+export type NewFinDocument = typeof finDocuments.$inferInsert;
+export type FinDocumentLine = typeof finDocumentLines.$inferSelect;
+export type NewFinDocumentLine = typeof finDocumentLines.$inferInsert;
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type NewBankAccount = typeof bankAccounts.$inferInsert;
+export type BankTransaction = typeof bankTransactions.$inferSelect;
+export type NewBankTransaction = typeof bankTransactions.$inferInsert;
+export type Reconciliation = typeof reconciliations.$inferSelect;
+export type ReconciliationDocument =
+  typeof reconciliationDocuments.$inferSelect;
+export type ReconciliationTransaction =
+  typeof reconciliationTransactions.$inferSelect;
+export type ImportBatch = typeof importBatches.$inferSelect;
+export type NewImportBatch = typeof importBatches.$inferInsert;
+export type ImportTemplate = typeof importTemplates.$inferSelect;
+export type NewImportTemplate = typeof importTemplates.$inferInsert;
+export type CobranzaTemplate = typeof cobranzaTemplates.$inferSelect;
+export type NewCobranzaTemplate = typeof cobranzaTemplates.$inferInsert;
+export type CobranzaMessage = typeof cobranzaMessages.$inferSelect;
+export type NewCobranzaMessage = typeof cobranzaMessages.$inferInsert;

@@ -1,0 +1,230 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { KanbanSquare, List, GripVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  AREA_LABELS,
+  PIPELINE_STAGES,
+  STAGE_ALIASES,
+  type CommercialStage,
+} from "@/types/enums";
+import { AREA_THEME } from "@/lib/brand/brand";
+import { setCommercialStage } from "./actions";
+import type { ProjectListItem } from "./queries";
+
+/** Columna del pipeline a la que pertenece una etapa (aplica alias heredados). */
+function columnFor(stage: CommercialStage): CommercialStage {
+  if (PIPELINE_STAGES.includes(stage)) return stage;
+  return STAGE_ALIASES[stage] ?? PIPELINE_STAGES[0];
+}
+
+export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
+  const router = useRouter();
+  const [view, setView] = useState<"kanban" | "list">("kanban");
+  const [items, setItems] = useState(projects);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<CommercialStage | null>(null);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+
+  const byColumn = useMemo(() => {
+    const map = new Map<CommercialStage, ProjectListItem[]>();
+    for (const stage of PIPELINE_STAGES) map.set(stage, []);
+    for (const p of items) {
+      const col = columnFor(p.commercialStage as CommercialStage);
+      map.get(col)!.push(p);
+    }
+    return map;
+  }, [items]);
+
+  async function move(id: string, stage: CommercialStage) {
+    const current = items.find((p) => p.id === id);
+    if (!current || columnFor(current.commercialStage as CommercialStage) === stage)
+      return;
+    const prev = items;
+    // optimista
+    setItems((list) =>
+      list.map((p) => (p.id === id ? { ...p, commercialStage: stage } : p)),
+    );
+    setPending((s) => new Set(s).add(id));
+    const res = await setCommercialStage(id, stage);
+    setPending((s) => {
+      const n = new Set(s);
+      n.delete(id);
+      return n;
+    });
+    if (!res.ok) {
+      setItems(prev); // rollback
+      toast.error(res.error);
+    } else {
+      toast.success(`Movido a "${stage}"`);
+      router.refresh();
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-2">
+        <div className="border-border bg-card inline-flex rounded-lg border p-0.5">
+          <button
+            onClick={() => setView("kanban")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              view === "kanban"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <KanbanSquare className="size-3.5" />
+            Kanban
+          </button>
+          <button
+            onClick={() => setView("list")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              view === "list"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <List className="size-3.5" />
+            Lista
+          </button>
+        </div>
+        <p className="text-muted-foreground text-xs">
+          {items.length} {items.length === 1 ? "oportunidad" : "oportunidades"} ·
+          arrastra las tarjetas para cambiar de etapa
+        </p>
+      </div>
+
+      {view === "kanban" ? (
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {PIPELINE_STAGES.map((stage) => {
+            const list = byColumn.get(stage) ?? [];
+            return (
+              <div
+                key={stage}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOverCol(stage);
+                }}
+                onDragLeave={() => setOverCol((c) => (c === stage ? null : c))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setOverCol(null);
+                  if (dragId) move(dragId, stage);
+                  setDragId(null);
+                }}
+                className={cn(
+                  "flex w-64 shrink-0 flex-col rounded-xl border transition-colors",
+                  overCol === stage
+                    ? "border-foreground/40 bg-accent"
+                    : "border-border bg-muted/30",
+                )}
+              >
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-xs font-semibold tracking-wide uppercase">
+                    {stage}
+                  </span>
+                  <span className="text-muted-foreground bg-background rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                    {list.length}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2 px-2 pb-2">
+                  {list.map((p) => {
+                    const theme = AREA_THEME[p.area];
+                    return (
+                      <div
+                        key={p.id}
+                        draggable
+                        onDragStart={() => setDragId(p.id)}
+                        onDragEnd={() => setDragId(null)}
+                        onClick={() => router.push(`/projects/${p.id}`)}
+                        className={cn(
+                          "group border-border bg-card hover:border-foreground/30 cursor-pointer rounded-lg border p-2.5 shadow-sm transition-all",
+                          pending.has(p.id) && "opacity-50",
+                          dragId === p.id && "rotate-1 opacity-60",
+                        )}
+                      >
+                        <div className="flex items-start gap-1.5">
+                          <GripVertical className="text-muted-foreground/40 mt-0.5 size-3.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {p.name}
+                            </p>
+                            <p className="text-muted-foreground truncate text-xs">
+                              {p.clientName}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span
+                                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+                                style={{ background: theme.accent }}
+                              >
+                                {p.area}
+                              </span>
+                              <StatusBadge value={p.priority} size="xs" />
+                            </div>
+                            {p.nextAction && (
+                              <p className="text-muted-foreground mt-1.5 line-clamp-2 text-[11px]">
+                                {p.nextAction}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {list.length === 0 && (
+                    <div className="text-muted-foreground/60 rounded-lg border border-dashed py-6 text-center text-[11px]">
+                      Sin oportunidades
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="border-border bg-card overflow-hidden rounded-xl border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-border text-muted-foreground border-b text-left text-xs">
+                <th className="px-4 py-2.5 font-medium">Oportunidad</th>
+                <th className="px-4 py-2.5 font-medium">Cliente</th>
+                <th className="px-4 py-2.5 font-medium">Área</th>
+                <th className="px-4 py-2.5 font-medium">Etapa</th>
+                <th className="px-4 py-2.5 font-medium">Prioridad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((p) => (
+                <tr
+                  key={p.id}
+                  onClick={() => router.push(`/projects/${p.id}`)}
+                  className="border-border hover:bg-accent cursor-pointer border-b last:border-0"
+                >
+                  <td className="px-4 py-2.5 font-medium">{p.name}</td>
+                  <td className="text-muted-foreground px-4 py-2.5">
+                    {p.clientName}
+                  </td>
+                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                    {AREA_LABELS[p.area]}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <StatusBadge value={p.commercialStage} size="xs" />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <StatusBadge value={p.priority} size="xs" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

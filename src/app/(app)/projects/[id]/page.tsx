@@ -1,6 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Pencil, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  Pencil,
+  FileText,
+  CalendarPlus,
+  Video,
+  Rocket,
+  ExternalLink,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
@@ -9,10 +17,14 @@ import {
   getProject,
   getProjectLinks,
   listTeamMembers,
+  getCfoRequest,
 } from "@/features/projects/queries";
-import { listClients } from "@/features/clients/queries";
+import { listClients, getClientContacts } from "@/features/clients/queries";
+import { listBriefMeetings } from "@/features/briefs/queries";
 import { ProjectDialog } from "@/features/projects/project-dialog";
 import { ProjectLinks } from "@/features/projects/project-links";
+import { HandoffDialog } from "@/features/projects/handoff-dialog";
+import { ScheduleMeetingDialog } from "@/features/briefs/schedule-meeting-dialog";
 import { NewProposalButton } from "@/features/proposals/new-proposal-button";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -36,14 +48,23 @@ export default async function ProjectDetailPage({
   if (!row) notFound();
   const { project, clientName } = row;
 
-  const [links, clients, team] = await Promise.all([
+  const [links, clients, team, contacts, meetings, cfo] = await Promise.all([
     getProjectLinks(id),
     listClients(),
     listTeamMembers(),
+    getClientContacts(project.clientId),
+    listBriefMeetings(id),
+    getCfoRequest(id),
   ]);
+  const asanaLink = links.find((l) => l.type === "asana") ?? null;
+  const isHandedOff = project.commercialStage === "Traspasado a operación";
   const clientOptions = clients.map((c) => ({
     id: c.id,
     companyName: c.companyName,
+  }));
+  const contactOptions = contacts.map((c) => ({
+    name: c.name,
+    email: c.email,
   }));
 
   return (
@@ -133,6 +154,73 @@ export default async function ProjectDetailPage({
           </div>
 
           <div className="border-border bg-card rounded-xl border p-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="font-heading text-sm font-medium">
+                Reunión de brief
+              </h2>
+              <StatusBadge
+                value={
+                  meetings.length > 0 ? "Reunión agendada" : "Sin reunión agendada"
+                }
+                size="xs"
+              />
+            </div>
+
+            {meetings.length > 0 && (
+              <ul className="mb-4 space-y-2.5">
+                {meetings.map((m) => (
+                  <li
+                    key={m.id}
+                    className="border-border rounded-lg border p-3 text-sm"
+                  >
+                    <p className="font-medium">{m.title}</p>
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {m.startsAt
+                        ? new Date(m.startsAt).toLocaleString("es-CL", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "Sin fecha"}
+                      {" · "}
+                      {m.durationMin} min
+                    </p>
+                    {m.meetLink && (
+                      <a
+                        href={m.meetLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--status-emerald)]"
+                      >
+                        <Video className="size-3.5" />
+                        Abrir Google Meet
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <p className="text-muted-foreground mb-3 text-sm">
+              {meetings.length > 0
+                ? "Agenda otra reunión de levantamiento si lo necesitas."
+                : "Coordina el levantamiento inicial con el cliente."}
+            </p>
+            <ScheduleMeetingDialog
+              projectId={project.id}
+              projectName={project.name}
+              defaultArea={project.area}
+              teamMembers={team}
+              contacts={contactOptions}
+              trigger={
+                <Button variant="outline" className="w-full">
+                  <CalendarPlus className="size-4" />
+                  Agendar reunión de brief
+                </Button>
+              }
+            />
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
             <h2 className="font-heading mb-3 text-sm font-medium">
               Cotización
             </h2>
@@ -156,6 +244,70 @@ export default async function ProjectDetailPage({
               <FileText className="size-4" />
               Abrir brief
             </Link>
+          </div>
+
+          <div className="border-border bg-card rounded-xl border p-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="font-heading text-sm font-medium">
+                Traspaso a operación
+              </h2>
+              {isHandedOff && (
+                <StatusBadge value="Traspasado a operación" size="xs" />
+              )}
+            </div>
+
+            {isHandedOff || cfo ? (
+              <div className="mb-4 space-y-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs uppercase">
+                    Asana
+                  </span>
+                  {asanaLink ? (
+                    <a
+                      href={asanaLink.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[var(--status-blue)]"
+                    >
+                      Abrir tarea <ExternalLink className="size-3" />
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">
+                      Pendiente
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs uppercase">
+                    Solicitud CFO
+                  </span>
+                  {cfo ? (
+                    <StatusBadge value={cfo.status} size="xs" />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">
+                      Sin solicitud
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground mb-3 text-sm">
+                Al cerrar la venta, crea la tarea en Asana y la solicitud CFO.
+              </p>
+            )}
+
+            <HandoffDialog
+              projectId={project.id}
+              trigger={
+                <Button
+                  variant={isHandedOff ? "outline" : "default"}
+                  className="w-full"
+                >
+                  <Rocket className="size-4" />
+                  {isHandedOff ? "Actualizar traspaso" : "Traspasar a operación"}
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>

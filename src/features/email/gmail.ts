@@ -1,6 +1,4 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { userIntegrations } from "@/db/schema";
+import { getGoogleAccessToken } from "@/features/google/auth";
 
 /**
  * Envío de correo como el usuario, vía Gmail API.
@@ -20,42 +18,7 @@ function encodeSubject(subject: string) {
   return `=?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`;
 }
 
-async function getAccessToken(userId: string): Promise<string> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      "Falta configurar GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET para enviar correos.",
-    );
-  }
-  const [row] = await db
-    .select({ token: userIntegrations.googleRefreshToken })
-    .from(userIntegrations)
-    .where(eq(userIntegrations.userId, userId))
-    .limit(1);
-  if (!row?.token) {
-    throw new Error(
-      "Tu cuenta no tiene permiso de envío de Gmail. Cierra sesión y vuelve a entrar para conceder el acceso.",
-    );
-  }
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: row.token,
-      grant_type: "refresh_token",
-    }),
-  });
-  const json = (await res.json()) as { access_token?: string; error?: string };
-  if (!res.ok || !json.access_token) {
-    throw new Error(
-      "No se pudo renovar el acceso a Google. Reintenta el login.",
-    );
-  }
-  return json.access_token;
-}
+type Attachment = { filename: string; content: Buffer; mime?: string };
 
 export async function sendGmail(opts: {
   userId: string;
@@ -64,9 +27,10 @@ export async function sendGmail(opts: {
   cc?: string[];
   subject: string;
   body: string;
-  attachment?: { filename: string; content: Buffer; mime?: string };
+  attachment?: Attachment;
+  attachments?: Attachment[];
 }): Promise<void> {
-  const accessToken = await getAccessToken(opts.userId);
+  const accessToken = await getGoogleAccessToken(opts.userId);
   const boundary = `noma_${Date.now()}`;
   const headers = [
     `From: ${opts.from}`,
@@ -85,15 +49,16 @@ export async function sendGmail(opts: {
     Buffer.from(opts.body, "utf8").toString("base64"),
   ];
 
-  if (opts.attachment) {
-    const mime = opts.attachment.mime ?? "application/pdf";
+  const all = [...(opts.attachment ? [opts.attachment] : []), ...(opts.attachments ?? [])];
+  for (const att of all) {
+    const mime = att.mime ?? "application/pdf";
     parts.push(
       `--${boundary}`,
-      `Content-Type: ${mime}; name="${opts.attachment.filename}"`,
-      `Content-Disposition: attachment; filename="${opts.attachment.filename}"`,
+      `Content-Type: ${mime}; name="${att.filename}"`,
+      `Content-Disposition: attachment; filename="${att.filename}"`,
       "Content-Transfer-Encoding: base64",
       "",
-      opts.attachment.content.toString("base64"),
+      att.content.toString("base64"),
     );
   }
   parts.push(`--${boundary}--`, "");

@@ -7,7 +7,13 @@ import { projects, resourceLinks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { projectSchema, type ProjectFormValues } from "./schema";
-import type { LinkType, ProjectStatus } from "@/types/enums";
+import { logActivity } from "@/lib/activity";
+import {
+  COMMERCIAL_STAGES,
+  type LinkType,
+  type ProjectStatus,
+  type CommercialStage,
+} from "@/types/enums";
 
 function normalize(values: ProjectFormValues) {
   const d = projectSchema.parse(values);
@@ -85,6 +91,34 @@ export async function setProjectStatus(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "setProjectStatus");
+  }
+}
+
+export async function setCommercialStage(
+  id: string,
+  stage: CommercialStage,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    if (!COMMERCIAL_STAGES.includes(stage)) {
+      return { ok: false, error: "Etapa comercial inválida." };
+    }
+    await db
+      .update(projects)
+      .set({ commercialStage: stage, updatedAt: new Date() })
+      .where(eq(projects.id, id));
+    await logActivity({
+      entityType: "project",
+      entityId: id,
+      action: `stage_changed:${stage}`,
+      actorId: user.id,
+    });
+    revalidatePath("/pipeline");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${id}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "setCommercialStage");
   }
 }
 
