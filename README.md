@@ -29,13 +29,38 @@ Decisiones detalladas en [`/docs/decisions`](docs/decisions).
 
 ## Setup local
 
+Desarrollo contra **Postgres local** (no contra Supabase de producción):
+
 ```bash
-cp .env.example .env.local   # completar credenciales de Supabase
+cp .env.example .env.local   # completar credenciales de Supabase (Auth/Storage)
+createdb noma                # Postgres local (brew services start postgresql@16)
+# En .env.local dejar DATABASE_URL="postgresql://postgres@localhost:5432/noma"
 npm install
-npm run db:push              # aplicar el schema a la base (Fase 1+)
-npm run db:seed              # cargar áreas, servicios demo y studio_config
+npm run db:deploy            # aplica todas las migraciones a la base local
+npm run db:seed              # áreas, servicios demo, studio_config y datos de Finanzas
 npm run dev                  # http://localhost:3000
 ```
+
+> **DEV vs PROD:** en local, `DATABASE_URL` apunta a Postgres local; Supabase queda solo
+> para producción (y para Auth/Storage, que sí usan el proyecto Supabase también en dev).
+> `db:deploy` usa un migrador seguro (`scripts/migrate.ts`) compatible con drizzle-kit que
+> evita el error 55P04 al aplicar todas las migraciones desde cero.
+
+## Módulo CFO / Finanzas
+
+Dashboard financiero **gateado por rol** (solo `NOMA_FINANCE_EMAILS`) en `/finanzas`:
+importa facturas de Nubox y cartolas BCI (CSV/Excel), clasifica contra el plan de cuentas,
+concilia pagos contra el banco y proyecta flujo de caja. Dialoga con clientes/facturas del
+resto de Noma (`fin_documents.invoice_id` enlaza con `invoices`). Ver módulo en
+[`src/features/finance`](src/features/finance).
+
+## Deploy (GitHub → Supabase → Vercel)
+
+- **App**: Vercel despliega por integración Git (rama `main`). Configurar las env vars del
+  `.env.example` en Vercel (usar el **pooler** de Supabase, puerto 6543, en `DATABASE_URL`).
+- **Migraciones**: la Action [`.github/workflows/migrate.yml`](.github/workflows/migrate.yml)
+  corre `npm run db:deploy` contra Supabase al mergear a `main`. Requiere el secreto
+  `DATABASE_URL` de GitHub con la **conexión directa** (puerto 5432).
 
 ## Scripts
 
@@ -46,8 +71,9 @@ npm run dev                  # http://localhost:3000
 | `npm run lint` / `typecheck`     | ESLint / TypeScript                            |
 | `npm run format`                 | Prettier                                       |
 | `npm run db:generate`            | Genera migraciones SQL desde el schema Drizzle |
-| `npm run db:migrate` / `db:push` | Aplica migraciones / sincroniza schema         |
-| `npm run db:seed`                | Carga datos iniciales                          |
+| `npm run db:deploy`              | Aplica migraciones (migrador seguro, local/CI) |
+| `npm run db:migrate` / `db:push` | drizzle-kit: migra / sincroniza schema         |
+| `npm run db:seed`                | Carga datos iniciales (incluye Finanzas)       |
 | `npm run rates:sync`             | Sincroniza UF y dólar observado                |
 
 ## Estructura

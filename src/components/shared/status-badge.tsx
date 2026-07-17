@@ -15,14 +15,30 @@ const COLOR_BY_VALUE: Record<string, StatusColor> = {
   "En desarrollo": "emerald",
   // Etapa comercial
   "Nuevo lead": "blue",
+  "Lead calificado": "blue",
+  "Reunión inicial agendada": "violet",
   Diagnóstico: "violet",
   Propuesta: "violet",
   Negociación: "amber",
   Perdido: "red",
   "Stand by": "amber",
+  "Traspasado a operación": "emerald",
   // Brief
   Borrador: "slate",
   Completado: "emerald",
+  "Sin reunión agendada": "slate",
+  "Reunión agendada": "blue",
+  "Reunión realizada": "blue",
+  "Notas pendientes": "amber",
+  "Notas importadas": "violet",
+  "Procesando notas": "violet",
+  "Brief sugerido": "violet",
+  "Brief en revisión": "amber",
+  "Brief aprobado": "emerald",
+  // Reunión de brief
+  Agendada: "blue",
+  Realizada: "emerald",
+  Cancelada: "red",
   // Propuesta (estado)
   "En revisión": "amber",
   Enviada: "violet",
@@ -39,6 +55,24 @@ const COLOR_BY_VALUE: Record<string, StatusColor> = {
   Alta: "red",
   Media: "amber",
   Baja: "slate",
+  // Finanzas — documento
+  EMITIDA: "blue",
+  PAGADA: "emerald",
+  PARCIAL: "amber",
+  VENCIDA: "red",
+  ANULADA: "slate",
+  CONCILIADA: "emerald",
+  // Finanzas — movimiento bancario
+  PENDIENTE: "amber",
+  CONCILIADO: "emerald",
+  IGNORADO: "slate",
+  // Finanzas — lote de importación
+  BORRADOR: "amber",
+  CONFIRMADO: "emerald",
+  RECHAZADO: "red",
+  // Finanzas — cobranza
+  ENVIADO: "emerald",
+  ERROR: "red",
 };
 
 const STYLE_BY_COLOR: Record<StatusColor, React.CSSProperties> = {

@@ -34,3 +34,12 @@ Asana · hitos y fechas de entrega · tickets/solicitudes de cliente.
 ## v2.1 — Reportes comerciales
 
 Tasa de cierre por área · valor promedio de propuesta · tiempo promedio de conversión.
+
+## v2/v3 — Módulo Finanzas / Facturación
+
+Integración con **Chipax** (visualización financiera del cliente: facturas, saldos,
+vencimientos, días promedio de pago) y **Nubox** (creación de factura desde propuesta
+aprobada, como borrador para revisión — sin emisión automática). La arquitectura de datos
+ya está preparada en V1 (campos tributarios en cliente, tabla `invoices`,
+`integration_sync_log`, capa `src/integrations/{chipax,nubox}`).
+Ver [finance-module.md](finance-module.md).

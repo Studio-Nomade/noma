@@ -1,6 +1,14 @@
 import { asc, eq, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { clients, projects } from "@/db/schema";
+import { clients, projects, clientContacts } from "@/db/schema";
+
+export async function getClientContacts(clientId: string) {
+  return db
+    .select()
+    .from(clientContacts)
+    .where(eq(clientContacts.clientId, clientId))
+    .orderBy(desc(clientContacts.isPrimary), asc(clientContacts.name));
+}
 
 export async function listClients() {
   return db.select().from(clients).orderBy(asc(clients.companyName));

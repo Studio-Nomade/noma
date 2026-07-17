@@ -2,76 +2,23 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { db } from "@/db";
-import { studioConfig, services } from "@/db/schema";
-import type { NewService } from "@/db/schema";
+import { studioConfig, teamMembers, emailTemplates } from "@/db/schema";
+import type { NewTeamMember } from "@/db/schema";
+import { seedFinance } from "@/features/finance/seed-finance";
 
-const demoServices: NewService[] = [
-  {
-    name: "Identidad visual",
-    area: "B&D",
-    description:
-      "Diseño del sistema de identidad: logotipo, paleta, tipografía y aplicaciones.",
-    deliverables: "Manual de marca, logotipo en formatos, paleta, tipografías.",
-    estimatedTime: "4–6 semanas",
-    priceMinAmount: "40",
-    priceMaxAmount: "80",
-    priceCurrency: "UF",
-  },
-  {
-    name: "Naming",
-    area: "B&D",
-    description:
-      "Creación del nombre de marca con estrategia y disponibilidad.",
-    deliverables: "Propuestas de nombre, rationale, chequeo de disponibilidad.",
-    estimatedTime: "2–3 semanas",
-    priceMinAmount: "15",
-    priceMaxAmount: "30",
-    priceCurrency: "UF",
-  },
-  {
-    name: "Landing page",
-    area: "WD",
-    description: "Página de aterrizaje optimizada para conversión.",
-    deliverables: "Diseño UI, desarrollo responsive, publicación.",
-    estimatedTime: "3–5 semanas",
-    priceMinAmount: "30",
-    priceMaxAmount: "60",
-    priceCurrency: "UF",
-  },
-  {
-    name: "Sitio web multipágina",
-    area: "WD",
-    description: "Sitio institucional con CMS editable.",
-    deliverables: "Diseño UI, desarrollo, CMS, capacitación.",
-    estimatedTime: "6–10 semanas",
-    priceMinAmount: "70",
-    priceMaxAmount: "140",
-    priceCurrency: "UF",
-  },
-  {
-    name: "Anteproyecto arquitectónico",
-    area: "A&D",
-    description: "Desarrollo de anteproyecto con planimetría y volumetría.",
-    deliverables: "Planos, render volumétrico, memoria.",
-    estimatedTime: "4–8 semanas",
-    priceMinAmount: "50",
-    priceMaxAmount: "120",
-    priceCurrency: "UF",
-  },
-  {
-    name: "Video institucional",
-    area: "A&A",
-    description: "Pieza audiovisual de marca.",
-    deliverables: "Guion, producción, edición, master final.",
-    estimatedTime: "4–6 semanas",
-    priceMinAmount: "40",
-    priceMaxAmount: "90",
-    priceCurrency: "UF",
-  },
+/**
+ * Seed base: singleton studio_config + equipo interno (placeholder hasta el sync
+ * con GSuite en Fase 6). Los servicios se cargan con `npm run data:import-services`.
+ */
+const team: NewTeamMember[] = [
+  { name: "Anna Sanhueza", notes: "Dirección Creativa" },
+  { name: "Sebastián Robles", notes: "Dirección Operativa" },
+  { name: "Javiera Díaz", notes: "Directora de Arte" },
+  { name: "Catalina Torres", notes: "Planner & Art · UX/UI" },
+  { name: "Adrián Silva", notes: "Diseñador" },
 ];
 
 async function main() {
-  // studio_config singleton
   const existing = await db.select().from(studioConfig).limit(1);
   if (existing.length === 0) {
     await db.insert(studioConfig).values({
@@ -83,14 +30,38 @@ async function main() {
     console.log("• studio_config ya existe, se omite");
   }
 
-  // services demo
-  const existingServices = await db.select().from(services).limit(1);
-  if (existingServices.length === 0) {
-    await db.insert(services).values(demoServices);
-    console.log(`✓ ${demoServices.length} servicios demo cargados`);
+  const existingTeam = await db.select().from(teamMembers).limit(1);
+  if (existingTeam.length === 0) {
+    await db.insert(teamMembers).values(team);
+    console.log(`✓ ${team.length} integrantes del equipo cargados`);
   } else {
-    console.log("• ya existen servicios, se omite la carga demo");
+    console.log("• team_members ya tiene datos, se omite");
   }
+
+  const existingTpl = await db.select().from(emailTemplates).limit(1);
+  if (existingTpl.length === 0) {
+    await db.insert(emailTemplates).values({
+      name: "Envío de propuesta",
+      subject: "Propuesta Comercial · {{proyecto}}",
+      isDefault: true,
+      body: `Hola {{contacto}},
+
+Junto con saludar, adjuntamos la propuesta comercial para {{proyecto}}.
+El valor total considerado es {{total}}.
+
+Quedamos atentos a tus comentarios.
+
+Saludos,
+{{remitente}}
+Studio Nomade`,
+    });
+    console.log("✓ plantilla de correo por defecto creada");
+  } else {
+    console.log("• email_templates ya tiene datos, se omite");
+  }
+
+  // ── Módulo CFO / Finanzas ──────────────────────────────────
+  await seedFinance();
 
   console.log("Seed completado.");
   process.exit(0);

@@ -15,14 +15,31 @@ La app se aloja en **Vercel** (SSR/Server Actions). Cada rama de GitHub genera u
 
 ## 2. Environment Variables (Vercel → Project → Settings → Environment Variables)
 
-| Variable | Valor | Entornos |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://lwnrlkkztctxmlrstddd.supabase.co` | All |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | publishable key (`sb_publishable_…`) | All |
-| `SUPABASE_SERVICE_ROLE_KEY` | secret key (`sb_secret_…`) | All |
-| `DATABASE_URL` | connection string **pooler transacción (puerto 6543)** | All |
-| `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` | `studionomade.cl` | All |
-| `MINDICADOR_API_URL` | `https://mindicador.cl/api` | All |
+| Variable                           | Valor                                                  | Entornos |
+| ---------------------------------- | ------------------------------------------------------ | -------- |
+| `NEXT_PUBLIC_SUPABASE_URL`         | `https://lwnrlkkztctxmlrstddd.supabase.co`             | All      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`    | publishable key (`sb_publishable_…`)                   | All      |
+| `SUPABASE_SERVICE_ROLE_KEY`        | secret key (`sb_secret_…`)                             | All      |
+| `DATABASE_URL`                     | connection string **pooler transacción (puerto 6543)** | All      |
+| `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` | `studionomade.cl`                                      | All      |
+| `MINDICADOR_API_URL`               | `https://mindicador.cl/api`                            | All      |
+| `GOOGLE_CLIENT_ID`                 | OAuth client de Google Cloud                           | All      |
+| `GOOGLE_CLIENT_SECRET`             | OAuth secret de Google Cloud                           | All      |
+| `NOMA_ADMIN_EMAILS`                | correos admin (coma)                                   | All      |
+| `NOMA_FINANCE_EMAILS`              | correos de Finanzas (coma)                             | All      |
+
+**Obligatorias para las integraciones de Google.** `GOOGLE_CLIENT_ID` /
+`GOOGLE_CLIENT_SECRET` son las que permiten actuar **como el usuario**: envío de
+propuestas por Gmail, creación de reuniones en Calendar/Meet y lectura de notas en
+Drive. Sin ellas esas acciones fallan (el resto de la app funciona).
+
+Opcionales (activan integraciones; si faltan, la funcionalidad degrada y avisa):
+
+| Variable              | Para qué                                              |
+| --------------------- | ----------------------------------------------------- |
+| `ANTHROPIC_API_KEY`   | Procesar notas con Claude (hoy corre una capa mock)    |
+| `ASANA_ACCESS_TOKEN`  | Crear la tarea al traspasar a operación                |
+| `ASANA_PROJECT_GID`   | Proyecto de Asana donde se crea la tarea               |
 
 > **Importante:** en Vercel (serverless) usa el **pooler de transacción, puerto
 > 6543**:
@@ -48,13 +65,33 @@ Con la URL de Vercel ya conocida:
 Ahora cualquier persona del equipo (con cuenta `@studionomade.cl`) puede entrar
 desde cualquier computador con esa URL.
 
-## 4. Dominio propio (cuando estén listos)
+## 4. Dominio oficial `noma.studionomade.cl`
 
-`app.studionomade.cl`:
-1. Vercel → Project → **Settings → Domains** → agrega `app.studionomade.cl`.
-2. En **Cloudflare** (o el DNS del dominio) crea el registro CNAME que indique
-   Vercel.
-3. Agrega `https://app.studionomade.cl/**` a las Redirect URLs de Supabase.
+El dominio `studionomade.cl` vive en **Bluehosting** (DNS `*.dnsmisitio.net`). La app
+**no** puede correr en Bluehosting (hosting compartido PHP, sin Node/SSR), así que el
+subdominio solo apunta a Vercel. No hay que mover el DNS del dominio raíz.
+
+1. Vercel → Project → **Settings → Domains** → agrega `noma.studionomade.cl`. Vercel
+   muestra el valor exacto del **CNAME** (p. ej. `cname.vercel-dns.com`).
+2. En **Bluehosting → cPanel → Editor de Zona DNS** de `studionomade.cl`, agrega un
+   registro **CNAME**: nombre `noma`, destino el que indicó Vercel. TTL por defecto.
+3. Espera la propagación (minutos a ~1 h); Vercel emite el certificado SSL solo.
+4. Agrega `https://noma.studionomade.cl/**` a las **Redirect URLs** de Supabase
+   (Authentication → URL Configuration) y fija **Site URL** = `https://noma.studionomade.cl`.
+
+> En Vercel, `main` se publica en producción (asígnale `noma.studionomade.cl`) y
+> `testing` genera una URL de preview para QA.
+
+### Scopes de Google (re-login obligatorio)
+
+El login pide `gmail.send`, `calendar.events` y `drive.readonly`. Quien ya tenía sesión
+con scopes antiguos debe **cerrar sesión y volver a entrar una vez** para concederlos;
+si no, agendar reunión y buscar notas en Drive funcionan en modo local y lo avisan.
+
+### Costo
+
+Vercel **Hobby es gratis** y suficiente para testear (incluye dominio propio + SSL).
+Para uso comercial formal, **Pro = US$20/usuario/mes**. Se puede partir en Hobby.
 
 ## 5. Migraciones en producción
 

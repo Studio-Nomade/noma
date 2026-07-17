@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { requireUser } from "@/lib/auth";
+import { roleFor } from "@/lib/roles";
 
 export default async function AppLayout({
   children,
@@ -7,5 +8,10 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  return <AppShell email={user.email}>{children}</AppShell>;
+  const isFinance = roleFor(user.email).isFinance;
+  return (
+    <AppShell email={user.email} isFinance={isFinance}>
+      {children}
+    </AppShell>
+  );
 }

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { devAuthEmail } from "@/lib/dev-auth";
 
 /** Rutas accesibles sin sesión. */
 const PUBLIC_PATHS = ["/login", "/auth"];
@@ -41,7 +42,10 @@ export async function updateSession(request: NextRequest) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-  if (!user && !isPublic) {
+  // Solo dev: el bypass de auth permite navegar sin sesión Supabase.
+  const devBypass = Boolean(devAuthEmail());
+
+  if (!user && !isPublic && !devBypass) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);

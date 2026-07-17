@@ -1,0 +1,39 @@
+name: DB migrate (Supabase)
+
+# Aplica las migraciones Drizzle contra Supabase al hacer merge a `main`.
+# Vercel construye/despliega la app por su integración Git (no requiere workflow).
+# Orden de release: primero migra la BD (aquí), luego Vercel publica el build.
+#
+# Requiere el secreto de repositorio DATABASE_URL con la CONEXIÓN DIRECTA de
+# Supabase (Project Settings → Database → Connection string → "Direct connection",
+# puerto 5432), NO el pooler (6543): las migraciones ejecutan DDL.
+#
+# Usa `npm run db:deploy` (scripts/migrate.ts), un migrador seguro que aplica cada
+# sentencia en autocommit para evitar el error 55P04 de Postgres (usar un valor de
+# enum recién agregado en la misma transacción). Es compatible con el tracking de
+# drizzle-kit (misma tabla drizzle.__drizzle_migrations).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/db/migrations/**"
+      - "scripts/migrate.ts"
+      - ".github/workflows/migrate.yml"
+  workflow_dispatch: {}
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    concurrency: db-migrate-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:deploy

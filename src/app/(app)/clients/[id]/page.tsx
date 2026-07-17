@@ -3,9 +3,14 @@ import Link from "next/link";
 import { ArrowLeft, Pencil, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { getClient, getClientProjects } from "@/features/clients/queries";
+import {
+  getClient,
+  getClientProjects,
+  getClientContacts,
+} from "@/features/clients/queries";
 import { ClientDialog } from "@/features/clients/client-dialog";
 import { CloseClientButton } from "@/features/clients/close-client-button";
+import { ContactsManager } from "@/features/clients/contacts-manager";
 import { AREA_LABELS } from "@/types/enums";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -28,7 +33,10 @@ export default async function ClientDetailPage({
   const client = await getClient(id);
   if (!client) notFound();
 
-  const projects = await getClientProjects(id);
+  const [projects, contacts] = await Promise.all([
+    getClientProjects(id),
+    getClientContacts(id),
+  ]);
 
   return (
     <>
@@ -125,6 +133,48 @@ export default async function ClientDetailPage({
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="border-border bg-card rounded-xl border p-6 lg:col-span-3">
+          <h2 className="font-heading mb-4 text-sm font-medium">
+            Contactos (correos)
+          </h2>
+          <ContactsManager clientId={client.id} contacts={contacts} />
+        </div>
+
+        {/* Facturación (preparación Chipax/Nubox) */}
+        <div className="border-border bg-card rounded-xl border p-6 lg:col-span-3">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-heading text-sm font-medium">Facturación</h2>
+            <span className="text-muted-foreground text-xs">
+              Estado financiero: {client.financialStatus ?? "Sin información"}
+            </span>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-3">
+            <Field label="RUT" value={client.rut} />
+            <Field label="Razón social" value={client.legalName} />
+            <Field label="Giro" value={client.taxActivity} />
+            <Field label="Email de facturación" value={client.billingEmail} />
+            <Field label="Dirección tributaria" value={client.taxAddress} />
+          </div>
+          {client.billingNotes && (
+            <div className="mt-4">
+              <p className="text-muted-foreground text-xs tracking-wide uppercase">
+                Notas de facturación
+              </p>
+              <p className="mt-1 text-sm whitespace-pre-wrap">
+                {client.billingNotes}
+              </p>
+            </div>
+          )}
+          <div className="border-border bg-accent/40 mt-5 rounded-lg border p-4 text-sm">
+            <strong>Estado de cuenta (Chipax) — próximamente.</strong>{" "}
+            <span className="text-muted-foreground">
+              Aquí se mostrará la facturación histórica, total pendiente, días
+              promedio de pago y la tabla de facturas (folio, emisión,
+              vencimiento, saldo, PDF/XML) cuando se integre Chipax.
+            </span>
+          </div>
         </div>
       </div>
     </>

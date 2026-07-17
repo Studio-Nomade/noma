@@ -20,6 +20,16 @@ export default function LoginPage() {
         redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(
           redirectTo,
         )}`,
+        // Scopes de Google concedidos al usuario (refresh token offline):
+        // - gmail.send: enviar correos como el usuario
+        // - calendar.events: crear reuniones de brief con link de Meet (Fase 5)
+        // - drive.readonly: leer notas de Gemini y buscar documentos (Fase 6)
+        scopes:
+          "email profile " +
+          "https://www.googleapis.com/auth/gmail.send " +
+          "https://www.googleapis.com/auth/calendar.events " +
+          "https://www.googleapis.com/auth/drive.readonly",
+        queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
     if (error) {

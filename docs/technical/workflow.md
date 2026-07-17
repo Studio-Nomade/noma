@@ -2,9 +2,9 @@
 
 ## Ramas
 
-| Rama | Propósito | Vercel |
-|---|---|---|
-| `main` | Código estable / **producción** | Production deployment |
+| Rama      | Propósito                                  | Vercel                          |
+| --------- | ------------------------------------------ | ------------------------------- |
+| `main`    | Código estable / **producción**            | Production deployment           |
 | `testing` | Integración y **QA** antes de pasar a main | Preview deployment (URL propia) |
 
 Regla: **nada llega a `main` sin pasar por `testing` y aprobar el QA.**

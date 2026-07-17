@@ -1,0 +1,317 @@
+[
+  {
+    "area": "WD",
+    "name": "Diseño y Desarrollo Web",
+    "subarea": "Sitios Web",
+    "description": "Diseño y desarrollo de sitio web a medida.",
+    "estimated_time": "4–8 semanas",
+    "price_type": "range",
+    "currency": "UF",
+    "price_min": 9,
+    "price_max": 40
+  },
+  {
+    "area": "WD",
+    "name": "Rediseño y Desarrollo Web",
+    "subarea": "Sitios Web",
+    "description": "Rediseño integral de un sitio existente.",
+    "estimated_time": "3–6 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 10
+  },
+  {
+    "area": "WD",
+    "name": "Landing / Minisitio",
+    "subarea": "Sitios Web",
+    "description": "Sitio de una sección o campaña.",
+    "estimated_time": "2–3 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 6
+  },
+  {
+    "area": "WD",
+    "name": "Migración Web Full",
+    "subarea": "Técnica",
+    "description": "Migración completa de sitio y base de datos a nuevo servidor.",
+    "estimated_time": "1 semana",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 5
+  },
+  {
+    "area": "WD",
+    "name": "Mantención Web Trimestral — Light",
+    "subarea": "Mantención",
+    "description": "Mantención técnica y seguridad, soporte básico.",
+    "estimated_time": "Trimestral",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 3,
+    "unit": "Trimestral",
+    "complexity": "Light"
+  },
+  {
+    "area": "WD",
+    "name": "Mantención Web Trimestral — Medium",
+    "subarea": "Mantención",
+    "description": "Mantención + ajustes de contenido y módulos menores.",
+    "estimated_time": "Trimestral",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 5,
+    "unit": "Trimestral",
+    "complexity": "Medium"
+  },
+  {
+    "area": "WD",
+    "name": "Hosting Anual",
+    "subarea": "Técnica",
+    "description": "Hosting con PHP optimizado, 1 año.",
+    "estimated_time": "Anual",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 2,
+    "unit": "Anual"
+  },
+  {
+    "area": "WD",
+    "name": "Configuración Sitio Multidiomas",
+    "subarea": "Técnica",
+    "description": "Configuración multidioma del sitio.",
+    "estimated_time": "1 semana",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 4
+  },
+  {
+    "area": "WD",
+    "name": "SEO / Google Ads",
+    "subarea": "Marketing",
+    "description": "Configuración y gestión de campañas / SEO.",
+    "estimated_time": "Variable",
+    "price_type": "variable",
+    "currency": "UF"
+  },
+
+  {
+    "area": "A&A",
+    "name": "Producción Audiovisual — Video Corporativo",
+    "subarea": "Producción",
+    "description": "Video corporativo: preproducción, rodaje y postproducción.",
+    "estimated_time": "4–6 semanas",
+    "price_type": "range",
+    "currency": "UF",
+    "price_min": 17,
+    "price_max": 48
+  },
+  {
+    "area": "A&A",
+    "name": "Comercial / Spot TV",
+    "subarea": "Producción",
+    "description": "Comercial para TV/redes.",
+    "estimated_time": "Variable",
+    "price_type": "variable",
+    "currency": "UF"
+  },
+  {
+    "area": "A&A",
+    "name": "Cápsula Corporativa / Documental",
+    "subarea": "Producción",
+    "description": "Cápsula o documental corporativo.",
+    "estimated_time": "3–5 semanas",
+    "price_type": "range",
+    "currency": "UF",
+    "price_min": 16,
+    "price_max": 48
+  },
+  {
+    "area": "A&A",
+    "name": "Cobertura de Evento — RRSS",
+    "subarea": "Cobertura",
+    "description": "Cobertura de evento para redes sociales.",
+    "estimated_time": "1 jornada",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 10
+  },
+  {
+    "area": "A&A",
+    "name": "Cobertura de Evento — Experiencia",
+    "subarea": "Cobertura",
+    "description": "Cobertura integral de experiencia / evento.",
+    "estimated_time": "1–2 jornadas",
+    "price_type": "range",
+    "currency": "UF",
+    "price_min": 20,
+    "price_max": 46
+  },
+  {
+    "area": "A&A",
+    "name": "Video Presentación / CMS",
+    "subarea": "Producción",
+    "description": "Video de presentación corporativa.",
+    "estimated_time": "2–3 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 10
+  },
+  {
+    "area": "A&A",
+    "name": "Sesión Audiovisual y Edición",
+    "subarea": "Producción",
+    "description": "Guion literario y técnico, rodaje, voz en off y edición.",
+    "estimated_time": "2–3 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 12
+  },
+
+  {
+    "area": "A&D",
+    "name": "Diseño de Stand Publicitario",
+    "subarea": "Stands & Ferias",
+    "description": "Layout, memoria, plano de distribución, gráfica lateral, modelado 3D y 3 renders.",
+    "estimated_time": "2–4 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 14
+  },
+  {
+    "area": "A&D",
+    "name": "Memoria Constructiva",
+    "subarea": "Obra",
+    "description": "Elaboración de memoria constructiva del proyecto.",
+    "estimated_time": "2 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 14
+  },
+  {
+    "area": "A&D",
+    "name": "Supervisión y Ejecución de Obra",
+    "subarea": "Obra",
+    "description": "Coordinación, supervisión y control de calidad en obra.",
+    "estimated_time": "Por hora",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 1,
+    "unit": "por hora"
+  },
+  {
+    "area": "A&D",
+    "name": "Visita Técnica",
+    "subarea": "Obra",
+    "description": "Visita técnica e inspección.",
+    "estimated_time": "1 visita",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 2,
+    "unit": "por visita"
+  },
+  {
+    "area": "A&D",
+    "name": "Render & Modelado 3D",
+    "subarea": "Visualización",
+    "description": "Modelado 3D y renders de visualización.",
+    "estimated_time": "1–2 semanas",
+    "price_type": "variable",
+    "currency": "UF"
+  },
+  {
+    "area": "A&D",
+    "name": "Diseño de Packaging",
+    "subarea": "Producto",
+    "description": "Diseño gráfico y estructural de packaging.",
+    "estimated_time": "2–3 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 9
+  },
+
+  {
+    "area": "CE",
+    "name": "Creación de Logotipo Simple",
+    "subarea": "Identidad",
+    "description": "Logotipo con versiones y uso tipográfico, para emprendedores.",
+    "estimated_time": "1–2 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 3.78
+  },
+  {
+    "area": "CE",
+    "name": "Plan Clínica de Emprendimiento",
+    "subarea": "Programa",
+    "description": "Tarifa especial del programa Clínica de Emprendimientos (≈ $400.000).",
+    "estimated_time": "Variable",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 10.8
+  },
+  {
+    "area": "CE",
+    "name": "Desarrollo de Identidad — Emprendedores",
+    "subarea": "Identidad",
+    "description": "Branding con metodología por semanas (diagnóstico, identidad, manual).",
+    "estimated_time": "4 semanas",
+    "price_type": "range",
+    "currency": "UF",
+    "price_min": 11,
+    "price_max": 43
+  },
+  {
+    "area": "CE",
+    "name": "Desarrollo de Imágenes / Render",
+    "subarea": "Visualización",
+    "description": "Imágenes/renders (ej. loteo en vista superior).",
+    "estimated_time": "1–2 semanas",
+    "price_type": "uf",
+    "currency": "UF",
+    "price_min": 3.5
+  },
+
+  {
+    "area": "MP",
+    "name": "Pendón Roller Retráctil PVC (80×180)",
+    "subarea": "Impresión",
+    "description": "Pendón roller retráctil PVC, impresión full color 1440 dpi. Incluye bolso de traslado.",
+    "estimated_time": "3–5 días hábiles",
+    "price_type": "unit",
+    "currency": "CLP",
+    "price_min": 61685,
+    "unit": "c/u"
+  },
+  {
+    "area": "MP",
+    "name": "Tríptico Carta 150g (6 caras)",
+    "subarea": "Impresión",
+    "description": "Tríptico tamaño carta, papel couché 150g, impresión a color ambas caras.",
+    "estimated_time": "3–5 días hábiles",
+    "price_type": "unit",
+    "currency": "CLP",
+    "price_min": 1374,
+    "unit": "c/u"
+  },
+  {
+    "area": "MP",
+    "name": "Impresión Gráfica / Gigantografía",
+    "subarea": "Impresión",
+    "description": "Impresión gráfica de gran formato.",
+    "estimated_time": "3–5 días hábiles",
+    "price_type": "variable",
+    "currency": "CLP",
+    "unit": "c/u"
+  },
+  {
+    "area": "MP",
+    "name": "Gestión RRSS Sector Público",
+    "subarea": "Digital",
+    "description": "Gestión de redes sociales para organismos públicos.",
+    "estimated_time": "Mensual",
+    "price_type": "variable",
+    "currency": "UF",
+    "unit": "Mensual"
+  }
+]

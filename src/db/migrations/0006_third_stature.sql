@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "areas" "area"[] DEFAULT '{}' NOT NULL;

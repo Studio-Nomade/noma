@@ -14,9 +14,11 @@ import { SignOutButton } from "./sign-out-button";
 
 function SidebarContent({
   email,
+  isFinance,
   onNavigate,
 }: {
   email?: string;
+  isFinance?: boolean;
   onNavigate?: () => void;
 }) {
   return (
@@ -25,7 +27,7 @@ function SidebarContent({
         <Brand />
       </div>
       <div className="flex-1 overflow-y-auto px-3">
-        <SidebarNav onNavigate={onNavigate} />
+        <SidebarNav onNavigate={onNavigate} isFinance={isFinance} />
       </div>
       <div className="border-border space-y-1 border-t px-5 py-4">
         {email && (
@@ -39,9 +41,11 @@ function SidebarContent({
 
 export function AppShell({
   email,
+  isFinance,
   children,
 }: {
   email?: string;
+  isFinance?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -50,7 +54,7 @@ export function AppShell({
     <div className="flex min-h-screen">
       {/* Sidebar desktop */}
       <aside className="bg-card border-border fixed inset-y-0 left-0 hidden w-56 border-r lg:block">
-        <SidebarContent email={email} />
+        <SidebarContent email={email} isFinance={isFinance} />
       </aside>
 
       {/* Topbar móvil */}
@@ -65,7 +69,11 @@ export function AppShell({
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <SheetTitle className="sr-only">Navegación</SheetTitle>
-            <SidebarContent email={email} onNavigate={() => setOpen(false)} />
+            <SidebarContent
+              email={email}
+              isFinance={isFinance}
+              onNavigate={() => setOpen(false)}
+            />
           </SheetContent>
         </Sheet>
       </header>

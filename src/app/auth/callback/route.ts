@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { db } from "@/db";
+import { userIntegrations } from "@/db/schema";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -23,6 +25,22 @@ export async function GET(request: NextRequest) {
   if (allowedDomain && !email.endsWith(`@${allowedDomain}`)) {
     await supabase.auth.signOut();
     return NextResponse.redirect(`${origin}/login?error=domain`);
+  }
+
+  // Guarda el refresh token de Google para enviar correos como el usuario (Gmail API).
+  const refreshToken = data.session?.provider_refresh_token;
+  if (data.user?.id && refreshToken) {
+    await db
+      .insert(userIntegrations)
+      .values({
+        userId: data.user.id,
+        email,
+        googleRefreshToken: refreshToken,
+      })
+      .onConflictDoUpdate({
+        target: userIntegrations.userId,
+        set: { email, googleRefreshToken: refreshToken, updatedAt: new Date() },
+      });
   }
 
   return NextResponse.redirect(`${origin}${redirectTo}`);

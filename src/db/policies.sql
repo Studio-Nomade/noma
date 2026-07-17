@@ -24,7 +24,10 @@ declare
     'clients', 'projects', 'briefs', 'services', 'proposals',
     'proposal_services', 'resource_links', 'studio_config',
     'team_members', 'knowledge_docs', 'context_documents',
-    'exchange_rates', 'activity_log'
+    'exchange_rates', 'activity_log',
+    'service_modules', 'service_module_links', 'proposal_team',
+    'proposal_notes', 'client_contacts', 'email_templates',
+    'user_integrations', 'invoices', 'integration_sync_log', 'slas'
   ];
 begin
   foreach t in array tables loop

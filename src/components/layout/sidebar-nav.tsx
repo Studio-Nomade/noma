@@ -6,12 +6,19 @@ import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/nav";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  isFinance = false,
+}: {
+  onNavigate?: () => void;
+  isFinance?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
     <nav className="flex flex-col gap-0.5">
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => !item.requiresFinance || isFinance).map(
+        (item) => {
         const active =
           item.href === "/"
             ? pathname === "/"
@@ -34,7 +41,8 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             {active && <ChevronRight className="size-3.5" />}
           </Link>
         );
-      })}
+        },
+      )}
     </nav>
   );
 }
