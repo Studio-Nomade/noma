@@ -30,9 +30,30 @@ const MIGRATIONS_DIR = path.resolve("src/db/migrations");
 
 type JournalEntry = { idx: number; when: number; tag: string; breakpoints: boolean };
 
+/**
+ * Lee DATABASE_URL tolerando comillas y espacios: al copiar el valor desde
+ * `.env.local` (que lo guarda entrecomillado) o desde un dashboard, es fácil
+ * arrastrarlos, y `postgres()` falla con un opaco "TypeError: Invalid URL"
+ * sin decir cuál es el problema (el valor va enmascarado en los logs de CI).
+ */
+function readDatabaseUrl(): string {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) throw new Error("DATABASE_URL no está definido.");
+
+  const url = raw.trim().replace(/^['"]|['"]$/g, "").trim();
+  if (!/^postgres(ql)?:\/\/\S+@\S+/.test(url)) {
+    throw new Error(
+      "DATABASE_URL no es una connection string válida. Debe tener la forma " +
+        "postgresql://USUARIO:CONTRASEÑA@HOST:PUERTO/postgres — revisa que no " +
+        "lleve comillas ni saltos de línea, y que los caracteres especiales de " +
+        "la contraseña estén percent-encoded (@ → %40, # → %23, etc.).",
+    );
+  }
+  return url;
+}
+
 async function main() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL no está definido.");
+  const url = readDatabaseUrl();
 
   const journalPath = path.join(MIGRATIONS_DIR, "meta", "_journal.json");
   const journal = JSON.parse(fs.readFileSync(journalPath, "utf8")) as {
