@@ -5,9 +5,16 @@ name: DB migrate (Supabase)
 # Vercel construye/despliega la app por su integración Git (no requiere workflow).
 # Orden de release: primero migra la BD (aquí), luego Vercel publica el build.
 #
-# Requiere el secreto de repositorio DATABASE_URL con la CONEXIÓN DIRECTA de
-# Supabase (Project Settings → Database → Connection string → "Direct connection",
-# puerto 5432), NO el pooler (6543): las migraciones ejecutan DDL.
+# Requiere el secreto de repositorio DATABASE_URL con el SESSION POOLER de
+# Supabase (Connect → "Session pooler", host aws-*.pooler.supabase.com, puerto
+# 5432). Es modo sesión: soporta el DDL de las migraciones.
+#
+# NO usar la "Direct connection" (db.<ref>.supabase.co): solo resuelve en IPv6 y
+# los runners de GitHub Actions son IPv4 → nunca conecta.
+# NO usar el pooler de transacción (6543): ese es para la app en Vercel.
+#
+# El valor va SIN comillas. Si la contraseña tiene caracteres especiales, hay que
+# percent-encodearlos (@ → %40, # → %23, etc.).
 #
 # Usa `npm run db:deploy` (scripts/migrate.ts), un migrador seguro que aplica cada
 # sentencia en autocommit para evitar el error 55P04 de Postgres (usar un valor de

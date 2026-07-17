@@ -95,12 +95,29 @@ Para uso comercial formal, **Pro = US$20/usuario/mes**. Se puede partir en Hobby
 
 ## 5. Migraciones en producción
 
-Las migraciones se aplican desde local apuntando a la misma base
-(`npm run db:migrate`), o en un paso de CI. La base es la misma para local,
-preview y producción (un solo proyecto Supabase por ahora).
+Las aplica **GitHub Actions** (`.github/workflows/migrate.yml`) al hacer merge a
+`main`, antes de que Vercel publique: corre `npm run db:deploy` (migraciones) y
+`npm run db:policies` (baseline de RLS).
 
-> Más adelante conviene separar un proyecto Supabase de **staging** para que
-> `testing` no toque datos de producción.
+Requiere el secreto de repositorio **`DATABASE_URL`** (GitHub → Settings →
+Secrets and variables → Actions). Las tres conexiones de Supabase NO son
+intercambiables:
+
+| Uso                    | Conexión (Supabase → Connect) | Host                        | Puerto |
+| ---------------------- | ----------------------------- | --------------------------- | ------ |
+| App en Vercel          | Transaction pooler            | `aws-*.pooler.supabase.com` | 6543   |
+| **Migraciones (CI)**   | **Session pooler**            | `aws-*.pooler.supabase.com` | 5432   |
+| Direct connection      | ❌ no usar desde CI            | `db.<ref>.supabase.co`      | 5432   |
+
+> **La "Direct connection" no sirve en GitHub Actions:** solo resuelve en IPv6 y
+> los runners son IPv4 — la conexión nunca se establece. El **Session pooler**
+> es IPv4 y, al ser modo sesión, soporta el DDL de las migraciones.
+
+El valor va **sin comillas**. Si la contraseña tiene caracteres especiales,
+percent-encodearlos (`@` → `%40`, `#` → `%23`, …).
+
+> Ojo: hoy `testing` y producción comparten la misma base. Conviene separar un
+> proyecto Supabase de **staging**.
 
 ## 6. Sync de tasas (cron)
 
