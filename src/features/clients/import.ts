@@ -1,4 +1,5 @@
 import { CHILE_REGIONS, CLIENT_STATUSES } from "@/types/enums";
+import { titleCaseCompany } from "@/lib/text/company-name";
 
 /**
  * Helpers de la carga masiva de clientes. Puros (sin DB ni red) para poder
@@ -168,6 +169,10 @@ export function normalizeRow(
     const v = cleanCell(row[header]);
     if (v && !isPlaceholder(v)) out[field] = v;
   }
+
+  // Los export contables vienen EN MAYÚSCULAS: se normalizan a Title Case.
+  if (out.companyName) out.companyName = titleCaseCompany(out.companyName);
+  if (out.legalName) out.legalName = titleCaseCompany(out.legalName);
 
   // La columna "Comuna" de los export contables suele traer la REGIÓN.
   // Si el valor es reconocible como región, se mueve al campo correcto.

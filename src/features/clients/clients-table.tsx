@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Trash2, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -14,10 +15,25 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { Client } from "@/db/schema";
+import { closeClient } from "./actions";
+import { DeleteClientDialog } from "./delete-client-dialog";
 
 export function ClientsTable({ clients }: { clients: Client[] }) {
   const [query, setQuery] = useState("");
+  const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  function close(c: Client) {
+    startTransition(async () => {
+      const res = await closeClient(c.id);
+      if (res.ok) {
+        toast.success(`"${c.companyName}" marcado como Cerrado`);
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
 
   const filtered = clients.filter((c) => {
     const q = query.toLowerCase().trim();
@@ -55,6 +71,9 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
               <TableHead className="text-xs tracking-wide uppercase">
                 Estado
               </TableHead>
+              <TableHead className="text-right text-xs tracking-wide uppercase">
+                Acciones
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -74,12 +93,47 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                 <TableCell>
                   <StatusBadge value={c.status} size="xs" />
                 </TableCell>
+                <TableCell>
+                  {/* La fila navega al hacer clic: aquí se corta la propagación
+                      para que los botones no abran la ficha. */}
+                  <div
+                    className="flex items-center justify-end gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {c.status !== "Cerrado" && (
+                      <button
+                        type="button"
+                        onClick={() => close(c)}
+                        disabled={pending}
+                        title="Cerrar cliente (cambia el estado, no borra)"
+                        aria-label={`Cerrar ${c.companyName}`}
+                        className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-md p-1.5 transition-colors disabled:opacity-50"
+                      >
+                        <Archive className="size-3.5" />
+                      </button>
+                    )}
+                    <DeleteClientDialog
+                      id={c.id}
+                      name={c.companyName}
+                      trigger={
+                        <button
+                          type="button"
+                          title="Borrar cliente (irreversible)"
+                          aria-label={`Borrar ${c.companyName}`}
+                          className="text-muted-foreground rounded-md p-1.5 transition-colors hover:bg-[var(--status-red-bg)] hover:text-[var(--status-red)]"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      }
+                    />
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
             {filtered.length === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="text-muted-foreground py-8 text-center text-sm"
                 >
                   Sin resultados para “{query}”.
