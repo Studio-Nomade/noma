@@ -156,6 +156,8 @@ export default async function ClientDetailPage({
             <Field label="Giro" value={client.taxActivity} />
             <Field label="Email de facturación" value={client.billingEmail} />
             <Field label="Dirección tributaria" value={client.taxAddress} />
+            <Field label="Comuna" value={client.comuna} />
+            <Field label="Región" value={client.region} />
           </div>
           {client.billingNotes && (
             <div className="mt-4">
