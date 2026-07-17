@@ -1,6 +1,7 @@
 name: DB migrate (Supabase)
 
-# Aplica las migraciones Drizzle contra Supabase al hacer merge a `main`.
+# Aplica las migraciones Drizzle + el baseline de RLS contra Supabase al hacer
+# merge a `main`.
 # Vercel construye/despliega la app por su integración Git (no requiere workflow).
 # Orden de release: primero migra la BD (aquí), luego Vercel publica el build.
 #
@@ -18,6 +19,7 @@ on:
     branches: [main]
     paths:
       - "src/db/migrations/**"
+      - "src/db/policies.sql"
       - "scripts/migrate.ts"
       - ".github/workflows/migrate.yml"
   workflow_dispatch: {}
@@ -37,3 +39,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run db:deploy
+      # Re-aplica RLS después de migrar: las tablas creadas por una migración
+      # nacen SIN row level security. Este paso las cubre todas (el script
+      # recorre `public` dinámicamente), así el linter de Supabase no vuelve a
+      # marcar "rls_disabled_in_public".
+      - name: Apply RLS policies
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:policies
