@@ -17,20 +17,24 @@
 -- cliente y los grants necesarios. Ver docs/decisions/ADR-003-auth-permisos.md.
 -- ─────────────────────────────────────────────────────────────
 
+-- Recorre TODAS las tablas de `public` (no una lista fija): así cada tabla nueva
+-- queda protegida al re-aplicar, sin depender de que alguien recuerde agregarla.
+--
+-- `anon` y `authenticated` son roles de Supabase: en un Postgres local no existen,
+-- por eso los revokes se omiten si no están (el script corre en local y en prod).
 do $$
 declare
   t text;
-  tables text[] := array[
-    'clients', 'projects', 'briefs', 'services', 'proposals',
-    'proposal_services', 'resource_links', 'studio_config',
-    'team_members', 'knowledge_docs', 'context_documents',
-    'exchange_rates', 'activity_log',
-    'service_modules', 'service_module_links', 'proposal_team',
-    'proposal_notes', 'client_contacts', 'email_templates',
-    'user_integrations', 'invoices', 'integration_sync_log', 'slas'
-  ];
+  api_roles text;
 begin
-  foreach t in array tables loop
+  select string_agg(quote_ident(rolname), ', ')
+    into api_roles
+    from pg_roles
+    where rolname in ('anon', 'authenticated');
+
+  for t in
+    select tablename from pg_tables where schemaname = 'public'
+  loop
     -- RLS activa (sin políticas permisivas → deny-by-default para no-owners).
     execute format('alter table public.%I enable row level security;', t);
 
@@ -41,6 +45,17 @@ begin
     );
 
     -- Revocar acceso directo de los roles del API de datos (defensa en profundidad).
-    execute format('revoke all on public.%I from anon, authenticated;', t);
+    if api_roles is not null then
+      execute format('revoke all on public.%I from %s;', t, api_roles);
+    end if;
   end loop;
+
+  -- Tablas FUTURAS: que nazcan sin acceso de los roles del API aunque todavía no
+  -- se haya vuelto a aplicar este script.
+  if api_roles is not null then
+    execute format(
+      'alter default privileges in schema public revoke all on tables from %s;',
+      api_roles
+    );
+  end if;
 end $$;
