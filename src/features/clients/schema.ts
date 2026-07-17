@@ -20,6 +20,8 @@ export const clientSchema = z.object({
   legalName: optionalText,
   taxActivity: optionalText,
   taxAddress: optionalText,
+  comuna: optionalText,
+  region: optionalText,
   billingEmail: z.union([
     z.literal(""),
     z.string().trim().email("Email inválido"),

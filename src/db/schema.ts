@@ -24,6 +24,7 @@ import {
   MEETING_STATUSES,
   NOTE_SOURCES,
   CFO_REQUEST_STATUSES,
+  CONTACT_PROFILES,
   PROPOSAL_STATUSES,
   SERVICE_STATUSES,
   COMPLEXITY_LEVELS,
@@ -70,6 +71,7 @@ export const cfoRequestStatusEnum = pgEnum(
   "cfo_request_status",
   CFO_REQUEST_STATUSES,
 );
+export const contactProfileEnum = pgEnum("contact_profile", CONTACT_PROFILES);
 export const proposalStatusEnum = pgEnum("proposal_status", PROPOSAL_STATUSES);
 export const serviceStatusEnum = pgEnum("service_status", SERVICE_STATUSES);
 export const complexityLevelEnum = pgEnum(
@@ -155,6 +157,9 @@ export const clients = pgTable("clients", {
   legalName: text("legal_name"), // razón social
   taxActivity: text("tax_activity"), // giro
   taxAddress: text("tax_address"),
+  // Ubicación. `region` es text (no enum) — ver CHILE_REGIONS en types/enums.
+  comuna: text("comuna"),
+  region: text("region"),
   billingEmail: text("billing_email"),
   billingNotes: text("billing_notes"),
   financialStatus:
@@ -556,8 +561,11 @@ export const clientContacts = pgTable(
       .references(() => clients.id, { onDelete: "cascade" }),
     name: text("name"),
     email: text("email").notNull(),
-    role: text("role"),
+    role: text("role"), // cargo
     isPrimary: boolean("is_primary").default(false).notNull(),
+    // Perfiles complementarios: un contacto puede ser varios a la vez
+    // (administrativo / comercial / facturacion). Definen qué se le envía.
+    profiles: contactProfileEnum("profiles").array().default([]).notNull(),
     ...timestamps,
   },
   (t) => [index("client_contacts_client_idx").on(t.clientId)],

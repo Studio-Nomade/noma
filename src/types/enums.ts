@@ -36,6 +36,52 @@ export const CURRENCIES = ["CLP", "USD", "UF"] as const;
 export type Currency = (typeof CURRENCIES)[number];
 export const DEFAULT_CURRENCY: Currency = "UF";
 
+// ── Ubicación (Chile) ────────────────────────────────────────
+// `region` se guarda como TEXT (no enum) a propósito: el dato llega desde
+// fuentes externas (Chipax/SII) con formatos variados ("XIII Metropolitana de
+// Santiago", "Sin Información"…). Un enum haría fallar la importación; esta
+// lista canónica alimenta el desplegable y el normalizador.
+export const CHILE_REGIONS = [
+  "Arica y Parinacota",
+  "Tarapacá",
+  "Antofagasta",
+  "Atacama",
+  "Coquimbo",
+  "Valparaíso",
+  "Metropolitana de Santiago",
+  "O'Higgins",
+  "Maule",
+  "Ñuble",
+  "Biobío",
+  "La Araucanía",
+  "Los Ríos",
+  "Los Lagos",
+  "Aysén",
+  "Magallanes",
+] as const;
+export type ChileRegion = (typeof CHILE_REGIONS)[number];
+
+// ── Perfiles de contacto (complementarios: un contacto puede tener varios) ──
+export const CONTACT_PROFILES = [
+  "administrativo",
+  "comercial",
+  "facturacion",
+] as const;
+export type ContactProfile = (typeof CONTACT_PROFILES)[number];
+
+export const CONTACT_PROFILE_LABELS: Record<ContactProfile, string> = {
+  administrativo: "Administrativo",
+  comercial: "Comercial",
+  facturacion: "Facturación y cobranza",
+};
+
+/** Qué recibe cada perfil (guía para el usuario al asignarlos). */
+export const CONTACT_PROFILE_HINTS: Record<ContactProfile, string> = {
+  administrativo: "Cotizaciones y estados de proyecto",
+  comercial: "Cotizaciones",
+  facturacion: "Facturas y estados de pago",
+};
+
 // ── Cliente ──────────────────────────────────────────────────
 export const CLIENT_STATUSES = [
   "Prospecto",
