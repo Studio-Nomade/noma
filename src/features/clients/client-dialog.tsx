@@ -24,7 +24,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/shared/field";
-import { CLIENT_STATUSES, FINANCIAL_STATUSES } from "@/types/enums";
+import {
+  CLIENT_STATUSES,
+  FINANCIAL_STATUSES,
+  CHILE_REGIONS,
+} from "@/types/enums";
 import type { Client } from "@/db/schema";
 import { clientSchema, type ClientFormValues } from "./schema";
 import { createClient, updateClient } from "./actions";
@@ -46,6 +50,8 @@ function toDefaults(client?: Client | null): ClientFormValues {
     legalName: client?.legalName ?? "",
     taxActivity: client?.taxActivity ?? "",
     taxAddress: client?.taxAddress ?? "",
+    comuna: client?.comuna ?? "",
+    region: client?.region ?? "",
     billingEmail: client?.billingEmail ?? "",
     financialStatus: client?.financialStatus ?? "Sin información",
     billingNotes: client?.billingNotes ?? "",
@@ -206,6 +212,32 @@ export function ClientDialog({
                 error={errors.taxAddress?.message}
               >
                 <Input {...register("taxAddress")} />
+              </Field>
+              <Field label="Comuna" error={errors.comuna?.message}>
+                <Input placeholder="Providencia" {...register("comuna")} />
+              </Field>
+              <Field label="Región" error={errors.region?.message}>
+                <Controller
+                  control={control}
+                  name="region"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={(v) => field.onChange(v ?? "")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CHILE_REGIONS.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {r}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </Field>
               <Field
                 label="Estado financiero"
