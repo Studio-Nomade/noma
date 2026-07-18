@@ -107,7 +107,8 @@ export default async function ProposalDetailPage({
             {proposal.title}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            {clientName ?? "—"} · {projectName} · {AREA_LABELS[projectArea]} · v
+            {clientName ?? "—"} · {projectName} ·{" "}
+            {areas.map((area) => AREA_LABELS[area]).join(" + ")} · v
             {proposal.version}
           </p>
         </div>

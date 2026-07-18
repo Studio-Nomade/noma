@@ -24,13 +24,22 @@ export function StagesEditor({
   );
   const [saving, setSaving] = useState(false);
 
-  function update(i: number, patch: Partial<Stage>) {
+  function update(i: number, patch: Record<string, string>) {
     setStages((prev) =>
-      prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+      prev.map((s, idx) => (idx === i ? ({ ...s, ...patch } as Stage) : s)),
     );
   }
   function add() {
-    setStages((prev) => [...prev, { name: "", start: "", end: "" }]);
+    setStages((prev) => [
+      ...prev,
+      { kind: "stage", name: "", start: "", end: "" },
+    ]);
+  }
+  function addMilestone() {
+    setStages((prev) => [
+      ...prev,
+      { kind: "milestone", date: "", title: "", description: "" },
+    ]);
   }
   function remove(i: number) {
     setStages((prev) => prev.filter((_, idx) => idx !== i));
@@ -62,29 +71,53 @@ export function StagesEditor({
 
       <ul className="space-y-2">
         {stages.map((s, i) => (
-          <li key={i} className="flex flex-wrap items-center gap-2">
-            <Input
-              placeholder="Etapa"
-              value={s.name}
-              onChange={(e) => update(i, { name: e.target.value })}
-              className="min-w-40 flex-1"
-            />
-            <Input
-              type="date"
-              value={s.start}
-              onChange={(e) => update(i, { start: e.target.value })}
-              className="w-40"
-            />
-            <Input
-              type="date"
-              value={s.end}
-              onChange={(e) => update(i, { end: e.target.value })}
-              className="w-40"
-            />
+          <li
+            key={i}
+            className={`border-border grid gap-2 rounded-lg border p-3 ${s.kind === "milestone" ? "sm:grid-cols-[.8fr_1.2fr_1fr_auto]" : "sm:grid-cols-[1fr_1.4fr_auto]"}`}
+          >
+            {s.kind === "milestone" ? (
+              <>
+                <Input
+                  placeholder="Título del hito"
+                  value={s.title ?? ""}
+                  onChange={(e) => update(i, { title: e.target.value })}
+                />
+                <Input
+                  placeholder="Descripción breve del hito"
+                  value={s.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                />
+                <Input
+                  type="date"
+                  value={s.date}
+                  onChange={(e) => update(i, { date: e.target.value })}
+                />
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="Etapa"
+                  value={s.name}
+                  onChange={(e) => update(i, { name: e.target.value })}
+                />
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={s.start}
+                    onChange={(e) => update(i, { start: e.target.value })}
+                  />
+                  <Input
+                    type="date"
+                    value={s.end}
+                    onChange={(e) => update(i, { end: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
             <button
               type="button"
               onClick={() => remove(i)}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive self-center justify-self-end"
               aria-label="Quitar etapa"
             >
               <Trash2 className="size-4" />
@@ -93,10 +126,16 @@ export function StagesEditor({
         ))}
       </ul>
 
-      <Button size="sm" variant="outline" onClick={add}>
-        <Plus className="size-4" />
-        Agregar etapa
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={add}>
+          <Plus className="size-4" />
+          Agregar etapa
+        </Button>
+        <Button size="sm" variant="outline" onClick={addMilestone}>
+          <Plus className="size-4" />
+          Agregar hito
+        </Button>
+      </div>
 
       {/* Mini Gantt en vivo */}
       {gantt && (
@@ -114,6 +153,21 @@ export function StagesEditor({
                   }}
                 />
               </div>
+            </div>
+          ))}
+          {gantt.milestones.map((milestone) => (
+            <div
+              key={`${milestone.date}-${milestone.description}`}
+              className="text-muted-foreground flex items-center gap-2 text-xs"
+            >
+              <span
+                className="size-2 rounded-full"
+                style={{ background: accent }}
+              />
+              <span>{milestone.date}</span>
+              <span>·</span>
+              <span className="font-medium">{milestone.title}</span>
+              {milestone.description && <span>— {milestone.description}</span>}
             </div>
           ))}
         </div>

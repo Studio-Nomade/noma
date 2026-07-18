@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Plus, X, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/currency/format";
 import { AREA_LABELS, type Area, type Currency } from "@/types/enums";
 import type { Service } from "@/db/schema";
@@ -34,10 +35,13 @@ export function ServiceSelector({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const catalogAreas = [...new Set(catalog.map((service) => service.area))];
+  const [activeArea, setActiveArea] = useState<Area>(catalogAreas[0] ?? "B&D");
 
   const selectedIds = new Set(selected.map((s) => s.serviceId));
   const filtered = catalog.filter((s) => {
     if (selectedIds.has(s.id)) return false;
+    if (s.area !== activeArea) return false;
     const q = query.toLowerCase().trim();
     if (!q) return true;
     return [s.name, s.subarea]
@@ -134,14 +138,24 @@ export function ServiceSelector({
             className="pl-9"
           />
         </div>
-        <div className="max-h-96 space-y-3 overflow-y-auto">
+        {catalogAreas.length > 1 && (
+          <Tabs
+            value={activeArea}
+            onValueChange={(value) => setActiveArea(value as Area)}
+            className="mb-3"
+          >
+            <TabsList className="h-auto w-full flex-wrap justify-start">
+              {catalogAreas.map((area) => (
+                <TabsTrigger key={area} value={area} className="flex-none">
+                  {area} · {AREA_LABELS[area]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+        <div className="max-h-80 space-y-3 overflow-y-auto">
           {groupByArea(filtered).map(([area, items]) => (
             <div key={area}>
-              {multiArea && (
-                <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
-                  {area} · {AREA_LABELS[area]}
-                </p>
-              )}
               <ul className="divide-border divide-y">
                 {items.map((s) => (
                   <li

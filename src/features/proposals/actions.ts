@@ -324,13 +324,48 @@ export async function updateProposalTeamRole(
 /** Guarda las etapas del cronograma (para la carta Gantt). */
 export async function updateProposalStages(
   id: string,
-  stages: { name: string; start: string; end: string }[],
+  stages: (
+    | {
+        kind?: "stage";
+        name: string;
+        start: string;
+        end: string;
+      }
+    | { kind: "milestone"; date: string; title?: string; description: string }
+  )[],
 ): Promise<ActionResult> {
   try {
     await requireUser();
-    const clean = stages
-      .filter((s) => s.name.trim() && s.start && s.end)
-      .map((s) => ({ name: s.name.trim(), start: s.start, end: s.end }));
+    const clean: (
+      | {
+          kind: "stage";
+          name: string;
+          start: string;
+          end: string;
+        }
+      | { kind: "milestone"; date: string; title?: string; description: string }
+    )[] = [];
+    for (const item of stages) {
+      if (item.kind === "milestone") {
+        if (item.date && (item.title?.trim() || item.description.trim())) {
+          clean.push({
+            kind: "milestone",
+            date: item.date,
+            title: item.title?.trim() || "Hito",
+            description: item.description.trim(),
+          });
+        }
+        continue;
+      }
+      if (item.name.trim() && item.start && item.end) {
+        clean.push({
+          kind: "stage",
+          name: item.name.trim(),
+          start: item.start,
+          end: item.end,
+        });
+      }
+    }
     await db
       .update(proposals)
       .set({ timelineStages: clean, updatedAt: new Date() })
