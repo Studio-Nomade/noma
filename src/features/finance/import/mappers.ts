@@ -11,20 +11,60 @@ import type {
   RejectedRow,
 } from "./types";
 
-/** Toma el valor de una columna según el mapeo, tolerando espacios/mayúsculas. */
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Nombres de columna alternativos por campo. Nubox exporta con encabezados
+ * distintos según el reporte ("Registro de Ventas" → "Fecha Docto", "Tipo Doc";
+ * "Todos los documentos" → "Fecha", "Documento"). Los alias permiten importar
+ * ambos sin que el usuario re-mapee.
+ */
+const FIELD_ALIASES: Record<string, string[]> = {
+  tipoDoc: ["tipo doc", "documento", "tipo documento", "tipo dte"],
+  folio: ["folio", "nro", "numero", "n documento"],
+  rutContacto: ["rut cliente", "rut proveedor", "rut", "rut receptor"],
+  nombreContacto: ["razon social", "cliente", "proveedor", "nombre"],
+  fechaEmision: ["fecha docto", "fecha", "fecha emision", "fecha documento"],
+  fechaVencimiento: ["fecha vencimiento", "vencimiento"],
+  exento: ["monto exento"],
+  neto: ["monto neto", "neto"],
+  iva: ["monto iva", "monto iva recuperable", "iva"],
+  total: ["monto total", "total"],
+};
+
+/**
+ * Toma el valor de una columna: primero el mapeo explícito (case/acento
+ * insensible) y, si esa columna no está en el archivo, prueba los alias del
+ * campo. Así funcionan los distintos formatos de export de Nubox.
+ */
 function pick(
   row: Record<string, string>,
   mapping: ColumnMapping,
   field: string,
 ): string {
+  const keys = Object.keys(row);
+  const findBy = (target: string) => {
+    const t = norm(target);
+    const k = keys.find((x) => norm(x) === t);
+    return k ? row[k] : undefined;
+  };
+
   const col = mapping[field];
-  if (!col) return "";
-  if (row[col] !== undefined) return row[col];
-  // fallback case-insensitive
-  const key = Object.keys(row).find(
-    (k) => k.toLowerCase() === col.toLowerCase(),
-  );
-  return key ? row[key] : "";
+  if (col) {
+    const v = findBy(col);
+    if (v !== undefined && v !== "") return v;
+  }
+  for (const alias of FIELD_ALIASES[field] ?? []) {
+    const v = findBy(alias);
+    if (v !== undefined && v !== "") return v;
+  }
+  return "";
 }
 
 function detectDocType(
@@ -32,10 +72,13 @@ function detectDocType(
   direction: DocumentDirection,
 ): FinDocumentType {
   const t = tipoDoc.toLowerCase();
-  if (/61|nota.*cr|cr[eé]dito/.test(t)) return "NOTA_CREDITO";
-  if (/56|nota.*d[eé]|d[eé]bito/.test(t)) return "NOTA_DEBITO";
-  if (/\b39\b|\b41\b|boleta/.test(t)) return "BOLETA";
+  // Reconoce los códigos cortos de Nubox (N/C-EL, BOL-VO…) además del texto
+  // largo y los códigos SII. Sin esto, la exportación de Nubox clasifica las
+  // notas de crédito y boletas como facturas.
+  if (/\bn\/?c\b|61|nota.*cr|cr[eé]dito/.test(t)) return "NOTA_CREDITO";
+  if (/\bn\/?d\b|56|nota.*d[eé]|d[eé]bito/.test(t)) return "NOTA_DEBITO";
   if (/honorario|48/.test(t)) return "BOLETA_HONORARIOS";
+  if (/\bbol\b|\b39\b|\b41\b|boleta/.test(t)) return "BOLETA";
   return direction === "VENTA" ? "FACTURA_VENTA" : "FACTURA_COMPRA";
 }
 
@@ -51,13 +94,11 @@ export function mapDocuments(
 
   rows.forEach((row, i) => {
     const rowIndex = i + 2; // fila 1 = encabezados
-    const folio = pick(row, mapping, "folio").trim();
+    let folio = pick(row, mapping, "folio").trim();
     const fechaEmision = parseFlexibleDate(pick(row, mapping, "fechaEmision"));
+    const tipoDoc = pick(row, mapping, "tipoDoc").trim();
+    const type = detectDocType(tipoDoc, direction);
 
-    if (!folio) {
-      rejected.push({ rowIndex, reason: "Sin folio" });
-      return;
-    }
     if (!fechaEmision) {
       rejected.push({
         rowIndex,
@@ -65,9 +106,17 @@ export function mapDocuments(
       });
       return;
     }
+    // Los resúmenes de boletas de Nubox (Integración SII) vienen sin folio:
+    // se genera uno sintético por fecha para no perder el ingreso en reportes.
+    if (!folio) {
+      if (type === "BOLETA") {
+        folio = `BOL-${fechaEmision.toISOString().slice(0, 10)}`;
+      } else {
+        rejected.push({ rowIndex, reason: "Sin folio" });
+        return;
+      }
+    }
 
-    const tipoDoc = pick(row, mapping, "tipoDoc").trim();
-    const type = detectDocType(tipoDoc, direction);
     const rut = normalizeRut(pick(row, mapping, "rutContacto"));
     const nombre = pick(row, mapping, "nombreContacto").trim() || "Sin nombre";
 

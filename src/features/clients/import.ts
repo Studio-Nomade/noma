@@ -141,23 +141,9 @@ export function normalizeRegion(raw?: string | null): string | null {
   return null;
 }
 
-/** RUT normalizado (sin puntos ni espacios, K mayúscula) para comparar. */
-export function normalizeRut(raw?: string | null): string | null {
-  const s = cleanCell(raw).replace(/[.\s]/g, "").toUpperCase();
-  return s || null;
-}
-
-/**
- * RUTs comodín que usa la contabilidad para agrupar (extranjeros, boletas
- * genéricas). Se repiten entre clientes distintos, así que NO sirven como
- * clave de deduplicación.
- */
-const PLACEHOLDER_RUTS = new Set(["55555555-5", "66666666-6", "11111111-1"]);
-
-export function isRealRut(rut?: string | null): boolean {
-  const n = normalizeRut(rut);
-  return !!n && !PLACEHOLDER_RUTS.has(n);
-}
+// El RUT se normaliza en `lib/text/rut`: es la clave con la que Finanzas cruza
+// sus documentos tributarios contra la ficha comercial, así que vive compartido.
+export { normalizeRut, isRealRut } from "@/lib/text/rut";
 
 /** Fila cruda → campos del cliente, ya normalizados. */
 export function normalizeRow(

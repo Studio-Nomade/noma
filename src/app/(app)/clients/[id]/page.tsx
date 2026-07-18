@@ -8,9 +8,12 @@ import {
   getClientProjects,
   getClientContacts,
 } from "@/features/clients/queries";
+import { getClientAccount } from "@/features/clients/invoices-queries";
 import { ClientDialog } from "@/features/clients/client-dialog";
 import { CloseClientButton } from "@/features/clients/close-client-button";
 import { ContactsManager } from "@/features/clients/contacts-manager";
+import { ClientAccountCard } from "@/features/clients/client-account";
+import { PortalLinkCard } from "@/features/clients/portal-link-card";
 import { AREA_LABELS } from "@/types/enums";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -33,9 +36,10 @@ export default async function ClientDetailPage({
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [projects, contacts] = await Promise.all([
+  const [projects, contacts, account] = await Promise.all([
     getClientProjects(id),
     getClientContacts(id),
+    getClientAccount(id),
   ]);
 
   return (
@@ -169,13 +173,21 @@ export default async function ClientDetailPage({
               </p>
             </div>
           )}
-          <div className="border-border bg-accent/40 mt-5 rounded-lg border p-4 text-sm">
-            <strong>Estado de cuenta (Chipax) — próximamente.</strong>{" "}
-            <span className="text-muted-foreground">
-              Aquí se mostrará la facturación histórica, total pendiente, días
-              promedio de pago y la tabla de facturas (folio, emisión,
-              vencimiento, saldo, PDF/XML) cuando se integre Chipax.
-            </span>
+          <div className="border-border mt-6 border-t pt-5">
+            <h2 className="font-heading mb-4 text-sm font-medium">
+              Estado de cuenta
+            </h2>
+            <ClientAccountCard account={account} />
+          </div>
+
+          <div className="border-border mt-6 border-t pt-5">
+            <PortalLinkCard
+              clientId={client.id}
+              token={client.portalToken}
+              generatedAt={
+                client.portalTokenAt ? client.portalTokenAt.toISOString() : null
+              }
+            />
           </div>
         </div>
       </div>

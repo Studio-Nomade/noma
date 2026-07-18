@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { DocumentDirection } from "@/types/enums";
 import { getDocuments } from "./queries";
 import { markDocumentPaid, anularDocument } from "./documents-actions";
+import { DocumentFilesCell } from "./document-files-cell";
 import { formatDate, toNum } from "./helpers";
 
 const ESTADOS = ["TODOS", "EMITIDA", "PARCIAL", "VENCIDA", "PAGADA", "CONCILIADA", "ANULADA"];
@@ -72,6 +73,7 @@ export async function DocumentsView({
                 <th className="px-4 py-3 text-right">Neto</th>
                 <th className="px-4 py-3 text-right">Total</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3 text-right">Archivos</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
@@ -107,6 +109,13 @@ export async function DocumentsView({
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge value={d.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <DocumentFilesCell
+                        documentId={d.id}
+                        hasPdf={!!d.pdfPath}
+                        hasXml={!!d.xmlPath}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       {openable && (

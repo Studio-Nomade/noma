@@ -165,6 +165,12 @@ export const clients = pgTable("clients", {
   financialStatus:
     financialStatusEnum("financial_status").default("Sin información"),
   chipaxId: text("chipax_id"), // ID externo en Chipax
+  // ── Portal del cliente ──
+  // El token ES la credencial: el cliente no tiene cuenta, así que quien tenga
+  // el enlace entra. Por eso se genera con randomBytes (nunca secuencial ni
+  // derivado del id), es único y se puede revocar poniéndolo en null.
+  portalToken: text("portal_token").unique(),
+  portalTokenAt: timestamp("portal_token_at", { withTimezone: true }),
   ...timestamps,
 });
 
@@ -187,6 +193,9 @@ export const teamMembers = pgTable("team_members", {
     .default([]),
   repos: jsonb("repos").$type<string[]>().default([]),
   notes: text("notes"),
+  phone: text("phone"), // para la firma de correo
+  // Firma de correo (HTML generado por el constructor de perfil).
+  emailSignature: text("email_signature"),
   ...timestamps,
 });
 
@@ -982,11 +991,24 @@ export const finDocuments = pgTable(
         onDelete: "set null",
       },
     ),
+    businessLineId: uuid("business_line_id").references(() => businessLines.id, {
+      onDelete: "set null",
+    }),
+    // Vínculo opcional con el catálogo comercial (cruza finanzas ↔ servicios).
+    // Se sugiere al extraer el detalle del XML; editable a mano.
+    serviceId: uuid("service_id").references(() => services.id, {
+      onDelete: "set null",
+    }),
     importBatchId: uuid("import_batch_id").references(() => importBatches.id, {
       onDelete: "set null",
     }),
     sourceFile: text("source_file"),
     observacion: text("observacion"),
+    // Archivos originales del SII (PDF/XML) en el bucket privado `invoices`.
+    // Se guarda el PATH dentro del bucket (no la URL): la descarga usa un enlace
+    // firmado de corta duración generado al momento.
+    pdfPath: text("pdf_path"),
+    xmlPath: text("xml_path"),
     ...timestamps,
   },
   (t) => [

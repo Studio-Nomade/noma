@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { db } from "@/db";
 import { userIntegrations } from "@/db/schema";
+import { syncTeamMemberFromGoogle } from "@/features/team/profile";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -41,6 +42,16 @@ export async function GET(request: NextRequest) {
         target: userIntegrations.userId,
         set: { email, googleRefreshToken: refreshToken, updatedAt: new Date() },
       });
+  }
+
+  // Vincula/crea el perfil de equipo con los datos de Google (nombre, foto).
+  // No debe romper el login si algo falla: la sesión ya es válida.
+  if (data.user) {
+    try {
+      await syncTeamMemberFromGoogle(data.user);
+    } catch (err) {
+      console.error("[auth:callback] syncTeamMember", err);
+    }
   }
 
   return NextResponse.redirect(`${origin}${redirectTo}`);
