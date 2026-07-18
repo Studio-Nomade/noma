@@ -21,14 +21,27 @@ function getDb(): PostgresJsDatabase<typeof schema> {
     );
   }
 
+  // En Vercel cada instancia puede crear su propio cliente. El valor por defecto
+  // de postgres-js (10 conexiones por cliente) agota rápidamente el pooler de
+  // Supabase durante cargas masivas o ráfagas de Server Actions.
+  const isProductionBuild =
+    process.env.NEXT_PHASE === "phase-production-build";
   const sql =
-    globalForDb.__noma_sql ?? postgres(connectionString, { prepare: false });
+    globalForDb.__noma_sql ??
+    postgres(connectionString, {
+      prepare: false,
+      // La generación estática ejecuta varias páginas en paralelo dentro de un
+      // único proceso; el runtime serverless, en cambio, debe usar una conexión.
+      max: isProductionBuild ? 10 : 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
   const instance = drizzle(sql, { schema });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForDb.__noma_sql = sql;
-    globalForDb.__noma_db = instance;
-  }
+  // El global sobrevive entre invocaciones cálidas y evita abrir otro pool por
+  // cada render o Server Action dentro de la misma instancia serverless.
+  globalForDb.__noma_sql = sql;
+  globalForDb.__noma_db = instance;
   return instance;
 }
 
