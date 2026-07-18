@@ -20,6 +20,8 @@ import type {
   FinDocumentStatus,
   ContactType,
 } from "@/types/enums";
+import { getClientRutIndex } from "@/features/clients/queries";
+import { normalizeRut, isRealRut } from "@/lib/text/rut";
 import { parseFile } from "./import/parse";
 import { mapDocuments, mapTransactions } from "./import/mappers";
 import { loadActiveRules, classify } from "./import/classify";
@@ -304,17 +306,30 @@ export async function confirmImport(formData: FormData): Promise<void> {
     const rules = await loadActiveRules();
     const today = new Date();
 
-    // Resuelve/crea contactos (upsert por rut+tipo)
+    // Resuelve/crea contactos (upsert por rut+tipo). El RUT los cruza con la
+    // ficha comercial: sin ese vínculo, la ficha del cliente no puede mostrar
+    // sus facturas. Se resuelve con un índice para no consultar por documento.
+    const clientByRut = await getClientRutIndex();
     const contactMap = new Map<string, string>();
     for (const d of docs) {
       const rut = d.rut || "SIN-RUT";
       if (contactMap.has(rut)) continue;
+      const clientId = isRealRut(rut)
+        ? (clientByRut.get(normalizeRut(rut)!) ?? null)
+        : null;
       const [contact] = await db
         .insert(finContacts)
-        .values({ rut, name: d.nombre, type: contactType, status: "ACTIVO" })
+        .values({
+          rut,
+          name: d.nombre,
+          type: contactType,
+          status: "ACTIVO",
+          clientId,
+        })
         .onConflictDoUpdate({
           target: [finContacts.rut, finContacts.type],
-          set: { name: d.nombre },
+          // Solo re-vincula si hay match: no pisa un vínculo corregido a mano.
+          set: { name: d.nombre, ...(clientId ? { clientId } : {}) },
         })
         .returning({ id: finContacts.id });
       contactMap.set(rut, contact.id);

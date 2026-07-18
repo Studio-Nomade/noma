@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import {
   Sheet,
@@ -8,16 +9,21 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { AvatarCircle } from "@/components/shared/avatar-circle";
 import { Brand } from "./brand";
 import { SidebarNav } from "./sidebar-nav";
 import { SignOutButton } from "./sign-out-button";
 
 function SidebarContent({
   email,
+  name,
+  photoUrl,
   isFinance,
   onNavigate,
 }: {
   email?: string;
+  name?: string | null;
+  photoUrl?: string | null;
   isFinance?: boolean;
   onNavigate?: () => void;
 }) {
@@ -29,11 +35,29 @@ function SidebarContent({
       <div className="flex-1 overflow-y-auto px-3">
         <SidebarNav onNavigate={onNavigate} isFinance={isFinance} />
       </div>
-      <div className="border-border space-y-1 border-t px-5 py-4">
-        {email && (
-          <p className="text-muted-foreground truncate text-[11px]">{email}</p>
-        )}
-        <SignOutButton />
+      <div className="border-border space-y-2 border-t px-3 py-4">
+        <Link
+          href="/profile"
+          onClick={onNavigate}
+          className="hover:bg-accent flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors"
+        >
+          <AvatarCircle
+            name={name || email || "?"}
+            photoUrl={photoUrl}
+            className="size-8 shrink-0 text-xs"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium">{name || "Mi perfil"}</p>
+            {email && (
+              <p className="text-muted-foreground truncate text-[11px]">
+                {email}
+              </p>
+            )}
+          </div>
+        </Link>
+        <div className="px-2">
+          <SignOutButton />
+        </div>
       </div>
     </div>
   );
@@ -41,10 +65,14 @@ function SidebarContent({
 
 export function AppShell({
   email,
+  name,
+  photoUrl,
   isFinance,
   children,
 }: {
   email?: string;
+  name?: string | null;
+  photoUrl?: string | null;
   isFinance?: boolean;
   children: React.ReactNode;
 }) {
@@ -54,7 +82,12 @@ export function AppShell({
     <div className="flex min-h-screen">
       {/* Sidebar desktop */}
       <aside className="bg-card border-border fixed inset-y-0 left-0 hidden w-56 border-r lg:block">
-        <SidebarContent email={email} isFinance={isFinance} />
+        <SidebarContent
+          email={email}
+          name={name}
+          photoUrl={photoUrl}
+          isFinance={isFinance}
+        />
       </aside>
 
       {/* Topbar móvil */}
@@ -71,6 +104,8 @@ export function AppShell({
             <SheetTitle className="sr-only">Navegación</SheetTitle>
             <SidebarContent
               email={email}
+              name={name}
+              photoUrl={photoUrl}
               isFinance={isFinance}
               onNavigate={() => setOpen(false)}
             />

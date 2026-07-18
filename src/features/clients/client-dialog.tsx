@@ -225,7 +225,9 @@ export function ClientDialog({
                       value={field.value || ""}
                       onValueChange={(v) => field.onChange(v ?? "")}
                     >
-                      <SelectTrigger>
+                      {/* w-full: sin esto el trigger se encoge al texto de la
+                          región y no calza con los campos de al lado. */}
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecciona…" />
                       </SelectTrigger>
                       <SelectContent>
