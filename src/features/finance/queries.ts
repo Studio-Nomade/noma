@@ -241,6 +241,8 @@ export async function getDocuments(
       contactName: finContacts.name,
       contactRut: finContacts.rut,
       ledgerName: ledgerAccounts.name,
+      pdfPath: finDocuments.pdfPath,
+      xmlPath: finDocuments.xmlPath,
     })
     .from(finDocuments)
     .leftJoin(finContacts, eq(finDocuments.contactId, finContacts.id))

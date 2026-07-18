@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { requireUser } from "@/lib/auth";
 import { roleFor } from "@/lib/roles";
+import { getCurrentTeamMember } from "@/features/team/profile";
 
 export default async function AppLayout({
   children,
@@ -9,8 +10,14 @@ export default async function AppLayout({
 }) {
   const user = await requireUser();
   const isFinance = roleFor(user.email).isFinance;
+  const member = await getCurrentTeamMember(user);
   return (
-    <AppShell email={user.email} isFinance={isFinance}>
+    <AppShell
+      email={user.email}
+      isFinance={isFinance}
+      name={member?.name ?? null}
+      photoUrl={member?.photoUrl ?? null}
+    >
       {children}
     </AppShell>
   );

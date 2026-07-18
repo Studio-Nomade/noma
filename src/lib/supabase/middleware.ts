@@ -2,8 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { devAuthEmail } from "@/lib/dev-auth";
 
-/** Rutas accesibles sin sesión. */
-const PUBLIC_PATHS = ["/login", "/auth"];
+/**
+ * Rutas accesibles sin sesión.
+ *
+ * `/portal` es el portal del cliente: son personas ajenas al estudio, sin
+ * cuenta Google, y su credencial es el token del enlace (lo valida la propia
+ * página). Debe quedar fuera del control de dominio o nunca podrían entrar.
+ */
+const PUBLIC_PATHS = ["/login", "/auth", "/portal"];
 
 /**
  * ¿El correo pertenece al dominio permitido del estudio?
