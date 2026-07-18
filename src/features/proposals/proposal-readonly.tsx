@@ -5,6 +5,7 @@ import type { Proposal } from "@/db/schema";
 import type { ProposalServiceRow, ProposalTeamRow } from "./queries";
 import type { ProposalTotals } from "./totals";
 import { computeGantt } from "./gantt";
+import { parseStructuredContent } from "./structured-content";
 
 /** Vista de solo lectura de la propuesta (cuando está Aprobada). */
 export function ProposalReadonly({
@@ -23,14 +24,21 @@ export function ProposalReadonly({
   const areas = [...new Set(services.map((s) => s.area))] as Area[];
   const multiArea = areas.length > 1;
   const gantt = computeGantt(proposal.timelineStages);
+  const workStages = parseStructuredContent(proposal.workStages, "stages");
+  const deliverables = parseStructuredContent(
+    proposal.deliverables,
+    "deliverables",
+  );
   const sectionDefs: [string, string | null][] = [
     ["Contexto", proposal.context],
     ["Objetivo general", proposal.mainObjective],
     ["Alcance", proposal.scope],
-    ["Etapas de trabajo", proposal.workStages],
-    ["Entregables", proposal.deliverables],
     ["Exclusiones", proposal.exclusions],
     ["Condiciones comerciales", proposal.commercialConditions],
+  ];
+  const structuredSections = [
+    { label: "Etapas de trabajo", items: workStages },
+    { label: "Entregables", items: deliverables },
   ];
 
   return (
@@ -135,6 +143,27 @@ export function ProposalReadonly({
               <p className="mt-0.5 text-sm whitespace-pre-wrap">{v}</p>
             </div>
           ))}
+        {structuredSections.map(({ label, items }) =>
+          items.length > 0 ? (
+            <div key={label}>
+              <p className="text-muted-foreground text-xs tracking-wide uppercase">
+                {label}
+              </p>
+              <ul className="mt-2 space-y-2">
+                {items.map((item, index) => (
+                  <li key={`${item.title}-${index}`} className="text-sm">
+                    <strong>{item.title}</strong>
+                    {item.description && (
+                      <p className="text-muted-foreground">
+                        {item.description}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null,
+        )}
       </div>
     </div>
   );

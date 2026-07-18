@@ -458,8 +458,18 @@ export const proposals = pgTable("proposals", {
   timelineStages: jsonb("timeline_stages")
     .$type<
       (
-        | { kind?: "stage"; name: string; start: string; end: string }
-        | { kind: "milestone"; date: string; description: string }
+        | {
+            kind?: "stage";
+            name: string;
+            start: string;
+            end: string;
+          }
+        | {
+            kind: "milestone";
+            date: string;
+            title?: string;
+            description: string;
+          }
       )[]
     >()
     .default([]),

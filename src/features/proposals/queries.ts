@@ -139,9 +139,21 @@ export type ProposalTeamRow = Awaited<
   ReturnType<typeof getProposalTeam>
 >[number];
 
+const PROPOSAL_TEAM_ORDER = [
+  "Anna Sanhueza",
+  "Sebastián Robles",
+  "Javiera Díaz",
+  "Catalina Torres",
+  "Luis Salamanca",
+  "Carlos Leay",
+  "Maximilian Viveros",
+  "Hector Briceño",
+  "Adrián Silva",
+] as const;
+
 /** Integrantes activos del equipo (para el selector de equipo). */
 export async function listTeamForSelect() {
-  return db
+  const rows = await db
     .select({
       id: teamMembers.id,
       name: teamMembers.name,
@@ -149,8 +161,21 @@ export async function listTeamForSelect() {
       photoUrl: teamMembers.photoUrl,
     })
     .from(teamMembers)
-    .where(eq(teamMembers.status, "Activo"))
-    .orderBy(asc(teamMembers.name));
+    .where(
+      and(
+        eq(teamMembers.status, "Activo"),
+        inArray(teamMembers.name, [...PROPOSAL_TEAM_ORDER]),
+      ),
+    );
+  return rows.sort(
+    (a, b) =>
+      PROPOSAL_TEAM_ORDER.indexOf(
+        a.name as (typeof PROPOSAL_TEAM_ORDER)[number],
+      ) -
+      PROPOSAL_TEAM_ORDER.indexOf(
+        b.name as (typeof PROPOSAL_TEAM_ORDER)[number],
+      ),
+  );
 }
 
 export type TeamSelectRow = Awaited<

@@ -38,7 +38,7 @@ export function StagesEditor({
   function addMilestone() {
     setStages((prev) => [
       ...prev,
-      { kind: "milestone", date: "", description: "" },
+      { kind: "milestone", date: "", title: "", description: "" },
     ]);
   }
   function remove(i: number) {
@@ -71,23 +71,26 @@ export function StagesEditor({
 
       <ul className="space-y-2">
         {stages.map((s, i) => (
-          <li key={i} className="flex flex-wrap items-center gap-2">
+          <li
+            key={i}
+            className={`border-border grid gap-2 rounded-lg border p-3 ${s.kind === "milestone" ? "sm:grid-cols-[.8fr_1.2fr_1fr_auto]" : "sm:grid-cols-[1fr_1.4fr_auto]"}`}
+          >
             {s.kind === "milestone" ? (
               <>
-                <span className="text-muted-foreground w-20 text-xs font-medium uppercase">
-                  Hito
-                </span>
+                <Input
+                  placeholder="Título del hito"
+                  value={s.title ?? ""}
+                  onChange={(e) => update(i, { title: e.target.value })}
+                />
+                <Input
+                  placeholder="Descripción breve del hito"
+                  value={s.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                />
                 <Input
                   type="date"
                   value={s.date}
                   onChange={(e) => update(i, { date: e.target.value })}
-                  className="w-40"
-                />
-                <Input
-                  placeholder="Ej: Reunión de presentación con directorio"
-                  value={s.description}
-                  onChange={(e) => update(i, { description: e.target.value })}
-                  className="min-w-64 flex-1"
                 />
               </>
             ) : (
@@ -96,26 +99,25 @@ export function StagesEditor({
                   placeholder="Etapa"
                   value={s.name}
                   onChange={(e) => update(i, { name: e.target.value })}
-                  className="min-w-40 flex-1"
                 />
-                <Input
-                  type="date"
-                  value={s.start}
-                  onChange={(e) => update(i, { start: e.target.value })}
-                  className="w-40"
-                />
-                <Input
-                  type="date"
-                  value={s.end}
-                  onChange={(e) => update(i, { end: e.target.value })}
-                  className="w-40"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={s.start}
+                    onChange={(e) => update(i, { start: e.target.value })}
+                  />
+                  <Input
+                    type="date"
+                    value={s.end}
+                    onChange={(e) => update(i, { end: e.target.value })}
+                  />
+                </div>
               </>
             )}
             <button
               type="button"
               onClick={() => remove(i)}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive self-center justify-self-end"
               aria-label="Quitar etapa"
             >
               <Trash2 className="size-4" />
@@ -164,7 +166,8 @@ export function StagesEditor({
               />
               <span>{milestone.date}</span>
               <span>·</span>
-              <span>{milestone.description}</span>
+              <span className="font-medium">{milestone.title}</span>
+              {milestone.description && <span>— {milestone.description}</span>}
             </div>
           ))}
         </div>

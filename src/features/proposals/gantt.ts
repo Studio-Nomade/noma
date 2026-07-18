@@ -8,6 +8,7 @@ export type TimelineStage = {
 export type TimelineMilestone = {
   kind: "milestone";
   date: string;
+  title?: string;
   description: string;
 };
 
@@ -24,7 +25,12 @@ export type GanttRow = {
 export type GanttData = {
   rows: GanttRow[];
   monthLabels: { label: string; leftPct: number }[];
-  milestones: { date: string; description: string; leftPct: number }[];
+  milestones: {
+    date: string;
+    title: string;
+    description: string;
+    leftPct: number;
+  }[];
 };
 
 const MONTHS = [
@@ -85,10 +91,12 @@ export function computeGantt(
   const milestones = (stages ?? [])
     .filter(
       (item): item is TimelineMilestone =>
-        item.kind === "milestone" && Boolean(item.date && item.description),
+        item.kind === "milestone" &&
+        Boolean(item.date && (item.title || item.description)),
     )
     .map((item) => ({
       date: item.date,
+      title: item.title?.trim() || "Hito",
       description: item.description,
       leftPct: Math.max(
         0,

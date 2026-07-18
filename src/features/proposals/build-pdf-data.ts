@@ -6,6 +6,7 @@ import { computeGantt } from "./gantt";
 import type { ProposalPdfData } from "./proposal-pdf";
 import { normalizeServices, normalizeTeam } from "./templates/normalize";
 import type { Area } from "@/types/enums";
+import { parseStructuredContent } from "./structured-content";
 
 export type PdfBundle = {
   data: ProposalPdfData;
@@ -52,23 +53,25 @@ export async function buildProposalPdfData(
     year: "numeric",
   });
   const code = `${String(created.getFullYear()).slice(2)}${pad(created.getMonth() + 1)}${pad(created.getDate())}`;
-  const baseName = `${projectArea}_${code} | ${clientName ?? "Cliente"} - ${projectName}`;
   const totalLabel = new Intl.NumberFormat("es-CL", {
     style: "currency",
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(totals.totalClp);
   const areas = (projectAreas?.length ? projectAreas : [projectArea]) as Area[];
+  const areaCode = areas.join("+");
+  const versionLabel = `v${proposal.version}`;
+  const baseName = `${areaCode}_${code}_${versionLabel} | ${clientName ?? "Cliente"} - ${projectName}`;
 
   const data: ProposalPdfData = {
     templateVersion: "studio-nomade-2026",
     title: proposal.title,
     clientName: clientName ?? "—",
     projectName,
-    proposalCode: `${projectArea}_N${code}`,
+    proposalCode: `${areaCode}_N${code}_${versionLabel}`,
     year: created.getFullYear(),
     areas,
-    areaLabel: AREA_LABELS[projectArea],
+    areaLabel: areas.map((area) => AREA_LABELS[area]).join(" + "),
     date,
     version: proposal.version,
     services: normalizedServices,
@@ -88,8 +91,11 @@ export async function buildProposalPdfData(
       context: proposal.context ?? undefined,
       objective: proposal.mainObjective ?? undefined,
       scope: proposal.scope ?? undefined,
-      methodology: proposal.workStages ?? undefined,
-      deliverables: proposal.deliverables ?? undefined,
+      methodology: parseStructuredContent(proposal.workStages, "stages"),
+      deliverables: parseStructuredContent(
+        proposal.deliverables,
+        "deliverables",
+      ),
       exclusions: proposal.exclusions ?? undefined,
       commercialConditions: proposal.commercialConditions ?? undefined,
       nextSteps: proposal.nextAction ?? undefined,

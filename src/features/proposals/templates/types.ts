@@ -1,5 +1,6 @@
 import type { Area, Currency } from "@/types/enums";
 import type { GanttData } from "../gantt";
+import type { StructuredContentItem } from "../structured-content";
 
 export type BillingCadence = "one-time" | "monthly" | "quarterly";
 
@@ -34,8 +35,8 @@ export type ProposalTemplateData = {
     context?: string;
     objective?: string;
     scope?: string;
-    methodology?: string;
-    deliverables?: string;
+    methodology?: StructuredContentItem[];
+    deliverables?: StructuredContentItem[];
     exclusions?: string;
     commercialConditions?: string;
     nextSteps?: string;
