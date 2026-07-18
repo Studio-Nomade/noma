@@ -1,4 +1,18 @@
-export type Stage = { name: string; start: string; end: string };
+export type TimelineStage = {
+  kind?: "stage";
+  name: string;
+  start: string;
+  end: string;
+};
+
+export type TimelineMilestone = {
+  kind: "milestone";
+  date: string;
+  title?: string;
+  description: string;
+};
+
+export type Stage = TimelineStage | TimelineMilestone;
 
 export type GanttRow = {
   name: string;
@@ -11,6 +25,12 @@ export type GanttRow = {
 export type GanttData = {
   rows: GanttRow[];
   monthLabels: { label: string; leftPct: number }[];
+  milestones: {
+    date: string;
+    title: string;
+    description: string;
+    leftPct: number;
+  }[];
 };
 
 const MONTHS = [
@@ -32,7 +52,10 @@ const MONTHS = [
 export function computeGantt(
   stages: Stage[] | null | undefined,
 ): GanttData | null {
-  const valid = (stages ?? []).filter((s) => s.name && s.start && s.end);
+  const valid = (stages ?? []).filter(
+    (item): item is TimelineStage =>
+      item.kind !== "milestone" && Boolean(item.name && item.start && item.end),
+  );
   if (valid.length === 0) return null;
 
   const starts = valid.map((s) => +new Date(s.start));
@@ -65,5 +88,21 @@ export function computeGantt(
     d.setMonth(d.getMonth() + 1);
   }
 
-  return { rows, monthLabels };
+  const milestones = (stages ?? [])
+    .filter(
+      (item): item is TimelineMilestone =>
+        item.kind === "milestone" &&
+        Boolean(item.date && (item.title || item.description)),
+    )
+    .map((item) => ({
+      date: item.date,
+      title: item.title?.trim() || "Hito",
+      description: item.description,
+      leftPct: Math.max(
+        0,
+        Math.min(100, ((+new Date(item.date) - min) / span) * 100),
+      ),
+    }));
+
+  return { rows, monthLabels, milestones };
 }

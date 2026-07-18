@@ -4,6 +4,7 @@ config({ path: ".env.local" });
 import { db } from "@/db";
 import { studioConfig, teamMembers, emailTemplates } from "@/db/schema";
 import type { NewTeamMember } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { seedFinance } from "@/features/finance/seed-finance";
 
 /**
@@ -11,11 +12,47 @@ import { seedFinance } from "@/features/finance/seed-finance";
  * con GSuite en Fase 6). Los servicios se cargan con `npm run data:import-services`.
  */
 const team: NewTeamMember[] = [
-  { name: "Anna Sanhueza", notes: "Dirección Creativa" },
-  { name: "Sebastián Robles", notes: "Dirección Operativa" },
-  { name: "Javiera Díaz", notes: "Directora de Arte" },
-  { name: "Catalina Torres", notes: "Planner & Art · UX/UI" },
-  { name: "Adrián Silva", notes: "Diseñador" },
+  {
+    name: "Anna Sanhueza",
+    roleTitle: "Directora Creativa",
+    photoUrl: "/assets/team/anna-sanhueza.png",
+  },
+  {
+    name: "Sebastián Robles",
+    roleTitle: "Director Operativo",
+    photoUrl: "/assets/team/sebastian-robles.png",
+  },
+  {
+    name: "Javiera Díaz",
+    roleTitle: "Directora de Arte",
+    photoUrl: "/assets/team/javiera-diaz.png",
+  },
+  {
+    name: "Catalina Torres",
+    roleTitle: "Planner & Art · UX/UI",
+    photoUrl: "/assets/team/catalina-torres.png",
+  },
+  { name: "Luis Salamanca", roleTitle: "Diseñador", photoUrl: null },
+  {
+    name: "Carlos Leay",
+    roleTitle: "Diseñador",
+    photoUrl: "/assets/team/carlos-leay.png",
+  },
+  {
+    name: "Maximilian Viveros",
+    roleTitle: "Diseñador",
+    photoUrl: "/assets/team/maximilian-viveros.png",
+  },
+  {
+    name: "Hector Briceño",
+    roleTitle: "Desarrollador",
+    photoUrl: "/assets/team/hector-briceno.png",
+  },
+  {
+    name: "Adrián Silva",
+    roleTitle: "Diseñador",
+    photoUrl: "/assets/team/adrian-silva.png",
+  },
 ];
 
 async function main() {
@@ -30,13 +67,24 @@ async function main() {
     console.log("• studio_config ya existe, se omite");
   }
 
-  const existingTeam = await db.select().from(teamMembers).limit(1);
-  if (existingTeam.length === 0) {
-    await db.insert(teamMembers).values(team);
-    console.log(`✓ ${team.length} integrantes del equipo cargados`);
-  } else {
-    console.log("• team_members ya tiene datos, se omite");
+  const existingTeam = await db.select().from(teamMembers);
+  const byName = new Map(existingTeam.map((member) => [member.name, member]));
+  for (const member of team) {
+    const existing = byName.get(member.name);
+    if (existing) {
+      await db
+        .update(teamMembers)
+        .set({
+          roleTitle: member.roleTitle,
+          photoUrl: member.photoUrl,
+          status: "Activo",
+        })
+        .where(eq(teamMembers.id, existing.id));
+    } else {
+      await db.insert(teamMembers).values(member);
+    }
   }
+  console.log(`✓ ${team.length} integrantes del equipo sincronizados`);
 
   const existingTpl = await db.select().from(emailTemplates).limit(1);
   if (existingTpl.length === 0) {
