@@ -996,11 +996,6 @@ export const finDocuments = pgTable(
     serviceId: uuid("service_id").references(() => services.id, {
       onDelete: "set null",
     }),
-    // Vínculo opcional con el catálogo comercial (cruza finanzas ↔ servicios).
-    // Se sugiere al extraer el detalle del XML; editable a mano.
-    serviceId: uuid("service_id").references(() => services.id, {
-      onDelete: "set null",
-    }),
     importBatchId: uuid("import_batch_id").references(() => importBatches.id, {
       onDelete: "set null",
     }),
