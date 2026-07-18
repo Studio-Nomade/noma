@@ -1,11 +1,11 @@
-import { formatMoney } from "@/lib/currency/format";
 import { getLatestRates } from "@/lib/currency/rates";
 import { AREA_LABELS } from "@/types/enums";
-import { AREA_THEME } from "@/lib/brand/brand";
 import { getProposal, getProposalServices, getProposalTeam } from "./queries";
 import { computeTotals, type LineItem } from "./totals";
 import { computeGantt } from "./gantt";
 import type { ProposalPdfData } from "./proposal-pdf";
+import { normalizeServices, normalizeTeam } from "./templates/normalize";
+import type { Area } from "@/types/enums";
 
 export type PdfBundle = {
   data: ProposalPdfData;
@@ -21,7 +21,7 @@ export async function buildProposalPdfData(
 ): Promise<PdfBundle | null> {
   const row = await getProposal(id);
   if (!row) return null;
-  const { proposal, clientName, projectName, projectArea } = row;
+  const { proposal, clientName, projectName, projectArea, projectAreas } = row;
 
   const [services, team, rates] = await Promise.all([
     getProposalServices(id),
@@ -36,16 +36,13 @@ export async function buildProposalPdfData(
       "UF") as LineItem["currency"],
   }));
   const totals = computeTotals(items, ufClp);
-
-  const sectionDefs: [string, string | null][] = [
-    ["Contexto", proposal.context],
-    ["Objetivo general", proposal.mainObjective],
-    ["Alcance", proposal.scope],
-    ["Etapas de trabajo", proposal.workStages],
-    ["Entregables", proposal.deliverables],
-    ["Exclusiones", proposal.exclusions],
-    ["Condiciones comerciales", proposal.commercialConditions],
-  ];
+  const normalizedServices = normalizeServices(services);
+  const cadenceUf = (cadence: "one-time" | "monthly" | "quarterly") =>
+    normalizedServices
+      .filter(
+        (service) => service.cadence === cadence && service.currency === "UF",
+      )
+      .reduce((sum, service) => sum + service.amount, 0);
 
   const created = new Date(proposal.createdAt);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -56,41 +53,47 @@ export async function buildProposalPdfData(
   });
   const code = `${String(created.getFullYear()).slice(2)}${pad(created.getMonth() + 1)}${pad(created.getDate())}`;
   const baseName = `${projectArea}_${code} | ${clientName ?? "Cliente"} - ${projectName}`;
-  const totalLabel = formatMoney(totals.totalClp, "CLP");
+  const totalLabel = new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(totals.totalClp);
+  const areas = (projectAreas?.length ? projectAreas : [projectArea]) as Area[];
 
   const data: ProposalPdfData = {
+    templateVersion: "studio-nomade-2026",
     title: proposal.title,
     clientName: clientName ?? "—",
     projectName,
+    proposalCode: `${projectArea}_N${code}`,
+    year: created.getFullYear(),
+    areas,
     areaLabel: AREA_LABELS[projectArea],
-    accent: AREA_THEME[projectArea].accent,
     date,
     version: proposal.version,
-    multiArea: new Set(services.map((sv) => sv.area)).size > 1,
-    services: services.map((sv) => ({
-      area: sv.area,
-      name: sv.name,
-      subarea: sv.subarea,
-      value: formatMoney(
-        sv.customPriceAmount ?? sv.priceAmount,
-        sv.customPriceCurrency ?? sv.priceCurrency ?? "UF",
-      ),
-    })),
+    services: normalizedServices,
     totals: {
-      subtotalUf: `${totals.subtotalUf.toLocaleString("es-CL")} UF`,
-      net: formatMoney(totals.netClp, "CLP"),
-      iva: formatMoney(totals.iva, "CLP"),
-      total: totalLabel,
+      oneTimeUf: cadenceUf("one-time"),
+      monthlyUf: cadenceUf("monthly"),
+      quarterlyUf: cadenceUf("quarterly"),
+      directClp: totals.subtotalClpDirect,
+      netClp: totals.netClp,
+      ivaClp: totals.iva,
+      totalClp: totals.totalClp,
+      ufClp,
     },
     gantt: computeGantt(proposal.timelineStages),
-    accentColor: AREA_THEME[projectArea].accent,
-    team: team.map((m) => ({
-      name: m.name,
-      role: m.roleInProject ?? m.roleTitle ?? "",
-    })),
-    sections: sectionDefs
-      .filter(([, v]) => v && v.trim())
-      .map(([label, v]) => ({ label, value: v as string })),
+    team: normalizeTeam(team),
+    sections: {
+      context: proposal.context ?? undefined,
+      objective: proposal.mainObjective ?? undefined,
+      scope: proposal.scope ?? undefined,
+      methodology: proposal.workStages ?? undefined,
+      deliverables: proposal.deliverables ?? undefined,
+      exclusions: proposal.exclusions ?? undefined,
+      commercialConditions: proposal.commercialConditions ?? undefined,
+      nextSteps: proposal.nextAction ?? undefined,
+    },
   };
 
   return {

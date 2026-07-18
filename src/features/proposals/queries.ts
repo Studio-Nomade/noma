@@ -78,7 +78,11 @@ export async function getProposalServices(proposalId: string) {
       area: services.area,
       priceAmount: services.priceMinAmount,
       priceCurrency: services.priceCurrency,
+      priceType: services.priceType,
       unit: services.unit,
+      description: services.description,
+      deliverables: services.deliverables,
+      requirements: services.requirements,
     })
     .from(proposalServices)
     .innerJoin(services, eq(proposalServices.serviceId, services.id))

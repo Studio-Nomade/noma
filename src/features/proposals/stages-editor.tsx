@@ -24,13 +24,22 @@ export function StagesEditor({
   );
   const [saving, setSaving] = useState(false);
 
-  function update(i: number, patch: Partial<Stage>) {
+  function update(i: number, patch: Record<string, string>) {
     setStages((prev) =>
-      prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+      prev.map((s, idx) => (idx === i ? ({ ...s, ...patch } as Stage) : s)),
     );
   }
   function add() {
-    setStages((prev) => [...prev, { name: "", start: "", end: "" }]);
+    setStages((prev) => [
+      ...prev,
+      { kind: "stage", name: "", start: "", end: "" },
+    ]);
+  }
+  function addMilestone() {
+    setStages((prev) => [
+      ...prev,
+      { kind: "milestone", date: "", description: "" },
+    ]);
   }
   function remove(i: number) {
     setStages((prev) => prev.filter((_, idx) => idx !== i));
@@ -63,24 +72,46 @@ export function StagesEditor({
       <ul className="space-y-2">
         {stages.map((s, i) => (
           <li key={i} className="flex flex-wrap items-center gap-2">
-            <Input
-              placeholder="Etapa"
-              value={s.name}
-              onChange={(e) => update(i, { name: e.target.value })}
-              className="min-w-40 flex-1"
-            />
-            <Input
-              type="date"
-              value={s.start}
-              onChange={(e) => update(i, { start: e.target.value })}
-              className="w-40"
-            />
-            <Input
-              type="date"
-              value={s.end}
-              onChange={(e) => update(i, { end: e.target.value })}
-              className="w-40"
-            />
+            {s.kind === "milestone" ? (
+              <>
+                <span className="text-muted-foreground w-20 text-xs font-medium uppercase">
+                  Hito
+                </span>
+                <Input
+                  type="date"
+                  value={s.date}
+                  onChange={(e) => update(i, { date: e.target.value })}
+                  className="w-40"
+                />
+                <Input
+                  placeholder="Ej: Reunión de presentación con directorio"
+                  value={s.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                  className="min-w-64 flex-1"
+                />
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="Etapa"
+                  value={s.name}
+                  onChange={(e) => update(i, { name: e.target.value })}
+                  className="min-w-40 flex-1"
+                />
+                <Input
+                  type="date"
+                  value={s.start}
+                  onChange={(e) => update(i, { start: e.target.value })}
+                  className="w-40"
+                />
+                <Input
+                  type="date"
+                  value={s.end}
+                  onChange={(e) => update(i, { end: e.target.value })}
+                  className="w-40"
+                />
+              </>
+            )}
             <button
               type="button"
               onClick={() => remove(i)}
@@ -93,10 +124,16 @@ export function StagesEditor({
         ))}
       </ul>
 
-      <Button size="sm" variant="outline" onClick={add}>
-        <Plus className="size-4" />
-        Agregar etapa
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={add}>
+          <Plus className="size-4" />
+          Agregar etapa
+        </Button>
+        <Button size="sm" variant="outline" onClick={addMilestone}>
+          <Plus className="size-4" />
+          Agregar hito
+        </Button>
+      </div>
 
       {/* Mini Gantt en vivo */}
       {gantt && (
@@ -114,6 +151,20 @@ export function StagesEditor({
                   }}
                 />
               </div>
+            </div>
+          ))}
+          {gantt.milestones.map((milestone) => (
+            <div
+              key={`${milestone.date}-${milestone.description}`}
+              className="text-muted-foreground flex items-center gap-2 text-xs"
+            >
+              <span
+                className="size-2 rounded-full"
+                style={{ background: accent }}
+              />
+              <span>{milestone.date}</span>
+              <span>·</span>
+              <span>{milestone.description}</span>
             </div>
           ))}
         </div>

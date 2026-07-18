@@ -272,9 +272,7 @@ export const briefs = pgTable(
     approvedVersionId: uuid("approved_version_id"),
     approvedBy: uuid("approved_by"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
-    status: briefStatusEnum("status")
-      .default("Sin reunión agendada")
-      .notNull(),
+    status: briefStatusEnum("status").default("Sin reunión agendada").notNull(),
     ...timestamps,
   },
   (t) => [uniqueIndex("briefs_project_id_unique").on(t.projectId)],
@@ -458,7 +456,12 @@ export const proposals = pgTable("proposals", {
   timeline: text("timeline"),
   // Etapas con rango de fechas para la carta Gantt del deck/PDF.
   timelineStages: jsonb("timeline_stages")
-    .$type<{ name: string; start: string; end: string }[]>()
+    .$type<
+      (
+        | { kind?: "stage"; name: string; start: string; end: string }
+        | { kind: "milestone"; date: string; description: string }
+      )[]
+    >()
     .default([]),
   clientRequirements: text("client_requirements"),
   exclusions: text("exclusions"),
@@ -903,9 +906,12 @@ export const classificationRules = pgTable(
     costCenterId: uuid("cost_center_id").references(() => costCenters.id, {
       onDelete: "set null",
     }),
-    businessLineId: uuid("business_line_id").references(() => businessLines.id, {
-      onDelete: "set null",
-    }),
+    businessLineId: uuid("business_line_id").references(
+      () => businessLines.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     priority: integer("priority").default(100).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     ...timestamps,
@@ -960,9 +966,12 @@ export const finDocuments = pgTable(
     costCenterId: uuid("cost_center_id").references(() => costCenters.id, {
       onDelete: "set null",
     }),
-    businessLineId: uuid("business_line_id").references(() => businessLines.id, {
-      onDelete: "set null",
-    }),
+    businessLineId: uuid("business_line_id").references(
+      () => businessLines.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     importBatchId: uuid("import_batch_id").references(() => importBatches.id, {
       onDelete: "set null",
     }),
@@ -1086,9 +1095,7 @@ export const reconciliationTransactions = pgTable(
       scale: 2,
     }).notNull(),
   },
-  (t) => [
-    index("reconciliation_transactions_txn_idx").on(t.bankTransactionId),
-  ],
+  (t) => [index("reconciliation_transactions_txn_idx").on(t.bankTransactionId)],
 );
 
 // ── cobranza_templates (plantillas de correo de cobranza) ────
