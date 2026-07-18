@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql, asc, count } from "drizzle-orm";
 import { db } from "@/db";
 import {
   importBatches,
@@ -11,6 +11,8 @@ import {
   bankAccounts,
   finDocuments,
   finContacts,
+  classificationRules,
+  clients,
 } from "@/db/schema";
 import { requireFinance } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
@@ -20,11 +22,10 @@ import type {
   FinDocumentStatus,
   ContactType,
 } from "@/types/enums";
-import { getClientRutIndex } from "@/features/clients/queries";
 import { normalizeRut, isRealRut } from "@/lib/text/rut";
 import { parseFile } from "./import/parse";
 import { mapDocuments, mapTransactions } from "./import/mappers";
-import { loadActiveRules, classify } from "./import/classify";
+import { classify } from "./import/classify";
 import { periodoSii, money, toDateOnly } from "./helpers";
 import type {
   ImportPreview,
@@ -65,6 +66,16 @@ const DEFAULT_MAPPINGS: Record<ImportType, Record<string, string>> = {
     saldo: "Saldo",
   },
 };
+
+const IMPORT_CHUNK_SIZE = 100;
+
+function chunksOf<T>(items: T[], size = IMPORT_CHUNK_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function buildSummary(
   rowsDetected: number,
@@ -248,150 +259,193 @@ export async function createImportDraft(formData: FormData): Promise<void> {
 export async function confirmImport(formData: FormData): Promise<void> {
   const user = await requireFinance();
   const batchId = formData.get("batchId") as string;
+  const result = await db.transaction(async (tx) => {
+    // Serializa confirmaciones del mismo lote. Un doble click o reintento del
+    // navegador espera este lock y luego ve el lote ya confirmado.
+    const [batch] = await tx
+      .select()
+      .from(importBatches)
+      .where(eq(importBatches.id, batchId))
+      .limit(1)
+      .for("update");
+    if (!batch || batch.status !== "BORRADOR") {
+      throw new Error("La importación no existe o ya fue procesada.");
+    }
 
-  const [batch] = await db
-    .select()
-    .from(importBatches)
-    .where(eq(importBatches.id, batchId))
-    .limit(1);
-  if (!batch || batch.status !== "BORRADOR") {
-    throw new Error("La importación no existe o ya fue procesada.");
-  }
-  const preview = batch.summary as unknown as ImportPreview;
-  let inserted = 0;
+    const preview = batch.summary as unknown as ImportPreview;
+    let inserted = 0;
+    let activityAction = "documents_imported";
 
-  if (batch.type === "CARTOLA_BANCARIA" && preview.transactions) {
-    const bankAccountId = preview.bankAccountId!;
-    const toInsert = preview.transactions.filter((t) => !t.isDuplicate);
-    if (toInsert.length) {
-      await db.insert(bankTransactions).values(
-        toInsert.map((t: ParsedTransaction) => ({
-          bankAccountId,
-          fecha: toDateOnly(t.fecha),
-          glosa: t.glosa,
-          monto: money(t.monto),
-          tipo: t.tipo,
-          saldo: t.saldo !== null ? money(t.saldo) : null,
-          status: "PENDIENTE" as const,
-          recordStatus: "ACTIVO" as const,
-          importBatchId: batch.id,
-          sourceFile: batch.fileName,
-        })),
-      );
-      inserted = toInsert.length;
+    if (batch.type === "CARTOLA_BANCARIA" && preview.transactions) {
+      activityAction = "bank_transactions_imported";
+      const bankAccountId = preview.bankAccountId!;
+      const toInsert = preview.transactions.filter((t) => !t.isDuplicate);
+      for (const chunk of chunksOf(toInsert)) {
+        await tx.insert(bankTransactions).values(
+          chunk.map((t: ParsedTransaction) => ({
+            bankAccountId,
+            fecha: toDateOnly(t.fecha),
+            glosa: t.glosa,
+            monto: money(t.monto),
+            tipo: t.tipo,
+            saldo: t.saldo !== null ? money(t.saldo) : null,
+            status: "PENDIENTE" as const,
+            recordStatus: "ACTIVO" as const,
+            importBatchId: batch.id,
+            sourceFile: batch.fileName,
+          })),
+        );
+        inserted += chunk.length;
+      }
 
-      // Actualiza el saldo de la cuenta con el último saldo informado
       const last = [...toInsert]
         .sort((a, b) => a.fecha.localeCompare(b.fecha))
         .pop();
       if (last?.saldo !== null && last?.saldo !== undefined) {
-        await db
+        await tx
           .update(bankAccounts)
           .set({ saldo: money(last.saldo) })
           .where(eq(bankAccounts.id, bankAccountId));
       }
-    }
-    await logActivity({
-      entityType: "import_batch",
-      entityId: batch.id,
-      action: "bank_transactions_imported",
-      actorId: user.id,
-    });
-  } else if (preview.documents) {
-    const direction: DocumentDirection =
-      batch.type === "NUBOX_VENTAS" ? "VENTA" : "COMPRA";
-    const contactType: ContactType =
-      direction === "VENTA" ? "CLIENTE" : "PROVEEDOR";
-    const docs = preview.documents.filter((d) => !d.isDuplicate);
-    const rules = await loadActiveRules();
-    const today = new Date();
+    } else if (preview.documents) {
+      const direction: DocumentDirection =
+        batch.type === "NUBOX_VENTAS" ? "VENTA" : "COMPRA";
+      const contactType: ContactType =
+        direction === "VENTA" ? "CLIENTE" : "PROVEEDOR";
+      const docs = preview.documents.filter((d) => !d.isDuplicate);
+      const rules = await tx
+        .select()
+        .from(classificationRules)
+        .where(eq(classificationRules.isActive, true))
+        .orderBy(asc(classificationRules.priority));
+      const today = new Date();
+      const clientRows = await tx
+        .select({ id: clients.id, rut: clients.rut })
+        .from(clients);
+      const clientByRut = new Map<string, string>();
+      for (const client of clientRows) {
+        if (isRealRut(client.rut)) {
+          clientByRut.set(normalizeRut(client.rut)!, client.id);
+        }
+      }
 
-    // Resuelve/crea contactos (upsert por rut+tipo). El RUT los cruza con la
-    // ficha comercial: sin ese vínculo, la ficha del cliente no puede mostrar
-    // sus facturas. Se resuelve con un índice para no consultar por documento.
-    const clientByRut = await getClientRutIndex();
-    const contactMap = new Map<string, string>();
-    for (const d of docs) {
-      const rut = d.rut || "SIN-RUT";
-      if (contactMap.has(rut)) continue;
-      const clientId = isRealRut(rut)
-        ? (clientByRut.get(normalizeRut(rut)!) ?? null)
-        : null;
-      const [contact] = await db
-        .insert(finContacts)
-        .values({
-          rut,
-          name: d.nombre,
-          type: contactType,
-          status: "ACTIVO",
-          clientId,
-        })
-        .onConflictDoUpdate({
-          target: [finContacts.rut, finContacts.type],
-          // Solo re-vincula si hay match: no pisa un vínculo corregido a mano.
-          set: { name: d.nombre, ...(clientId ? { clientId } : {}) },
-        })
-        .returning({ id: finContacts.id });
-      contactMap.set(rut, contact.id);
-    }
+      const uniqueContacts = new Map<string, (typeof docs)[number]>();
+      for (const document of docs) {
+        uniqueContacts.set(document.rut || "SIN-RUT", document);
+      }
+      const contacts = [...uniqueContacts.entries()].map(([rut, document]) => ({
+        rut,
+        name: document.nombre,
+        type: contactType,
+        status: "ACTIVO" as const,
+        clientId: isRealRut(rut)
+          ? (clientByRut.get(normalizeRut(rut)!) ?? null)
+          : null,
+      }));
 
-    for (const d of docs) {
-      const rut = d.rut || "SIN-RUT";
-      const cls = classify(rules, {
-        rut: d.rut,
-        nombre: d.nombre,
-        total: d.total,
-      });
-      const venc = d.fechaVencimiento;
-      const status: FinDocumentStatus =
-        venc && new Date(venc) < today ? "VENCIDA" : "EMITIDA";
-      const result = await db
-        .insert(finDocuments)
-        .values({
+      for (const chunk of chunksOf(contacts)) {
+        await tx
+          .insert(finContacts)
+          .values(chunk)
+          .onConflictDoUpdate({
+            target: [finContacts.rut, finContacts.type],
+            set: {
+              name: sql`excluded.name`,
+              clientId: sql`coalesce(excluded.client_id, ${finContacts.clientId})`,
+            },
+          });
+      }
+
+      const contactMap = new Map<string, string>();
+      for (const rutChunk of chunksOf(contacts.map((contact) => contact.rut))) {
+        const resolved = await tx
+          .select({ id: finContacts.id, rut: finContacts.rut })
+          .from(finContacts)
+          .where(
+            and(
+              eq(finContacts.type, contactType),
+              inArray(finContacts.rut, rutChunk),
+            ),
+          );
+        for (const contact of resolved) contactMap.set(contact.rut, contact.id);
+      }
+
+      const values = docs.map((document) => {
+        const rut = document.rut || "SIN-RUT";
+        const cls = classify(rules, {
+          rut: document.rut,
+          nombre: document.nombre,
+          total: document.total,
+        });
+        const venc = document.fechaVencimiento;
+        const status: FinDocumentStatus =
+          venc && new Date(venc) < today ? "VENCIDA" : "EMITIDA";
+        return {
           direction,
-          type: d.type,
-          folio: d.folio,
+          type: document.type,
+          folio: document.folio,
           contactId: contactMap.get(rut),
-          fechaEmision: toDateOnly(d.fechaEmision),
+          fechaEmision: toDateOnly(document.fechaEmision),
           fechaVencimiento: venc ? toDateOnly(venc) : null,
-          neto: money(d.neto),
-          iva: money(d.iva),
-          exento: money(d.exento),
-          total: money(d.total),
+          neto: money(document.neto),
+          iva: money(document.iva),
+          exento: money(document.exento),
+          total: money(document.total),
           status,
-          recordStatus: "ACTIVO",
-          periodoSii: periodoSii(d.fechaEmision),
+          recordStatus: "ACTIVO" as const,
+          periodoSii: periodoSii(document.fechaEmision),
           ledgerAccountId: cls.ledgerAccountId,
           costCenterId: cls.costCenterId,
           businessLineId: cls.businessLineId,
           importBatchId: batch.id,
           sourceFile: batch.fileName,
-        })
-        // si el folio ya existe (índice natural único), se omite
-        .onConflictDoNothing()
-        .returning({ id: finDocuments.id });
-      if (result.length) inserted++;
-    }
-    await logActivity({
-      entityType: "import_batch",
-      entityId: batch.id,
-      action: "documents_imported",
-      actorId: user.id,
-    });
-  }
+        };
+      });
 
-  await db
-    .update(importBatches)
-    .set({
-      status: "CONFIRMADO",
-      rowsInserted: inserted,
-      confirmedAt: new Date(),
-    })
-    .where(eq(importBatches.id, batch.id));
+      for (const chunk of chunksOf(values)) {
+        const rows = await tx
+          .insert(finDocuments)
+          .values(chunk)
+          .onConflictDoNothing()
+          .returning({ id: finDocuments.id });
+        inserted += rows.length;
+      }
+    }
+
+    const [batchTotal] =
+      batch.type === "CARTOLA_BANCARIA"
+        ? await tx
+            .select({ value: count() })
+            .from(bankTransactions)
+            .where(eq(bankTransactions.importBatchId, batch.id))
+        : await tx
+            .select({ value: count() })
+            .from(finDocuments)
+            .where(eq(finDocuments.importBatchId, batch.id));
+    inserted = batchTotal?.value ?? inserted;
+
+    await tx
+      .update(importBatches)
+      .set({
+        status: "CONFIRMADO",
+        rowsInserted: inserted,
+        confirmedAt: new Date(),
+      })
+      .where(eq(importBatches.id, batch.id));
+
+    return { inserted, activityAction };
+  });
+
+  await logActivity({
+    entityType: "import_batch",
+    entityId: batchId,
+    action: result.activityAction,
+    actorId: user.id,
+  });
 
   revalidatePath("/finanzas/importar");
   revalidatePath("/finanzas");
-  redirect(`/finanzas/importar?confirmado=${inserted}`);
+  redirect(`/finanzas/importar?confirmado=${result.inserted}`);
 }
 
 /** Rechaza (descarta) un borrador de importación. */
