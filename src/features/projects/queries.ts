@@ -6,7 +6,60 @@ import {
   resourceLinks,
   teamMembers,
   cfoRequests,
+  invoices,
+  cobranzaMessages,
 } from "@/db/schema";
+import { toNum } from "@/features/finance/helpers";
+
+export type ProjectFinance = {
+  invoiced: number;
+  receivable: number;
+  paid: number;
+  collectionCount: number;
+};
+
+/** Resumen financiero comercial de una oportunidad. Solo consumir con gating. */
+export async function getProjectFinance(
+  projectId: string,
+): Promise<ProjectFinance> {
+  const [invoiceRows, collectionRows] = await Promise.all([
+    db
+      .select({
+        status: invoices.status,
+        total: invoices.totalAmount,
+        balanceDue: invoices.balanceDue,
+      })
+      .from(invoices)
+      .where(eq(invoices.projectId, projectId)),
+    db
+      .select({ id: cobranzaMessages.id })
+      .from(cobranzaMessages)
+      .where(eq(cobranzaMessages.projectId, projectId)),
+  ]);
+
+  let invoiced = 0;
+  let receivable = 0;
+  let paid = 0;
+  for (const invoice of invoiceRows) {
+    if (invoice.status === "Anulado" || invoice.status === "No facturado") {
+      continue;
+    }
+    const total = toNum(invoice.total);
+    invoiced += total;
+    if (invoice.status === "Pagado") {
+      paid += total;
+    } else {
+      receivable += toNum(invoice.balanceDue ?? invoice.total);
+    }
+  }
+
+  return {
+    invoiced,
+    receivable,
+    paid,
+    collectionCount: collectionRows.length,
+  };
+}
 
 /** Solicitud CFO más reciente de una oportunidad (visor de operación). */
 export async function getCfoRequest(projectId: string) {

@@ -62,6 +62,14 @@ const COLOR_BY_VALUE: Record<string, StatusColor> = {
   VENCIDA: "red",
   ANULADA: "slate",
   CONCILIADA: "emerald",
+  // Finanzas — factura comercial
+  "No facturado": "slate",
+  "Preparado para facturar": "amber",
+  "Borrador creado en Nubox": "amber",
+  Emitido: "blue",
+  Pagado: "emerald",
+  Vencido: "red",
+  Anulado: "slate",
   // Finanzas — movimiento bancario
   PENDIENTE: "amber",
   CONCILIADO: "emerald",
