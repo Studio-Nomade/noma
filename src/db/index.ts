@@ -1,5 +1,6 @@
-import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { attachDatabasePool } from "@vercel/functions";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
 /**
@@ -7,11 +8,11 @@ import * as schema from "./schema";
  * Esto permite construir/importar sin la variable presente (p. ej. en build).
  */
 const globalForDb = globalThis as unknown as {
-  __noma_sql?: ReturnType<typeof postgres>;
-  __noma_db?: PostgresJsDatabase<typeof schema>;
+  __noma_pool?: Pool;
+  __noma_db?: NodePgDatabase<typeof schema>;
 };
 
-function getDb(): PostgresJsDatabase<typeof schema> {
+function getDb(): NodePgDatabase<typeof schema> {
   if (globalForDb.__noma_db) return globalForDb.__noma_db;
 
   const connectionString = process.env.DATABASE_URL;
@@ -21,32 +22,36 @@ function getDb(): PostgresJsDatabase<typeof schema> {
     );
   }
 
-  // En Vercel cada instancia puede crear su propio cliente. El valor por defecto
-  // de postgres-js (10 conexiones por cliente) agota rápidamente el pooler de
-  // Supabase durante cargas masivas o ráfagas de Server Actions.
   const isProductionBuild =
     process.env.NEXT_PHASE === "phase-production-build";
-  const sql =
-    globalForDb.__noma_sql ??
-    postgres(connectionString, {
-      prepare: false,
-      // La generación estática ejecuta varias páginas en paralelo dentro de un
-      // único proceso; el runtime serverless, en cambio, debe usar una conexión.
-      max: isProductionBuild ? 10 : 1,
-      idle_timeout: 20,
-      connect_timeout: 10,
+  const pool =
+    globalForDb.__noma_pool ??
+    new Pool({
+      connectionString,
+      // El build genera páginas en paralelo. En Fluid Compute usamos tres
+      // conexiones para evitar que una transacción larga bloquee todo el sitio,
+      // manteniendo el consumo muy por debajo del límite de Supabase.
+      max: isProductionBuild ? 10 : 3,
+      idleTimeoutMillis: 5_000,
+      connectionTimeoutMillis: 5_000,
+      maxLifetimeSeconds: 60,
+      statement_timeout: 30_000,
+      query_timeout: 35_000,
+      allowExitOnIdle: true,
     });
-  const instance = drizzle(sql, { schema });
+  const instance = drizzle(pool, { schema });
 
-  // El global sobrevive entre invocaciones cálidas y evita abrir otro pool por
-  // cada render o Server Action dentro de la misma instancia serverless.
-  globalForDb.__noma_sql = sql;
+  // Fluid Compute mantiene instancias cálidas. Este hook evita que Vercel las
+  // congele con sockets ociosos que después se reanuden en estado inválido.
+  if (process.env.VERCEL && !isProductionBuild) attachDatabasePool(pool);
+
+  globalForDb.__noma_pool = pool;
   globalForDb.__noma_db = instance;
   return instance;
 }
 
 // Proxy que difiere la conexión real al primer acceso a una propiedad.
-export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
+export const db = new Proxy({} as NodePgDatabase<typeof schema>, {
   get(_target, prop) {
     const instance = getDb();
     const value = instance[prop as keyof typeof instance];
