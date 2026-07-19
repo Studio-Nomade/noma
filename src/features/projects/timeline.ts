@@ -81,6 +81,7 @@ function activityHref(entityType: string, entityId: string, projectId: string) {
  */
 export async function getProjectTimeline(
   projectId: string,
+  { includeFinance }: { includeFinance: boolean },
 ): Promise<ProjectTimelineItem[]> {
   const [
     projectRows,
@@ -249,7 +250,16 @@ export async function getProjectTimeline(
     });
   }
 
-  return items.sort(
+  const financeKinds = new Set<ProjectTimelineItem["kind"]>([
+    "invoice",
+    "payment",
+    "collection",
+  ]);
+  const visible = includeFinance
+    ? items
+    : items.filter((item) => !financeKinds.has(item.kind));
+
+  return visible.sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 }

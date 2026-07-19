@@ -65,7 +65,7 @@ export default async function ProjectDetailPage({
       getClientContacts(project.clientId),
       listBriefMeetings(id),
       getCfoRequest(id),
-      getProjectTimeline(id),
+      getProjectTimeline(id, { includeFinance: isFinance }),
       isFinance ? getProjectFinance(id) : Promise.resolve(null),
     ]);
   const asanaLink = links.find((l) => l.type === "asana") ?? null;

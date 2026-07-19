@@ -1,12 +1,12 @@
 import Link from "next/link";
 import {
   Activity,
-  Banknote,
   CalendarCheck,
   CircleDollarSign,
   FileCheck2,
   FileText,
   Handshake,
+  History,
   Mail,
   type LucideIcon,
 } from "lucide-react";
@@ -22,7 +22,7 @@ const ICON_BY_KIND: Record<ProjectTimelineItem["kind"], LucideIcon> = {
   invoice: FileText,
   collection: Mail,
   payment: CircleDollarSign,
-  activity: Banknote,
+  activity: History,
 };
 
 function TimelineContent({ item }: { item: ProjectTimelineItem }) {
