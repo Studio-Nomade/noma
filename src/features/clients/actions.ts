@@ -2,12 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
 import { clients, projects, invoices } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { clientSchema, type ClientFormValues } from "./schema";
+import { CLIENT_STATUSES, type ClientStatus } from "@/types/enums";
+
+const clientIdSchema = z.string().uuid("Cliente inválido.");
+const clientStatusSchema = z.enum(CLIENT_STATUSES);
 
 function normalize(values: ClientFormValues) {
   const data = clientSchema.parse(values);
@@ -74,6 +79,34 @@ export async function closeClient(id: string): Promise<ActionResult> {
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "closeClient");
+  }
+}
+
+export async function setClientStatus(
+  id: string,
+  status: ClientStatus,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const clientId = clientIdSchema.parse(id);
+    const nextStatus = clientStatusSchema.parse(status);
+    const [updated] = await db
+      .update(clients)
+      .set({ status: nextStatus, updatedAt: new Date() })
+      .where(eq(clients.id, clientId))
+      .returning({ id: clients.id });
+    if (!updated) return { ok: false, error: "Cliente no encontrado." };
+    await logActivity({
+      entityType: "client",
+      entityId: clientId,
+      action: `status_changed:${nextStatus}`,
+      actorId: user.id,
+    });
+    revalidatePath("/clients");
+    revalidatePath(`/clients/${clientId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "setClientStatus");
   }
 }
 

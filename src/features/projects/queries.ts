@@ -90,6 +90,7 @@ export async function listProjects() {
       status: projects.status,
       commercialStage: projects.commercialStage,
       priority: projects.priority,
+      responsible: projects.responsible,
       nextAction: projects.nextAction,
       updatedAt: projects.updatedAt,
       clientId: projects.clientId,
