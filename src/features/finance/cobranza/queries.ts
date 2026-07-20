@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   clients,
@@ -137,8 +137,15 @@ const INICIO_STATUSES = ["Aprobado", "En desarrollo"];
 const TERMINO_STATUSES = ["Cerrado"];
 
 /** Proyectos en momento de cobrar (inicio o término), con su factura si existe. */
-export async function getSugeridos(): Promise<Sugerido[]> {
+export async function getSugeridos(projectId?: string): Promise<Sugerido[]> {
   const relevant = [...INICIO_STATUSES, ...TERMINO_STATUSES];
+  const relevantMoment = or(
+    inArray(
+      projects.status,
+      relevant as (typeof projects.status.enumValues)[number][],
+    ),
+    eq(projects.commercialStage, "Aprobado"),
+  );
   const pr = await db
     .select({
       id: projects.id,
@@ -149,7 +156,11 @@ export async function getSugeridos(): Promise<Sugerido[]> {
     })
     .from(projects)
     .innerJoin(clients, eq(projects.clientId, clients.id))
-    .where(inArray(projects.status, relevant as (typeof projects.status.enumValues)[number][]));
+    .where(
+      projectId
+        ? and(eq(projects.id, projectId), relevantMoment)
+        : relevantMoment,
+    );
 
   if (pr.length === 0) return [];
 

@@ -8,14 +8,17 @@ import { activityLog } from "@/db/schema";
  * `entityType` es libre (ej. "project", "brief", "brief_meeting", "proposal").
  * `action` describe el evento (ej. "stage_changed", "meeting_scheduled").
  */
-export async function logActivity(input: {
-  entityType: string;
-  entityId?: string | null;
-  action: string;
-  actorId?: string | null;
-}): Promise<void> {
+export async function logActivity(
+  input: {
+    entityType: string;
+    entityId?: string | null;
+    action: string;
+    actorId?: string | null;
+  },
+  writer: Pick<typeof db, "insert"> = db,
+): Promise<void> {
   try {
-    await db.insert(activityLog).values({
+    await writer.insert(activityLog).values({
       entityType: input.entityType,
       entityId: input.entityId ?? null,
       action: input.action,
