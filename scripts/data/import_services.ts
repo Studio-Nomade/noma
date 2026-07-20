@@ -65,7 +65,10 @@ function toService(r: Row): NewService {
 }
 
 async function main() {
-  const path = resolve("data/normalized/branding_services.json");
+  // El insumo vive en el repo privado noma-ops (ver ADR-public-private-boundary).
+  // Configurable con NOMA_DATA_DIR; por defecto asume noma-ops como repo hermano.
+  const opsDir = process.env.NOMA_DATA_DIR ?? "../noma-ops";
+  const path = resolve(opsDir, "data/normalized/branding_services.json");
   const rows: Row[] = JSON.parse(readFileSync(path, "utf8")).filter(
     (r: Row) => r.service && r.service.trim(),
   );
