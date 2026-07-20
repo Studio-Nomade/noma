@@ -10,6 +10,10 @@ import { handleActionError, type ActionResult } from "@/lib/actions";
 import { projectSchema, type ProjectFormValues } from "./schema";
 import { logActivity } from "@/lib/activity";
 import {
+  ensureCollectionSuggestion,
+  runApprovedStageAutomations,
+} from "@/features/automations/rules";
+import {
   COMMERCIAL_STAGES,
   PRIORITIES,
   PROJECT_STATUSES,
@@ -105,6 +109,13 @@ export async function setProjectStatus(
       action: `status_changed:${nextStatus}`,
       actorId: user.id,
     });
+    if (nextStatus === "Aprobado") {
+      await ensureCollectionSuggestion({
+        projectId,
+        actor: { id: user.id, email: user.email },
+      });
+      revalidatePath("/finanzas/cobranza");
+    }
     revalidatePath("/projects");
     revalidatePath(`/projects/${projectId}`);
     return { ok: true, data: undefined };
@@ -133,6 +144,13 @@ export async function setCommercialStage(
       action: `stage_changed:${nextStage}`,
       actorId: user.id,
     });
+    if (nextStage === "Aprobado") {
+      await runApprovedStageAutomations({
+        projectId,
+        actor: { id: user.id, email: user.email },
+      });
+      revalidatePath("/finanzas/cobranza");
+    }
     revalidatePath("/pipeline");
     revalidatePath("/projects");
     revalidatePath(`/projects/${projectId}`);

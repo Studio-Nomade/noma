@@ -38,6 +38,7 @@ function activityTitle(entityType: string, action: string): string {
   if (action.startsWith("brief_approved:")) return "Brief aprobado";
   if (action.startsWith("notes_processed:"))
     return "Notas del brief procesadas";
+  if (action.startsWith("collection_suggested:")) return "Cobranza sugerida";
 
   const titles: Record<string, string> = {
     brief_edited: "Brief actualizado",
@@ -71,6 +72,9 @@ function activityHref(entityType: string, entityId: string, projectId: string) {
   if (entityType === "proposal") return `/proposals/${entityId}`;
   if (entityType === "brief" || entityType === "brief_meeting") {
     return `/briefs/${projectId}`;
+  }
+  if (entityType === "cobranza_message") {
+    return `/finanzas/cobranza?projectId=${projectId}`;
   }
   return `/projects/${projectId}`;
 }
@@ -230,6 +234,7 @@ export async function getProjectTimeline(
     "proposal_created_from_brief",
     "handoff_asana_created",
     "handoff_registered",
+    "cfo_request_auto_created",
   ]);
   for (const activity of activities) {
     if (structuredActivityActions.has(activity.action)) continue;
@@ -237,7 +242,9 @@ export async function getProjectTimeline(
       ? activity.action.slice("stage_changed:".length)
       : activity.action.startsWith("brief_approved:")
         ? activity.action.slice("brief_approved:".length)
-        : undefined;
+        : activity.action.startsWith("collection_suggested:")
+          ? activity.action.split(":")[1]
+          : undefined;
     items.push({
       id: `activity-${activity.id}`,
       kind: activityKind(activity.entityType, activity.action),
