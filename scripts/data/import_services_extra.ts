@@ -50,7 +50,10 @@ function toService(r: Row): NewService {
 }
 
 async function main() {
-  const path = resolve("scripts/data/services-extra.json");
+  // El catálogo semilla vive en el repo privado noma-ops (ver ADR-public-private-boundary).
+  // Configurable con NOMA_DATA_DIR; por defecto asume noma-ops como repo hermano.
+  const opsDir = process.env.NOMA_DATA_DIR ?? "../noma-ops";
+  const path = resolve(opsDir, "scripts/data/services-extra.json");
   const rows: Row[] = JSON.parse(readFileSync(path, "utf8"));
 
   const deleted = await db
