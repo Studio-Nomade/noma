@@ -8,22 +8,30 @@ import {
   Video,
   Rocket,
   ExternalLink,
+  Mail,
+  ReceiptText,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
+import { requireUser } from "@/lib/auth";
+import { roleFor } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 import { AREA_LABELS } from "@/types/enums";
 import {
   getProject,
   getProjectLinks,
   listTeamMembers,
   getCfoRequest,
+  getProjectFinance,
 } from "@/features/projects/queries";
+import { getProjectTimeline } from "@/features/projects/timeline";
 import { listClients, getClientContacts } from "@/features/clients/queries";
 import { listBriefMeetings } from "@/features/briefs/queries";
 import { ProjectDialog } from "@/features/projects/project-dialog";
 import { ProjectLinks } from "@/features/projects/project-links";
 import { HandoffDialog } from "@/features/projects/handoff-dialog";
+import { ProjectTimeline } from "@/features/projects/project-timeline";
 import { ScheduleMeetingDialog } from "@/features/briefs/schedule-meeting-dialog";
 import { NewProposalButton } from "@/features/proposals/new-proposal-button";
 
@@ -44,18 +52,22 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const row = await getProject(id);
+  const [row, user] = await Promise.all([getProject(id), requireUser()]);
   if (!row) notFound();
   const { project, clientName } = row;
+  const isFinance = roleFor(user.email).isFinance;
 
-  const [links, clients, team, contacts, meetings, cfo] = await Promise.all([
-    getProjectLinks(id),
-    listClients(),
-    listTeamMembers(),
-    getClientContacts(project.clientId),
-    listBriefMeetings(id),
-    getCfoRequest(id),
-  ]);
+  const [links, clients, team, contacts, meetings, cfo, timeline, finance] =
+    await Promise.all([
+      getProjectLinks(id),
+      listClients(),
+      listTeamMembers(),
+      getClientContacts(project.clientId),
+      listBriefMeetings(id),
+      getCfoRequest(id),
+      getProjectTimeline(id, { includeFinance: isFinance }),
+      isFinance ? getProjectFinance(id) : Promise.resolve(null),
+    ]);
   const asanaLink = links.find((l) => l.type === "asana") ?? null;
   const isHandedOff = project.commercialStage === "Traspasado a operación";
   const clientOptions = clients.map((c) => ({
@@ -121,31 +133,90 @@ export default async function ProjectDetailPage({
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="border-border bg-card space-y-5 rounded-xl border p-6 lg:col-span-2">
-          <h2 className="font-heading text-sm font-medium">Detalle</h2>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Tipo de proyecto" value={project.projectType} />
-            <Field label="Responsable" value={project.responsible} />
-            <Field label="Fecha inicio" value={project.startDate} />
-            <Field label="Fecha entrega" value={project.deliveryDate} />
-            <Field
-              label="Presupuesto"
-              value={
-                project.budgetAmount
-                  ? formatMoney(
-                      project.budgetAmount,
-                      project.budgetCurrency ?? "UF",
-                    )
-                  : null
-              }
-            />
+        <div className="space-y-6 lg:col-span-2">
+          <div className="border-border bg-card space-y-5 rounded-xl border p-6">
+            <h2 className="font-heading text-sm font-medium">Detalle</h2>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Tipo de proyecto" value={project.projectType} />
+              <Field label="Responsable" value={project.responsible} />
+              <Field label="Fecha inicio" value={project.startDate} />
+              <Field label="Fecha entrega" value={project.deliveryDate} />
+              <Field
+                label="Presupuesto"
+                value={
+                  project.budgetAmount
+                    ? formatMoney(
+                        project.budgetAmount,
+                        project.budgetCurrency ?? "UF",
+                      )
+                    : null
+                }
+              />
+            </div>
+            <Field label="Objetivo principal" value={project.mainObjective} />
+            <Field label="Descripción" value={project.description} />
+            <Field label="Notas internas" value={project.internalNotes} />
           </div>
-          <Field label="Objetivo principal" value={project.mainObjective} />
-          <Field label="Descripción" value={project.description} />
-          <Field label="Notas internas" value={project.internalNotes} />
+
+          <section className="border-border bg-card rounded-xl border p-6">
+            <h2 className="font-heading mb-5 text-sm font-medium">Actividad</h2>
+            <ProjectTimeline items={timeline} />
+          </section>
         </div>
 
         <div className="space-y-6">
+          {isFinance && finance && (
+            <div className="border-border bg-card rounded-xl border p-6">
+              <h2 className="font-heading mb-4 text-sm font-medium">
+                Resumen financiero
+              </h2>
+              <dl className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-muted-foreground">Facturado</dt>
+                  <dd className="font-medium">
+                    {formatMoney(finance.invoiced, "CLP")}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-muted-foreground">Por cobrar</dt>
+                  <dd className="font-medium">
+                    {formatMoney(finance.receivable, "CLP")}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-muted-foreground">Pagado</dt>
+                  <dd className="font-medium">
+                    {formatMoney(finance.paid, "CLP")}
+                  </dd>
+                </div>
+                <div className="border-border flex items-center justify-between gap-4 border-t pt-3">
+                  <dt className="text-muted-foreground">Cobranzas enviadas</dt>
+                  <dd className="font-medium">{finance.collectionCount}</dd>
+                </div>
+              </dl>
+
+              <div className="mt-5 grid gap-2">
+                <Link
+                  href={`/finanzas/cobranza?clientId=${project.clientId}&projectId=${project.id}&moment=INICIO`}
+                  className={cn(buttonVariants(), "w-full")}
+                >
+                  <Mail className="size-4" />
+                  Enviar cobranza
+                </Link>
+                <Link
+                  href="/finanzas/ingresos"
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "w-full",
+                  )}
+                >
+                  <ReceiptText className="size-4" />
+                  Ver facturas
+                </Link>
+              </div>
+            </div>
+          )}
+
           <div className="border-border bg-card rounded-xl border p-6">
             <h2 className="font-heading mb-4 text-sm font-medium">
               Links y recursos
@@ -160,7 +231,9 @@ export default async function ProjectDetailPage({
               </h2>
               <StatusBadge
                 value={
-                  meetings.length > 0 ? "Reunión agendada" : "Sin reunión agendada"
+                  meetings.length > 0
+                    ? "Reunión agendada"
+                    : "Sin reunión agendada"
                 }
                 size="xs"
               />
@@ -304,7 +377,9 @@ export default async function ProjectDetailPage({
                   className="w-full"
                 >
                   <Rocket className="size-4" />
-                  {isHandedOff ? "Actualizar traspaso" : "Traspasar a operación"}
+                  {isHandedOff
+                    ? "Actualizar traspaso"
+                    : "Traspasar a operación"}
                 </Button>
               }
             />

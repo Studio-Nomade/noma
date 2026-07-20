@@ -3,16 +3,35 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { KanbanSquare, List, GripVertical } from "lucide-react";
+import {
+  CalendarDays,
+  GripVertical,
+  KanbanSquare,
+  List,
+  UserRound,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AREA_LABELS,
+  AREAS,
+  CURRENCIES,
   PIPELINE_STAGES,
   STAGE_ALIASES,
+  type Area,
   type CommercialStage,
+  type Currency,
 } from "@/types/enums";
 import { AREA_THEME } from "@/lib/brand/brand";
+import { formatMoney } from "@/lib/currency/format";
+import { formatDate, toNum } from "@/features/finance/helpers";
 import { setCommercialStage } from "./actions";
 import type { ProjectListItem } from "./queries";
 
@@ -29,20 +48,43 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<CommercialStage | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [area, setArea] = useState<"all" | Area>("all");
+  const [responsible, setResponsible] = useState("all");
+
+  const responsibleOptions = useMemo(
+    () =>
+      [
+        ...new Set(items.map((project) => project.responsible).filter(Boolean)),
+      ].sort((a, b) => a!.localeCompare(b!, "es")) as string[],
+    [items],
+  );
+
+  const filteredItems = useMemo(
+    () =>
+      items.filter(
+        (project) =>
+          (area === "all" || project.area === area) &&
+          (responsible === "all" || project.responsible === responsible),
+      ),
+    [area, items, responsible],
+  );
 
   const byColumn = useMemo(() => {
     const map = new Map<CommercialStage, ProjectListItem[]>();
     for (const stage of PIPELINE_STAGES) map.set(stage, []);
-    for (const p of items) {
+    for (const p of filteredItems) {
       const col = columnFor(p.commercialStage as CommercialStage);
       map.get(col)!.push(p);
     }
     return map;
-  }, [items]);
+  }, [filteredItems]);
 
   async function move(id: string, stage: CommercialStage) {
     const current = items.find((p) => p.id === id);
-    if (!current || columnFor(current.commercialStage as CommercialStage) === stage)
+    if (
+      !current ||
+      columnFor(current.commercialStage as CommercialStage) === stage
+    )
       return;
     const prev = items;
     // optimista
@@ -67,7 +109,7 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="border-border bg-card inline-flex rounded-lg border p-0.5">
           <button
             onClick={() => setView("kanban")}
@@ -94,8 +136,25 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
             Lista
           </button>
         </div>
+        <PipelineFilter
+          value={area}
+          onValueChange={(value) => setArea(value as "all" | Area)}
+          label="Todas las áreas"
+          options={AREAS.map((value) => ({
+            value,
+            label: AREA_LABELS[value],
+          }))}
+        />
+        <PipelineFilter
+          value={responsible}
+          onValueChange={setResponsible}
+          label="Todos los responsables"
+          options={responsibleOptions.map((value) => ({ value, label: value }))}
+        />
         <p className="text-muted-foreground text-xs">
-          {items.length} {items.length === 1 ? "oportunidad" : "oportunidades"} ·
+          {filteredItems.length}
+          {filteredItems.length !== items.length && ` de ${items.length}`}{" "}
+          {filteredItems.length === 1 ? "oportunidad" : "oportunidades"} ·
           arrastra las tarjetas para cambiar de etapa
         </p>
       </div>
@@ -104,6 +163,7 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
         <div className="flex gap-3 overflow-x-auto pb-4">
           {PIPELINE_STAGES.map((stage) => {
             const list = byColumn.get(stage) ?? [];
+            const totals = totalsByCurrency(list);
             return (
               <div
                 key={stage}
@@ -167,6 +227,29 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
                               </span>
                               <StatusBadge value={p.priority} size="xs" />
                             </div>
+                            <dl className="text-muted-foreground mt-2 space-y-1 text-[11px]">
+                              <div className="flex items-center justify-between gap-2">
+                                <dt>Presupuesto</dt>
+                                <dd className="text-foreground font-medium">
+                                  {formatMoney(
+                                    p.budgetAmount,
+                                    p.budgetCurrency ?? "UF",
+                                  )}
+                                </dd>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <CalendarDays className="size-3 shrink-0" />
+                                <span>
+                                  Entrega {formatDate(p.deliveryDate)}
+                                </span>
+                              </div>
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <UserRound className="size-3 shrink-0" />
+                                <span className="truncate">
+                                  {p.responsible ?? "Sin responsable"}
+                                </span>
+                              </div>
+                            </dl>
                             {p.nextAction && (
                               <p className="text-muted-foreground mt-1.5 line-clamp-2 text-[11px]">
                                 {p.nextAction}
@@ -183,6 +266,25 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
                     </div>
                   )}
                 </div>
+                <div className="border-border mt-auto border-t px-3 py-2.5">
+                  <p className="text-muted-foreground mb-1 text-[10px] font-medium tracking-wide uppercase">
+                    Total etapa
+                  </p>
+                  {totals.length > 0 ? (
+                    <div className="space-y-0.5">
+                      {totals.map(({ currency, amount }) => (
+                        <p
+                          key={currency}
+                          className="text-xs font-semibold tabular-nums"
+                        >
+                          {formatMoney(amount, currency)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">—</p>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -197,10 +299,13 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
                 <th className="px-4 py-2.5 font-medium">Área</th>
                 <th className="px-4 py-2.5 font-medium">Etapa</th>
                 <th className="px-4 py-2.5 font-medium">Prioridad</th>
+                <th className="px-4 py-2.5 font-medium">Presupuesto</th>
+                <th className="px-4 py-2.5 font-medium">Entrega</th>
+                <th className="px-4 py-2.5 font-medium">Responsable</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
+              {filteredItems.map((p) => (
                 <tr
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
@@ -219,6 +324,15 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
                   <td className="px-4 py-2.5">
                     <StatusBadge value={p.priority} size="xs" />
                   </td>
+                  <td className="px-4 py-2.5 text-xs font-medium">
+                    {formatMoney(p.budgetAmount, p.budgetCurrency ?? "UF")}
+                  </td>
+                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                    {formatDate(p.deliveryDate)}
+                  </td>
+                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                    {p.responsible ?? "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -226,5 +340,49 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+function totalsByCurrency(projects: ProjectListItem[]) {
+  const totals = new Map<Currency, number>();
+  for (const project of projects) {
+    if (!project.budgetAmount) continue;
+    const currency = project.budgetCurrency ?? "UF";
+    totals.set(
+      currency,
+      (totals.get(currency) ?? 0) + toNum(project.budgetAmount),
+    );
+  }
+  return CURRENCIES.flatMap((currency) => {
+    const amount = totals.get(currency);
+    return amount ? [{ currency, amount }] : [];
+  });
+}
+
+function PipelineFilter({
+  value,
+  onValueChange,
+  label,
+  options,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  label: string;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <Select value={value} onValueChange={(next) => next && onValueChange(next)}>
+      <SelectTrigger size="sm" aria-label={label} className="max-w-52">
+        <SelectValue>{value === "all" ? label : undefined}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{label}</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
