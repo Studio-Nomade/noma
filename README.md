@@ -87,9 +87,11 @@ src/
   db/          schema Drizzle · migraciones · seed
   types/       enums y tipos de dominio
 docs/          Documentación de producto, técnica, UX y decisiones (ADR)
-context/       Materiales fuente del estudio (privado, no versionado)
 scripts/       Tareas (seed, sync de tasas)
 ```
+
+El conocimiento interno y estratégico del estudio (procesos, pricing, análisis de
+servicios/SLA, presupuestos) vive en el repositorio **privado** `noma-ops`, no en este repo.
 
 ## Documentación
 
@@ -97,8 +99,9 @@ scripts/       Tareas (seed, sync de tasas)
 - Técnica: [`docs/technical`](docs/technical) — TRD, arquitectura, modelo de datos,
   integraciones
 - UX/UI: [`docs/ux-ui`](docs/ux-ui) — design system, flujos, pantallas
-- Operaciones: [`docs/operations`](docs/operations) — procesos, onboarding, mapa de
-  herramientas, fricciones
 - Decisiones: [`docs/decisions`](docs/decisions) — ADRs
+
+> La documentación operativa interna (procesos, onboarding, fricciones, pricing, análisis de
+> servicios y SLA) se mantiene en el repositorio privado `noma-ops`.
 
 El plan de ejecución por fases vive en el plan aprobado del proyecto.

@@ -37,23 +37,27 @@ yarn-error.log*
 # vercel
 .vercel
 
-# Noma: materiales fuente del estudio (documentos privados, no versionar)
-/context/*
-!/context/.gitkeep
-!/context/README.md
+# Noma: el conocimiento interno y los datos del estudio viven en el repo privado noma-ops.
+# Estas carpetas ya no forman parte de noma-app; se ignoran por si reaparecen localmente.
+/context/
+/data/
+/output/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-# Datos comerciales reales (Base de Datos | Noma) — NO versionar
-/data/
-# Secretos / credenciales
+# Secretos / credenciales — NO versionar en ningún caso
 *.apps.googleusercontent.com.json
 client_secret*.json
+credentials*.json
+token*.json
+*.key
+*.p12
+*.crt
 .venv/
+__pycache__/
+*.pyc
 
 # Herramientas y caches externos (no versionar)
 .codex/
-/output/
-__pycache__/
