@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
 import { projects, resourceLinks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
@@ -10,10 +11,18 @@ import { projectSchema, type ProjectFormValues } from "./schema";
 import { logActivity } from "@/lib/activity";
 import {
   COMMERCIAL_STAGES,
+  PRIORITIES,
+  PROJECT_STATUSES,
   type LinkType,
   type ProjectStatus,
   type CommercialStage,
+  type Priority,
 } from "@/types/enums";
+
+const projectIdSchema = z.string().uuid("Proyecto inválido.");
+const commercialStageSchema = z.enum(COMMERCIAL_STAGES);
+const projectStatusSchema = z.enum(PROJECT_STATUSES);
+const projectPrioritySchema = z.enum(PRIORITIES);
 
 function normalize(values: ProjectFormValues) {
   const d = projectSchema.parse(values);
@@ -81,13 +90,23 @@ export async function setProjectStatus(
   status: ProjectStatus,
 ): Promise<ActionResult> {
   try {
-    await requireUser();
-    await db
+    const user = await requireUser();
+    const projectId = projectIdSchema.parse(id);
+    const nextStatus = projectStatusSchema.parse(status);
+    const [updated] = await db
       .update(projects)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(projects.id, id));
+      .set({ status: nextStatus, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning({ id: projects.id });
+    if (!updated) return { ok: false, error: "Proyecto no encontrado." };
+    await logActivity({
+      entityType: "project",
+      entityId: projectId,
+      action: `status_changed:${nextStatus}`,
+      actorId: user.id,
+    });
     revalidatePath("/projects");
-    revalidatePath(`/projects/${id}`);
+    revalidatePath(`/projects/${projectId}`);
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "setProjectStatus");
@@ -100,25 +119,55 @@ export async function setCommercialStage(
 ): Promise<ActionResult> {
   try {
     const user = await requireUser();
-    if (!COMMERCIAL_STAGES.includes(stage)) {
-      return { ok: false, error: "Etapa comercial inválida." };
-    }
-    await db
+    const projectId = projectIdSchema.parse(id);
+    const nextStage = commercialStageSchema.parse(stage);
+    const [updated] = await db
       .update(projects)
-      .set({ commercialStage: stage, updatedAt: new Date() })
-      .where(eq(projects.id, id));
+      .set({ commercialStage: nextStage, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning({ id: projects.id });
+    if (!updated) return { ok: false, error: "Proyecto no encontrado." };
     await logActivity({
       entityType: "project",
-      entityId: id,
-      action: `stage_changed:${stage}`,
+      entityId: projectId,
+      action: `stage_changed:${nextStage}`,
       actorId: user.id,
     });
     revalidatePath("/pipeline");
     revalidatePath("/projects");
-    revalidatePath(`/projects/${id}`);
+    revalidatePath(`/projects/${projectId}`);
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "setCommercialStage");
+  }
+}
+
+export async function setProjectPriority(
+  id: string,
+  priority: Priority,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const projectId = projectIdSchema.parse(id);
+    const nextPriority = projectPrioritySchema.parse(priority);
+    const [updated] = await db
+      .update(projects)
+      .set({ priority: nextPriority, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning({ id: projects.id });
+    if (!updated) return { ok: false, error: "Proyecto no encontrado." };
+    await logActivity({
+      entityType: "project",
+      entityId: projectId,
+      action: `priority_changed:${nextPriority}`,
+      actorId: user.id,
+    });
+    revalidatePath("/pipeline");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "setProjectPriority");
   }
 }
 

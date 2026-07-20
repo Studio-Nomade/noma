@@ -33,10 +33,7 @@ const OPEN_DOC: FinDocumentStatus[] = ["EMITIDA", "PARCIAL", "VENCIDA"];
 // ── Banco ────────────────────────────────────────────────────
 
 export async function getBankAccounts() {
-  const rows = await db
-    .select()
-    .from(bankAccounts)
-    .orderBy(bankAccounts.name);
+  const rows = await db.select().from(bankAccounts).orderBy(bankAccounts.name);
   return rows.map((a) => ({ ...a, saldo: toNum(a.saldo) }));
 }
 
@@ -246,11 +243,18 @@ export async function getDocuments(
     })
     .from(finDocuments)
     .leftJoin(finContacts, eq(finDocuments.contactId, finContacts.id))
-    .leftJoin(ledgerAccounts, eq(finDocuments.ledgerAccountId, ledgerAccounts.id))
+    .leftJoin(
+      ledgerAccounts,
+      eq(finDocuments.ledgerAccountId, ledgerAccounts.id),
+    )
     .where(and(...conds))
     .orderBy(desc(finDocuments.fechaEmision))
     .limit(500);
 }
+
+export type FinanceDocumentListItem = Awaited<
+  ReturnType<typeof getDocuments>
+>[number];
 
 // ── Clasificación ────────────────────────────────────────────
 
@@ -322,12 +326,20 @@ export async function getClassificationOptions() {
       .where(eq(ledgerAccounts.status, "ACTIVO"))
       .orderBy(ledgerAccounts.code),
     db
-      .select({ id: costCenters.id, code: costCenters.code, name: costCenters.name })
+      .select({
+        id: costCenters.id,
+        code: costCenters.code,
+        name: costCenters.name,
+      })
       .from(costCenters)
       .where(eq(costCenters.status, "ACTIVO"))
       .orderBy(costCenters.code),
     db
-      .select({ id: businessLines.id, code: businessLines.code, name: businessLines.name })
+      .select({
+        id: businessLines.id,
+        code: businessLines.code,
+        name: businessLines.name,
+      })
       .from(businessLines)
       .where(eq(businessLines.status, "ACTIVO"))
       .orderBy(businessLines.code),
@@ -358,23 +370,29 @@ export async function getResultadoOperacional(range: PeriodRange = {}) {
       accType: ledgerAccounts.type,
     })
     .from(finDocuments)
-    .leftJoin(ledgerAccounts, eq(finDocuments.ledgerAccountId, ledgerAccounts.id))
+    .leftJoin(
+      ledgerAccounts,
+      eq(finDocuments.ledgerAccountId, ledgerAccounts.id),
+    )
     .where(and(...conds));
 
   const map = new Map<
     string,
-    { code: string; name: string; type: LedgerAccountType | "SIN"; neto: number }
+    {
+      code: string;
+      name: string;
+      type: LedgerAccountType | "SIN";
+      neto: number;
+    }
   >();
   for (const d of rows) {
     const key = d.accId ?? "sin";
-    const entry =
-      map.get(key) ??
-      {
-        code: d.accCode ?? "—",
-        name: d.accName ?? "Sin clasificar",
-        type: (d.accType ?? "SIN") as LedgerAccountType | "SIN",
-        neto: 0,
-      };
+    const entry = map.get(key) ?? {
+      code: d.accCode ?? "—",
+      name: d.accName ?? "Sin clasificar",
+      type: (d.accType ?? "SIN") as LedgerAccountType | "SIN",
+      neto: 0,
+    };
     const signed = d.direction === "VENTA" ? toNum(d.neto) : -toNum(d.neto);
     entry.neto += signed;
     map.set(key, entry);
