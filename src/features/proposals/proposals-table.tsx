@@ -4,6 +4,10 @@ import Link from "next/link";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  MobileDetailsCard,
+  MobileField,
+} from "@/components/shared/mobile-details-card";
+import {
   Table,
   TableBody,
   TableCell,
@@ -22,7 +26,38 @@ export function ProposalsTable({ proposals }: { proposals: ProposalRow[] }) {
   const pagination = usePagination(proposals, "noma:proposals:page-size");
   return (
     <>
-      <div className="border-border bg-card overflow-hidden rounded-xl border">
+      <div className="space-y-2 md:hidden">
+        {pagination.pageItems.map((proposal) => (
+          <MobileDetailsCard
+            key={proposal.id}
+            title={proposal.title}
+            subtitle={`${proposal.clientName ?? "Sin cliente"} · v${proposal.version}`}
+            badge={<StatusBadge value={proposal.status} size="xs" />}
+            actions={
+              <>
+                <Link
+                  href={`/proposals/${proposal.id}`}
+                  className="hover:bg-accent inline-flex min-h-10 items-center rounded-md px-3 text-sm font-medium"
+                >
+                  Ver propuesta
+                </Link>
+                <ProposalDeleteButton id={proposal.id} compact />
+              </>
+            }
+          >
+            <dl className="space-y-2">
+              <MobileField label="Proyecto">{proposal.projectName}</MobileField>
+              <MobileField label="Valor">
+                {formatMoney(
+                  proposal.estimatedValueAmount,
+                  proposal.estimatedValueCurrency ?? "UF",
+                )}
+              </MobileField>
+            </dl>
+          </MobileDetailsCard>
+        ))}
+      </div>
+      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

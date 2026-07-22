@@ -4,6 +4,10 @@ import Link from "next/link";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  MobileDetailsCard,
+  MobileField,
+} from "@/components/shared/mobile-details-card";
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,7 +24,35 @@ export function BriefsTable({ rows }: { rows: BriefRow[] }) {
   const pagination = usePagination(rows, "noma:briefs:page-size");
   return (
     <>
-      <div className="border-border bg-card overflow-hidden rounded-xl border">
+      <div className="space-y-2 md:hidden">
+        {pagination.pageItems.map((row) => (
+          <MobileDetailsCard
+            key={row.projectId}
+            title={row.name}
+            subtitle={row.clientName}
+            badge={
+              row.briefStatus ? (
+                <StatusBadge value={row.briefStatus} size="xs" />
+              ) : (
+                <span className="text-muted-foreground text-xs">Sin brief</span>
+              )
+            }
+            actions={
+              <Link
+                href={`/briefs/${row.projectId}`}
+                className="hover:bg-accent inline-flex min-h-10 items-center rounded-md px-3 text-sm font-medium"
+              >
+                Abrir brief
+              </Link>
+            }
+          >
+            <dl>
+              <MobileField label="Área">{row.area}</MobileField>
+            </dl>
+          </MobileDetailsCard>
+        ))}
+      </div>
+      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

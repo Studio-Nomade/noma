@@ -90,3 +90,19 @@ export async function getPipeline() {
     .where(ne(projects.status, "Cerrado"))
     .groupBy(projects.commercialStage);
 }
+
+export async function getDashboardOpportunities() {
+  return db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      clientName: clients.companyName,
+      stage: projects.commercialStage,
+      updatedAt: projects.updatedAt,
+    })
+    .from(projects)
+    .innerJoin(clients, eq(projects.clientId, clients.id))
+    .where(ne(projects.status, "Cerrado"))
+    .orderBy(desc(projects.updatedAt))
+    .limit(8);
+}

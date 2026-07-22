@@ -12,28 +12,32 @@ export function Brand({ collapsed = false }: { collapsed?: boolean }) {
         collapsed ? "justify-center" : "justify-start",
       )}
     >
-      <Image
-        src="/assets/brand/nomade-black.png"
-        alt="Studio Nomade"
-        width={728}
-        height={541}
-        priority
-        className={cn(
-          "object-contain dark:hidden",
-          collapsed ? "size-9" : "h-11 w-auto",
-        )}
-      />
-      <Image
-        src="/assets/brand/nomade-white.png"
-        alt="Studio Nomade"
-        width={728}
-        height={556}
-        priority
-        className={cn(
-          "hidden object-contain dark:block",
-          collapsed ? "size-9" : "h-11 w-auto",
-        )}
-      />
+      <span className="relative size-10 shrink-0">
+        <Image
+          src="/assets/brand/nomade-black.png"
+          alt=""
+          fill
+          priority
+          className="object-contain dark:hidden"
+        />
+        <Image
+          src="/assets/brand/nomade-white.png"
+          alt=""
+          fill
+          priority
+          className="hidden object-contain dark:block"
+        />
+      </span>
+      {!collapsed && (
+        <span className="ml-2.5 min-w-0 leading-none">
+          <span className="font-heading block text-base font-semibold">
+            Noma
+          </span>
+          <span className="text-muted-foreground mt-1 block text-[10px] font-medium">
+            by Studio Nomade
+          </span>
+        </span>
+      )}
     </Link>
   );
 }

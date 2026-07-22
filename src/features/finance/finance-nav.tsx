@@ -19,7 +19,7 @@ const TABS = [
 export function FinanceNav() {
   const pathname = usePathname();
   return (
-    <nav className="border-border mb-8 flex gap-1 overflow-x-auto border-b">
+    <nav className="border-border mb-8 flex flex-wrap gap-1 border-b">
       {TABS.map((t) => {
         const active =
           t.href === "/finanzas"

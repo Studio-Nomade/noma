@@ -20,6 +20,8 @@ import {
   Upload,
   ClipboardList,
   BookOpenCheck,
+  Contact,
+  Shapes,
   Users,
   WalletCards,
   type LucideIcon,
@@ -87,8 +89,8 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "RRHH",
-    icon: Users,
+    label: "Personas",
+    icon: Contact,
     children: [
       { href: "/surveys", label: "Encuestas", icon: ClipboardList },
       { href: "/training", label: "Capacitaciones", icon: BookOpenCheck },
@@ -97,7 +99,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Catálogo",
-    icon: Boxes,
+    icon: Shapes,
     children: [{ href: "/services", label: "Servicios", icon: Boxes }],
   },
 ];
