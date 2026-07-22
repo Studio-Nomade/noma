@@ -4,12 +4,11 @@ import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
-import { COMMERCIAL_STAGES } from "@/types/enums";
 import {
   getDashboardMetrics,
   getNextActions,
   getUpcomingDeliveries,
-  getPipeline,
+  getDashboardOpportunities,
 } from "@/features/dashboard/queries";
 import { listProposals } from "@/features/proposals/queries";
 import { requireUser } from "@/lib/auth";
@@ -30,7 +29,7 @@ export default async function DashboardPage() {
     metrics,
     nextActions,
     deliveries,
-    pipeline,
+    opportunities,
     proposals,
     announcements,
     birthdays,
@@ -38,14 +37,12 @@ export default async function DashboardPage() {
     getDashboardMetrics(),
     getNextActions(),
     getUpcomingDeliveries(),
-    getPipeline(),
+    getDashboardOpportunities(),
     listProposals(),
     getAnnouncements(member?.id ?? null),
     getUpcomingBirthdays(),
   ]);
 
-  const pipelineMap = new Map(pipeline.map((p) => [p.stage, p.n]));
-  const pipelineMax = Math.max(1, ...pipeline.map((p) => p.n));
   const recentProposals = proposals.slice(0, 5);
 
   return (
@@ -55,13 +52,7 @@ export default async function DashboardPage() {
         description="Visión operativa del estudio: pipeline, próximas acciones y entregas."
       />
 
-      <InternalCommsSection
-        initialAnnouncements={announcements}
-        birthdays={birthdays}
-        canManage={roleFor(user.email).isAdmin}
-      />
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard
           label="Clientes activos"
           value={String(metrics.activeClients)}
@@ -82,27 +73,49 @@ export default async function DashboardPage() {
       </div>
 
       {/* Pipeline */}
-      <div className="border-border bg-card mt-8 rounded-xl border p-6">
-        <h2 className="font-heading mb-4 text-sm font-medium">
-          Pipeline comercial
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {COMMERCIAL_STAGES.map((stage) => {
-            const n = pipelineMap.get(stage) ?? 0;
-            return (
-              <div key={stage} className="flex flex-col gap-1.5">
-                <span className="text-2xl font-semibold">{n}</span>
-                <div className="bg-accent h-1 overflow-hidden rounded-full">
-                  <div
-                    className="bg-foreground h-full rounded-full"
-                    style={{ width: `${(n / pipelineMax) * 100}%` }}
-                  />
-                </div>
-                <span className="text-muted-foreground text-xs">{stage}</span>
-              </div>
-            );
-          })}
+      <InternalCommsSection
+        initialAnnouncements={announcements}
+        birthdays={birthdays}
+        canManage={roleFor(user.email).isAdmin}
+      />
+
+      <div className="border-border bg-card mt-8 rounded-xl border p-4 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-heading text-sm font-medium">
+            Pipeline comercial
+          </h2>
+          <Link
+            href="/pipeline"
+            className="text-muted-foreground hover:text-foreground text-xs font-medium"
+          >
+            Ver pipeline completo
+          </Link>
         </div>
+        {opportunities.length === 0 ? (
+          <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
+            No hay oportunidades activas.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {opportunities.map((opportunity) => (
+              <Link
+                key={opportunity.id}
+                href={`/projects/${opportunity.id}`}
+                className="border-border hover:bg-accent/50 min-w-0 rounded-lg border p-3 transition-colors"
+              >
+                <p className="truncate text-sm font-medium">
+                  {opportunity.name}
+                </p>
+                <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                  {opportunity.clientName}
+                </p>
+                <div className="mt-3">
+                  <StatusBadge value={opportunity.stage} size="xs" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

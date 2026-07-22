@@ -157,7 +157,7 @@ export function AppShell({
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               aria-label="Abrir menú"
-              className="hover:bg-accent rounded-md p-2"
+              className="hover:bg-accent flex size-10 items-center justify-center rounded-md"
             >
               <Menu className="size-5" />
             </SheetTrigger>
@@ -178,11 +178,11 @@ export function AppShell({
         <main
           className={
             collapsed
-              ? "flex-1 transition-[padding] duration-200 lg:pl-20"
-              : "flex-1 transition-[padding] duration-200 lg:pl-64"
+              ? "min-w-0 flex-1 transition-[padding] duration-200 lg:pl-20"
+              : "min-w-0 flex-1 transition-[padding] duration-200 lg:pl-64"
           }
         >
-          <div className="mx-auto max-w-6xl px-6 pt-20 pb-12 lg:px-8 lg:pt-8">
+          <div className="mx-auto max-w-6xl min-w-0 px-4 pt-20 pb-12 sm:px-6 lg:px-8 lg:pt-8">
             {children}
           </div>
         </main>

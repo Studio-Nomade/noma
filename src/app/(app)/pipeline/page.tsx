@@ -43,7 +43,7 @@ export default async function PipelinePage() {
     <>
       <PageHeader
         title="Pipeline"
-        description="Oportunidades comerciales por etapa. Arrastra para avanzar el flujo."
+        description="Oportunidades comerciales organizadas por etapa."
         action={newButton}
       />
 

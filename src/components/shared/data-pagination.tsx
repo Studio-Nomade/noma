@@ -36,7 +36,7 @@ export function DataPagination({
       <p className="text-muted-foreground text-sm">
         {from}–{to} de {total}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-start">
         <Select
           value={String(pageSize)}
           onValueChange={(value) => onPageSizeChange(Number(value))}
@@ -59,7 +59,7 @@ export function DataPagination({
         <Button
           type="button"
           variant="outline"
-          size="icon-sm"
+          size="icon"
           aria-label="Página anterior"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
@@ -72,7 +72,7 @@ export function DataPagination({
         <Button
           type="button"
           variant="outline"
-          size="icon-sm"
+          size="icon"
           aria-label="Página siguiente"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}

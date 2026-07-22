@@ -110,15 +110,15 @@ export function TrainingHub({
   return (
     <Tabs defaultValue="catalog">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <TabsList>
-          <TabsTrigger value="catalog">
+        <TabsList className="h-auto w-full flex-wrap sm:w-fit sm:flex-nowrap">
+          <TabsTrigger value="catalog" className="min-h-10 sm:min-h-0">
             <BookOpen /> Catálogo
           </TabsTrigger>
-          <TabsTrigger value="mine">
+          <TabsTrigger value="mine" className="min-h-10 sm:min-h-0">
             <GraduationCap /> Mi aprendizaje
           </TabsTrigger>
           {canManage && (
-            <TabsTrigger value="team">
+            <TabsTrigger value="team" className="min-h-10 sm:min-h-0">
               <Users /> Estado del equipo
             </TabsTrigger>
           )}
@@ -137,7 +137,7 @@ export function TrainingHub({
       <TabsContent value="catalog">
         <div className="mb-5 flex flex-wrap gap-2">
           <Input
-            className="min-w-60 flex-1"
+            className="min-w-0 flex-[1_1_15rem]"
             placeholder="Buscar curso…"
             value={query}
             onChange={(event) => setQuery(event.target.value)}

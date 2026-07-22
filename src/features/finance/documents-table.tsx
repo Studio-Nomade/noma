@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  MobileDetailsCard,
+  MobileField,
+} from "@/components/shared/mobile-details-card";
+import {
   SortButton,
   type SortDirection,
 } from "@/components/shared/sort-button";
@@ -83,75 +87,33 @@ export function DocumentsTable({
   ];
 
   return (
-    <div className="border-border bg-card overflow-x-auto rounded-xl border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-muted-foreground border-border border-b text-left text-xs">
-            {headers.map((header) => (
-              <th key={header.key} className="px-4 py-3">
-                <SortButton
-                  label={header.label}
-                  active={sortKey === header.key}
-                  direction={sortDirection}
-                  onClick={() => sortBy(header.key)}
-                  align={header.align}
-                />
-              </th>
-            ))}
-            <th className="px-4 py-3 text-right">Archivos</th>
-            <th className="px-4 py-3 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedRows.map((document) => {
-            const openable =
-              document.status === "EMITIDA" ||
-              document.status === "PARCIAL" ||
-              document.status === "VENCIDA";
-            return (
-              <tr key={document.id} className="border-border/60 border-b">
-                <td className="px-4 py-3">
-                  {TYPE_LABELS[document.type] ?? document.type}
-                </td>
-                <td className="px-4 py-3 font-medium">{document.folio}</td>
-                <td className="px-4 py-3">
-                  <span className="block max-w-[200px] truncate">
-                    {document.contactName ?? "—"}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {document.contactRut ?? ""}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {formatDate(document.fechaEmision)}
-                </td>
-                <td className="px-4 py-3">
-                  {formatDate(document.fechaVencimiento)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {formatMoney(toNum(document.neto), "CLP")}
-                </td>
-                <td className="px-4 py-3 text-right font-medium">
-                  {formatMoney(toNum(document.total), "CLP")}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge value={document.status} />
-                </td>
-                <td className="px-4 py-3">
+    <>
+      <div className="space-y-2 md:hidden">
+        {sortedRows.map((document) => {
+          const openable =
+            document.status === "EMITIDA" ||
+            document.status === "PARCIAL" ||
+            document.status === "VENCIDA";
+          return (
+            <MobileDetailsCard
+              key={document.id}
+              title={`${TYPE_LABELS[document.type] ?? document.type} · ${document.folio}`}
+              subtitle={document.contactName ?? "Sin contacto"}
+              badge={<StatusBadge value={document.status} size="xs" />}
+              actions={
+                <>
                   <DocumentFilesCell
                     documentId={document.id}
                     hasPdf={!!document.pdfPath}
                     hasXml={!!document.xmlPath}
                   />
-                </td>
-                <td className="px-4 py-3">
                   {openable && (
-                    <div className="flex justify-end gap-3">
+                    <>
                       <form action={markDocumentPaid}>
                         <input type="hidden" name="id" value={document.id} />
                         <button
                           type="submit"
-                          className="text-xs text-[var(--status-emerald)] hover:underline"
+                          className="min-h-10 px-2 text-xs text-[var(--status-emerald)]"
                         >
                           Marcar pagado
                         </button>
@@ -160,19 +122,130 @@ export function DocumentsTable({
                         <input type="hidden" name="id" value={document.id} />
                         <button
                           type="submit"
-                          className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
+                          className="text-muted-foreground min-h-10 px-2 text-xs hover:text-[var(--status-red)]"
                         >
                           Anular
                         </button>
                       </form>
-                    </div>
+                    </>
                   )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                </>
+              }
+            >
+              <dl className="space-y-2">
+                <MobileField label="RUT">
+                  {document.contactRut ?? "—"}
+                </MobileField>
+                <MobileField label="Emisión">
+                  {formatDate(document.fechaEmision)}
+                </MobileField>
+                <MobileField label="Vencimiento">
+                  {formatDate(document.fechaVencimiento)}
+                </MobileField>
+                <MobileField label="Neto">
+                  {formatMoney(toNum(document.neto), "CLP")}
+                </MobileField>
+                <MobileField label="Total">
+                  <span className="font-medium">
+                    {formatMoney(toNum(document.total), "CLP")}
+                  </span>
+                </MobileField>
+              </dl>
+            </MobileDetailsCard>
+          );
+        })}
+      </div>
+      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-muted-foreground border-border border-b text-left text-xs">
+              {headers.map((header) => (
+                <th key={header.key} className="px-4 py-3">
+                  <SortButton
+                    label={header.label}
+                    active={sortKey === header.key}
+                    direction={sortDirection}
+                    onClick={() => sortBy(header.key)}
+                    align={header.align}
+                  />
+                </th>
+              ))}
+              <th className="px-4 py-3 text-right">Archivos</th>
+              <th className="px-4 py-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map((document) => {
+              const openable =
+                document.status === "EMITIDA" ||
+                document.status === "PARCIAL" ||
+                document.status === "VENCIDA";
+              return (
+                <tr key={document.id} className="border-border/60 border-b">
+                  <td className="px-4 py-3">
+                    {TYPE_LABELS[document.type] ?? document.type}
+                  </td>
+                  <td className="px-4 py-3 font-medium">{document.folio}</td>
+                  <td className="px-4 py-3">
+                    <span className="block max-w-[200px] truncate">
+                      {document.contactName ?? "—"}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {document.contactRut ?? ""}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {formatDate(document.fechaEmision)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {formatDate(document.fechaVencimiento)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {formatMoney(toNum(document.neto), "CLP")}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {formatMoney(toNum(document.total), "CLP")}
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge value={document.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <DocumentFilesCell
+                      documentId={document.id}
+                      hasPdf={!!document.pdfPath}
+                      hasXml={!!document.xmlPath}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    {openable && (
+                      <div className="flex justify-end gap-3">
+                        <form action={markDocumentPaid}>
+                          <input type="hidden" name="id" value={document.id} />
+                          <button
+                            type="submit"
+                            className="text-xs text-[var(--status-emerald)] hover:underline"
+                          >
+                            Marcar pagado
+                          </button>
+                        </form>
+                        <form action={anularDocument}>
+                          <input type="hidden" name="id" value={document.id} />
+                          <button
+                            type="submit"
+                            className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
+                          >
+                            Anular
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

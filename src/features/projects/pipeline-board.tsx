@@ -128,7 +128,7 @@ export function PipelineBoard({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="border-border bg-card inline-flex rounded-lg border p-0.5">
+        <div className="border-border bg-card hidden rounded-lg border p-0.5 md:inline-flex">
           <button
             onClick={() => setView("kanban")}
             className={cn(
@@ -172,210 +172,281 @@ export function PipelineBoard({
         <p className="text-muted-foreground text-xs">
           {filteredItems.length}
           {filteredItems.length !== items.length && ` de ${items.length}`}{" "}
-          {filteredItems.length === 1 ? "oportunidad" : "oportunidades"} ·
-          arrastra las tarjetas para cambiar de etapa
+          {filteredItems.length === 1 ? "oportunidad" : "oportunidades"}
+          <span className="hidden md:inline">
+            {" "}
+            · arrastra las tarjetas para cambiar de etapa
+          </span>
         </p>
       </div>
 
-      {view === "kanban" ? (
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {PIPELINE_STAGES.map((stage) => {
-            const list = byColumn.get(stage) ?? [];
-            const totals = totalsByCurrency(list);
-            return (
-              <div
-                key={stage}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setOverCol(stage);
-                }}
-                onDragLeave={() => setOverCol((c) => (c === stage ? null : c))}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setOverCol(null);
-                  if (dragId) move(dragId, stage);
-                  setDragId(null);
-                }}
-                className={cn(
-                  "flex w-64 shrink-0 flex-col rounded-xl border transition-colors",
-                  overCol === stage
-                    ? "border-foreground/40 bg-accent"
-                    : "border-border bg-muted/30",
-                )}
-              >
-                <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-xs font-semibold tracking-wide uppercase">
-                    {stage}
-                  </span>
-                  <span className="text-muted-foreground bg-background rounded-full px-1.5 py-0.5 text-[10px] font-medium">
-                    {list.length}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2 px-2 pb-2">
-                  {list.map((p) => {
-                    const theme = AREA_THEME[p.area];
-                    return (
-                      <div
-                        key={p.id}
-                        draggable
-                        onDragStart={() => {
-                          justDragged.current = true;
-                          setDragId(p.id);
-                        }}
-                        onDragEnd={() => {
-                          setDragId(null);
-                          window.setTimeout(() => {
-                            justDragged.current = false;
-                          }, 0);
-                        }}
-                        onClick={() => {
-                          if (!justDragged.current) setSelectedId(p.id);
-                        }}
-                        className={cn(
-                          "group border-border bg-card hover:border-foreground/30 cursor-pointer rounded-lg border p-2.5 shadow-sm transition-all",
-                          pending.has(p.id) && "opacity-50",
-                          dragId === p.id && "rotate-1 opacity-60",
+      <div className="space-y-3 md:hidden">
+        {PIPELINE_STAGES.map((stage) => {
+          const list = byColumn.get(stage) ?? [];
+          const totals = totalsByCurrency(list);
+          return (
+            <details
+              key={stage}
+              className="border-border bg-muted/30 group rounded-xl border"
+              open={list.length > 0}
+            >
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                <span className="text-xs font-semibold tracking-wide uppercase">
+                  {stage}
+                </span>
+                <span className="text-muted-foreground bg-background rounded-full px-2 py-1 text-xs">
+                  {list.length}
+                </span>
+              </summary>
+              <div className="border-border space-y-2 border-t p-2">
+                {list.map((project) => (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onClick={() => setSelectedId(project.id)}
+                    className="border-border bg-card min-h-14 w-full rounded-lg border p-3 text-left shadow-sm"
+                  >
+                    <span className="block truncate text-sm font-medium">
+                      {project.name}
+                    </span>
+                    <span className="text-muted-foreground block truncate text-xs">
+                      {project.clientName}
+                    </span>
+                    <span className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <StatusBadge value={project.priority} size="xs" />
+                      <span className="text-xs font-medium">
+                        {formatMoney(
+                          project.budgetAmount,
+                          project.budgetCurrency ?? "UF",
                         )}
-                      >
-                        <div className="flex items-start gap-1.5">
-                          <GripVertical className="text-muted-foreground/40 mt-0.5 size-3.5 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {p.name}
-                            </p>
-                            <p className="text-muted-foreground truncate text-xs">
-                              {p.clientName}
-                            </p>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <span
-                                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
-                                style={{ background: theme.accent }}
-                              >
-                                {p.area}
-                              </span>
-                              <StatusBadge value={p.priority} size="xs" />
-                            </div>
-                            <dl className="text-muted-foreground mt-2 space-y-1 text-[11px]">
-                              <div className="flex items-center justify-between gap-2">
-                                <dt>Presupuesto</dt>
-                                <dd className="text-foreground font-medium">
-                                  {formatMoney(
-                                    p.budgetAmount,
-                                    p.budgetCurrency ?? "UF",
-                                  )}
-                                </dd>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <CalendarDays className="size-3 shrink-0" />
-                                <span>
-                                  Entrega {formatDate(p.deliveryDate)}
-                                </span>
-                              </div>
-                              <div className="flex min-w-0 items-center gap-1.5">
-                                <AvatarCircle
-                                  name={p.responsible ?? "?"}
-                                  className="size-5 shrink-0 text-[8px]"
-                                />
-                                <span className="truncate">
-                                  {p.responsible ?? "Sin responsable"}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <dt>{stageAge(p.stageChangedAt)}</dt>
-                                <dd>
-                                  {p.proposalCount} prop. · {p.briefCount} brief
-                                </dd>
-                              </div>
-                            </dl>
-                            {p.nextAction && (
-                              <p className="text-muted-foreground mt-1.5 line-clamp-2 text-[11px]">
-                                {p.nextAction}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+                {list.length === 0 && (
+                  <p className="text-muted-foreground py-4 text-center text-xs">
+                    Sin oportunidades
+                  </p>
+                )}
+                {totals.length > 0 && (
+                  <div className="border-border flex flex-wrap justify-end gap-2 border-t px-2 pt-2">
+                    {totals.map(({ currency, amount }) => (
+                      <span key={currency} className="text-xs font-semibold">
+                        {formatMoney(amount, currency)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block">
+        {view === "kanban" ? (
+          <div className="flex gap-3 overflow-x-auto pb-4">
+            {PIPELINE_STAGES.map((stage) => {
+              const list = byColumn.get(stage) ?? [];
+              const totals = totalsByCurrency(list);
+              return (
+                <div
+                  key={stage}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setOverCol(stage);
+                  }}
+                  onDragLeave={() =>
+                    setOverCol((c) => (c === stage ? null : c))
+                  }
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setOverCol(null);
+                    if (dragId) move(dragId, stage);
+                    setDragId(null);
+                  }}
+                  className={cn(
+                    "flex w-64 shrink-0 flex-col rounded-xl border transition-colors",
+                    overCol === stage
+                      ? "border-foreground/40 bg-accent"
+                      : "border-border bg-muted/30",
+                  )}
+                >
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <span className="text-xs font-semibold tracking-wide uppercase">
+                      {stage}
+                    </span>
+                    <span className="text-muted-foreground bg-background rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                      {list.length}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2 px-2 pb-2">
+                    {list.map((p) => {
+                      const theme = AREA_THEME[p.area];
+                      return (
+                        <div
+                          key={p.id}
+                          draggable
+                          onDragStart={() => {
+                            justDragged.current = true;
+                            setDragId(p.id);
+                          }}
+                          onDragEnd={() => {
+                            setDragId(null);
+                            window.setTimeout(() => {
+                              justDragged.current = false;
+                            }, 0);
+                          }}
+                          onClick={() => {
+                            if (!justDragged.current) setSelectedId(p.id);
+                          }}
+                          className={cn(
+                            "group border-border bg-card hover:border-foreground/30 cursor-pointer rounded-lg border p-2.5 shadow-sm transition-all",
+                            pending.has(p.id) && "opacity-50",
+                            dragId === p.id && "rotate-1 opacity-60",
+                          )}
+                        >
+                          <div className="flex items-start gap-1.5">
+                            <GripVertical className="text-muted-foreground/40 mt-0.5 size-3.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">
+                                {p.name}
                               </p>
-                            )}
+                              <p className="text-muted-foreground truncate text-xs">
+                                {p.clientName}
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                <span
+                                  className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+                                  style={{ background: theme.accent }}
+                                >
+                                  {p.area}
+                                </span>
+                                <StatusBadge value={p.priority} size="xs" />
+                              </div>
+                              <dl className="text-muted-foreground mt-2 space-y-1 text-[11px]">
+                                <div className="flex items-center justify-between gap-2">
+                                  <dt>Presupuesto</dt>
+                                  <dd className="text-foreground font-medium">
+                                    {formatMoney(
+                                      p.budgetAmount,
+                                      p.budgetCurrency ?? "UF",
+                                    )}
+                                  </dd>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <CalendarDays className="size-3 shrink-0" />
+                                  <span>
+                                    Entrega {formatDate(p.deliveryDate)}
+                                  </span>
+                                </div>
+                                <div className="flex min-w-0 items-center gap-1.5">
+                                  <AvatarCircle
+                                    name={p.responsible ?? "?"}
+                                    className="size-5 shrink-0 text-[8px]"
+                                  />
+                                  <span className="truncate">
+                                    {p.responsible ?? "Sin responsable"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <dt>{stageAge(p.stageChangedAt)}</dt>
+                                  <dd>
+                                    {p.proposalCount} prop. · {p.briefCount}{" "}
+                                    brief
+                                  </dd>
+                                </div>
+                              </dl>
+                              {p.nextAction && (
+                                <p className="text-muted-foreground mt-1.5 line-clamp-2 text-[11px]">
+                                  {p.nextAction}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
+                      );
+                    })}
+                    {list.length === 0 && (
+                      <div className="text-muted-foreground/60 rounded-lg border border-dashed py-6 text-center text-[11px]">
+                        Sin oportunidades
                       </div>
-                    );
-                  })}
-                  {list.length === 0 && (
-                    <div className="text-muted-foreground/60 rounded-lg border border-dashed py-6 text-center text-[11px]">
-                      Sin oportunidades
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <div className="border-border mt-auto border-t px-3 py-2.5">
+                    <p className="text-muted-foreground mb-1 text-[10px] font-medium tracking-wide uppercase">
+                      Total etapa
+                    </p>
+                    {totals.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {totals.map(({ currency, amount }) => (
+                          <p
+                            key={currency}
+                            className="text-xs font-semibold tabular-nums"
+                          >
+                            {formatMoney(amount, currency)}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-xs">—</p>
+                    )}
+                  </div>
                 </div>
-                <div className="border-border mt-auto border-t px-3 py-2.5">
-                  <p className="text-muted-foreground mb-1 text-[10px] font-medium tracking-wide uppercase">
-                    Total etapa
-                  </p>
-                  {totals.length > 0 ? (
-                    <div className="space-y-0.5">
-                      {totals.map(({ currency, amount }) => (
-                        <p
-                          key={currency}
-                          className="text-xs font-semibold tabular-nums"
-                        >
-                          {formatMoney(amount, currency)}
-                        </p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-xs">—</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="border-border bg-card overflow-hidden rounded-xl border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-border text-muted-foreground border-b text-left text-xs">
-                <th className="px-4 py-2.5 font-medium">Oportunidad</th>
-                <th className="px-4 py-2.5 font-medium">Cliente</th>
-                <th className="px-4 py-2.5 font-medium">Área</th>
-                <th className="px-4 py-2.5 font-medium">Etapa</th>
-                <th className="px-4 py-2.5 font-medium">Prioridad</th>
-                <th className="px-4 py-2.5 font-medium">Presupuesto</th>
-                <th className="px-4 py-2.5 font-medium">Entrega</th>
-                <th className="px-4 py-2.5 font-medium">Responsable</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((p) => (
-                <tr
-                  key={p.id}
-                  onClick={() => setSelectedId(p.id)}
-                  className="border-border hover:bg-accent cursor-pointer border-b last:border-0"
-                >
-                  <td className="px-4 py-2.5 font-medium">{p.name}</td>
-                  <td className="text-muted-foreground px-4 py-2.5">
-                    {p.clientName}
-                  </td>
-                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
-                    {AREA_LABELS[p.area]}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <StatusBadge value={p.commercialStage} size="xs" />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <StatusBadge value={p.priority} size="xs" />
-                  </td>
-                  <td className="px-4 py-2.5 text-xs font-medium">
-                    {formatMoney(p.budgetAmount, p.budgetCurrency ?? "UF")}
-                  </td>
-                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
-                    {formatDate(p.deliveryDate)}
-                  </td>
-                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
-                    {p.responsible ?? "—"}
-                  </td>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="border-border bg-card overflow-hidden rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-border text-muted-foreground border-b text-left text-xs">
+                  <th className="px-4 py-2.5 font-medium">Oportunidad</th>
+                  <th className="px-4 py-2.5 font-medium">Cliente</th>
+                  <th className="px-4 py-2.5 font-medium">Área</th>
+                  <th className="px-4 py-2.5 font-medium">Etapa</th>
+                  <th className="px-4 py-2.5 font-medium">Prioridad</th>
+                  <th className="px-4 py-2.5 font-medium">Presupuesto</th>
+                  <th className="px-4 py-2.5 font-medium">Entrega</th>
+                  <th className="px-4 py-2.5 font-medium">Responsable</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {filteredItems.map((p) => (
+                  <tr
+                    key={p.id}
+                    onClick={() => setSelectedId(p.id)}
+                    className="border-border hover:bg-accent cursor-pointer border-b last:border-0"
+                  >
+                    <td className="px-4 py-2.5 font-medium">{p.name}</td>
+                    <td className="text-muted-foreground px-4 py-2.5">
+                      {p.clientName}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                      {AREA_LABELS[p.area]}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge value={p.commercialStage} size="xs" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge value={p.priority} size="xs" />
+                    </td>
+                    <td className="px-4 py-2.5 text-xs font-medium">
+                      {formatMoney(p.budgetAmount, p.budgetCurrency ?? "UF")}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                      {formatDate(p.deliveryDate)}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                      {p.responsible ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
       <PipelinePanel
         project={selectedProject}
         siblings={selectedSiblings}

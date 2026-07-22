@@ -20,7 +20,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InlineStatusSelect } from "@/components/shared/inline-status-select";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { DataPagination } from "@/components/shared/data-pagination";
+import {
+  MobileDetailsCard,
+  MobileField,
+} from "@/components/shared/mobile-details-card";
 import { usePagination } from "@/hooks/use-pagination";
 import {
   SortButton,
@@ -143,7 +148,7 @@ export function ProjectsTable({ projects }: { projects: ProjectListItem[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-64 flex-1">
+        <div className="relative min-w-0 flex-[1_1_16rem]">
           <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
             placeholder="Buscar proyecto o cliente…"
@@ -184,7 +189,76 @@ export function ProjectsTable({ projects }: { projects: ProjectListItem[] }) {
         />
       </div>
 
-      <div className="border-border bg-card overflow-x-auto rounded-xl border">
+      <div className="space-y-2 md:hidden">
+        {pagination.pageItems.map((project) => (
+          <MobileDetailsCard
+            key={project.id}
+            title={project.name}
+            subtitle={project.clientName}
+            badge={<StatusBadge value={project.status} size="xs" />}
+            actions={
+              <button
+                type="button"
+                onClick={() => router.push(`/projects/${project.id}`)}
+                className="hover:bg-accent min-h-10 rounded-md px-3 text-sm font-medium"
+              >
+                Ver proyecto
+              </button>
+            }
+          >
+            <dl className="space-y-3">
+              <MobileField label="Estado">
+                <InlineStatusSelect<ProjectStatus>
+                  entityId={project.id}
+                  value={project.status as ProjectStatus}
+                  options={PROJECT_STATUSES}
+                  label={`Estado de ${project.name}`}
+                  successMessage={(value) => `Estado actualizado a “${value}”`}
+                  action={setProjectStatus}
+                />
+              </MobileField>
+              <MobileField label="Área">{project.area}</MobileField>
+              <MobileField label="Etapa">
+                <InlineStatusSelect<CommercialStage>
+                  entityId={project.id}
+                  value={project.commercialStage as CommercialStage}
+                  options={COMMERCIAL_STAGES}
+                  label={`Etapa de ${project.name}`}
+                  successMessage={(value) => `Etapa actualizada a “${value}”`}
+                  action={setCommercialStage}
+                />
+              </MobileField>
+              <MobileField label="Prioridad">
+                <InlineStatusSelect<Priority>
+                  entityId={project.id}
+                  value={project.priority as Priority}
+                  options={PRIORITIES}
+                  label={`Prioridad de ${project.name}`}
+                  successMessage={(value) =>
+                    `Prioridad actualizada a “${value}”`
+                  }
+                  action={setProjectPriority}
+                />
+              </MobileField>
+              <MobileField label="Responsable">
+                {project.responsible ?? "—"}
+              </MobileField>
+              {project.nextAction && (
+                <MobileField label="Próxima acción">
+                  {project.nextAction}
+                </MobileField>
+              )}
+            </dl>
+          </MobileDetailsCard>
+        ))}
+        {filtered.length === 0 && (
+          <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
+            Sin proyectos que coincidan.
+          </p>
+        )}
+      </div>
+
+      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -312,7 +386,7 @@ function FilterSelect({
       <SelectTrigger
         size="sm"
         aria-label={allLabel}
-        className="max-w-52 min-w-36"
+        className="min-h-10 min-w-0 flex-1 sm:max-w-52 sm:min-w-36 sm:flex-none"
       >
         <SelectValue>{value === "all" ? allLabel : value}</SelectValue>
       </SelectTrigger>
