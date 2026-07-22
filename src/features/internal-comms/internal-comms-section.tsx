@@ -219,6 +219,7 @@ export function InternalCommsSection({
                           />
                           <DeleteButton
                             id={item.id}
+                            title={item.title}
                             onDeleted={() => router.refresh()}
                           />
                         </div>
@@ -389,29 +390,59 @@ function AnnouncementDialog({
 
 function DeleteButton({
   id,
+  title,
   onDeleted,
 }: {
   id: string;
+  title: string;
   onDeleted: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          const result = await deleteAnnouncement(id);
-          if (result.ok) {
-            toast.success("Publicación eliminada");
-            onDeleted();
-          } else toast.error(result.error);
-        })
-      }
-    >
-      <Trash2 /> Eliminar
-    </Button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button variant="outline" size="sm" disabled={pending}>
+            <Trash2 /> Eliminar
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Eliminar publicación</DialogTitle>
+          <DialogDescription>
+            Se eliminará «{title}» y el registro de quiénes la leyeron. Esta
+            acción no se puede deshacer.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await deleteAnnouncement(id);
+                if (result.ok) {
+                  toast.success("Publicación eliminada");
+                  setOpen(false);
+                  onDeleted();
+                } else toast.error(result.error);
+              })
+            }
+          >
+            Eliminar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 function birthdayLabel(member: Birthday) {

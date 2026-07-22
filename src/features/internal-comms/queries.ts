@@ -94,10 +94,9 @@ export async function getUpcomingBirthdays() {
         daysUntil: Math.round((next.getTime() - today.getTime()) / 86400000),
       };
     })
-    .filter(
-      (member) =>
-        member.daysUntil <= 45 ||
-        new Date(member.nextBirthday).getMonth() === now.getMonth(),
-    )
+    // Solo cumpleaños que vienen: la ventana es hacia adelante. Antes se incluía
+    // "cualquiera de este mes", lo que arrastraba los ya pasados con un daysUntil
+    // de ~350 y la UI los mostraba como "en 344 días".
+    .filter((member) => member.daysUntil <= 45)
     .sort((a, b) => a.daysUntil - b.daysUntil);
 }
