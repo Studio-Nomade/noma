@@ -137,10 +137,11 @@ export const PIPELINE_STAGES: readonly CommercialStage[] = [
 ] as const;
 
 // Etapas heredadas que se muestran dentro de una columna del Pipeline nuevo.
-export const STAGE_ALIASES: Partial<Record<CommercialStage, CommercialStage>> = {
-  Levantamiento: "Reunión inicial agendada",
-  Diagnóstico: "Reunión inicial agendada",
-};
+export const STAGE_ALIASES: Partial<Record<CommercialStage, CommercialStage>> =
+  {
+    Levantamiento: "Reunión inicial agendada",
+    Diagnóstico: "Reunión inicial agendada",
+  };
 
 export const PRIORITIES = ["Alta", "Media", "Baja"] as const;
 export type Priority = (typeof PRIORITIES)[number];
@@ -231,11 +232,7 @@ export const BRIEF_STATUSES = [
 export type BriefStatus = (typeof BRIEF_STATUSES)[number];
 
 // ── Reunión de brief ─────────────────────────────────────────
-export const MEETING_STATUSES = [
-  "Agendada",
-  "Realizada",
-  "Cancelada",
-] as const;
+export const MEETING_STATUSES = ["Agendada", "Realizada", "Cancelada"] as const;
 export type MeetingStatus = (typeof MEETING_STATUSES)[number];
 
 // ── Notas de reunión (Gemini/Drive/manual) ───────────────────
@@ -499,6 +496,20 @@ export const ANNOUNCEMENT_CATEGORIES = [
   "urgente",
 ] as const;
 export type AnnouncementCategory = (typeof ANNOUNCEMENT_CATEGORIES)[number];
+
+export const SURVEY_TYPES = ["clima", "desempeno"] as const;
+export type SurveyType = (typeof SURVEY_TYPES)[number];
+export const SURVEY_STATUSES = ["borrador", "activa", "cerrada"] as const;
+export type SurveyStatus = (typeof SURVEY_STATUSES)[number];
+export const SURVEY_QUESTION_TYPES = [
+  "escala_1_5",
+  "nps",
+  "opcion_multiple",
+  "texto_libre",
+  "si_no",
+] as const;
+export type SurveyQuestionType = (typeof SURVEY_QUESTION_TYPES)[number];
+export const SURVEY_ASSIGNMENT_STATUSES = ["pendiente", "respondida"] as const;
 
 // ── Secciones de propuesta (orden de render + contrato IA) ───
 export const PROPOSAL_SECTIONS = [
