@@ -148,8 +148,8 @@ export function AppShell({
         <aside
           className={
             collapsed
-              ? "glass-strong fixed inset-y-0 left-0 z-30 hidden w-20 rounded-none border-y-0 border-l-0 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
-              : "glass-strong fixed inset-y-0 left-0 z-30 hidden w-64 rounded-none border-y-0 border-l-0 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
+              ? "glass-shell fixed inset-y-0 left-0 z-30 hidden w-20 rounded-none border-y-0 border-l-0 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
+              : "glass-shell fixed inset-y-0 left-0 z-30 hidden w-64 rounded-none border-y-0 border-l-0 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
           }
         >
           <SidebarContent
@@ -163,7 +163,7 @@ export function AppShell({
         </aside>
 
         {/* Topbar móvil */}
-        <header className="glass-strong fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between rounded-none border-x-0 border-t-0 px-4 lg:hidden">
+        <header className="glass-shell fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between rounded-none border-x-0 border-t-0 px-4 lg:hidden">
           <Brand />
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger

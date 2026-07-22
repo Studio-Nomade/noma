@@ -72,8 +72,11 @@ Tokens en `:root` / `.dark`:
 Clases utilitarias (`@layer components`):
 
 - `.glass` — superficie translúcida estándar.
-- `.glass-strong` — más opaca y con más blur: shell, diálogos, sheets, command menu,
-  cabeceras de tabla. Se usa donde la legibilidad manda sobre la transparencia.
+- `.glass-strong` — más opaca y con más blur: diálogos, sheets, command menu, cabeceras
+  de tabla. Se usa donde hay que leer contenido a través del panel.
+- `.glass-shell` — sidebar y topbar: el más translúcido (`--glass-bg-shell`), con blur
+  fuerte y sin brillo interno. No cubre nada que haya que leer, así que puede dejar pasar
+  el fondo ambiental.
 - `.glass-solid` — opaca, mismo borde y sombra, **sin** `backdrop-filter`.
 - `.glass-hairline` — solo borde + brillo, sin fondo.
 - `.glass-sheen` — brillo horizontal en el canto superior (detalle, no obligatorio).
@@ -172,8 +175,11 @@ ambiental). En móvil el sidebar pasa a `Sheet` y aparece una topbar de vidrio.
 
 ## Accesibilidad y performance
 
-- **Contraste:** el texto nunca va sobre translúcido puro. `--glass-bg` está calibrado para
-  mantener ≥4.5:1 con `--foreground` en ambos temas. Al tocar las opacidades, revalidar.
+- **Contraste:** validado componiendo el peor caso real — naranja ambiental a plena alfa,
+  más la capa de vidrio encima. Sobre el shell translúcido: `--foreground` 14.5:1 (claro) /
+  8.3:1 (oscuro), `--muted-foreground` 4.6:1 en ambos. Por eso `--muted-foreground` es 40%
+  en claro y 72% en oscuro, y no los valores de shadcn: los originales caían a ~3.8:1.
+  **Al subir la translucidez o el alfa ambiental hay que volver a medir**, no estimar.
 - **`prefers-reduced-motion: reduce`** apaga el fondo ambiental y colapsa todas las
   transiciones. Es una regla global al final de `globals.css`.
 - **Dónde NUNCA va `backdrop-filter`:** filas de tabla, badges, y cualquier elemento que se

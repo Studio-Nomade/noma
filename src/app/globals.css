@@ -67,7 +67,9 @@
   --secondary: hsl(45 18% 94%);
   --secondary-foreground: hsl(60 4% 10%);
   --muted: hsl(45 20% 95%);
-  --muted-foreground: hsl(45 5% 45%);
+  /* 40%, no 45%: sobre el vidrio del shell con el naranja ambiental debajo,
+     45% cae a 3,8:1 y no llega al mínimo AA. Medido, no estimado. */
+  --muted-foreground: hsl(45 6% 40%);
   --accent: hsl(45 32% 93%);
   --accent-foreground: hsl(60 4% 10%);
   --destructive: hsl(0 70% 50%);
@@ -116,6 +118,9 @@
    */
   --glass-bg: color-mix(in oklab, var(--card) 62%, transparent);
   --glass-bg-strong: color-mix(in oklab, var(--card) 88%, transparent);
+  /* Shell (sidebar y topbar): más translúcido que un overlay — no tapa
+     contenido, así que puede dejar pasar el fondo ambiental. */
+  --glass-bg-shell: color-mix(in oklab, var(--card) 52%, transparent);
   --glass-border: color-mix(in oklab, var(--foreground) 11%, transparent);
   --glass-highlight: rgb(255 255 255 / 0.6);
   --glass-shadow:
@@ -163,7 +168,8 @@
   --secondary: hsl(45 6% 17%);
   --secondary-foreground: hsl(45 18% 96%);
   --muted: hsl(45 6% 16%);
-  --muted-foreground: hsl(45 8% 64%);
+  /* Mismo motivo que en claro: 64% da 3,7:1 sobre el shell translúcido. */
+  --muted-foreground: hsl(45 8% 72%);
   --accent: hsl(45 7% 19%);
   --accent-foreground: hsl(45 18% 96%);
   --destructive: hsl(0 72% 62%);
@@ -203,6 +209,9 @@
   /* En oscuro el vidrio se invierte: blanco a muy baja alfa sobre la tinta */
   --glass-bg: color-mix(in oklab, white 6%, transparent);
   --glass-bg-strong: color-mix(in oklab, var(--card) 84%, transparent);
+  /* En oscuro el shell se aclara con blanco a baja alfa en vez de opacar con
+     `--card`: así los degradés del fondo se ven atravesar el sidebar. */
+  --glass-bg-shell: color-mix(in oklab, white 7%, transparent);
   --glass-border: color-mix(in oklab, white 13%, transparent);
   --glass-highlight: rgb(255 255 255 / 0.12);
   --glass-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.6);
@@ -240,7 +249,8 @@
    ========================================================================== */
 @layer components {
   .glass,
-  .glass-strong {
+  .glass-strong,
+  .glass-shell {
     background-color: var(--glass-bg);
     border: 1px solid var(--glass-border);
     box-shadow:
@@ -255,6 +265,17 @@
       var(--glass-shadow-lg);
   }
 
+  /*
+   * Shell: sidebar y topbar. Más translúcido y con más blur que un overlay —
+   * no cubre contenido que haya que leer a través, así que puede dejar pasar
+   * el fondo ambiental. El brillo interno se omite: en una superficie de
+   * altura completa se lee como una línea suelta, no como el canto del cristal.
+   */
+  .glass-shell {
+    background-color: var(--glass-bg-shell);
+    box-shadow: var(--glass-shadow);
+  }
+
   /* Solo se pide compositing al navegador si de verdad soporta el efecto. */
   @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
     .glass {
@@ -262,7 +283,8 @@
         saturate(var(--glass-saturate));
       backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     }
-    .glass-strong {
+    .glass-strong,
+    .glass-shell {
       -webkit-backdrop-filter: blur(var(--glass-blur-strong))
         saturate(var(--glass-saturate));
       backdrop-filter: blur(var(--glass-blur-strong))
@@ -275,7 +297,8 @@
     (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
   ) {
     .glass,
-    .glass-strong {
+    .glass-strong,
+    .glass-shell {
       background-color: var(--card);
     }
   }
@@ -582,6 +605,7 @@
   }
   .glass,
   .glass-strong,
+  .glass-shell,
   .glass-solid {
     background-color: #fff !important;
     -webkit-backdrop-filter: none !important;
