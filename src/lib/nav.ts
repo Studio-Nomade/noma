@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Upload,
   ClipboardList,
+  BookOpenCheck,
   Users,
   WalletCards,
   type LucideIcon,
@@ -90,6 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Users,
     children: [
       { href: "/surveys", label: "Encuestas", icon: ClipboardList },
+      { href: "/training", label: "Capacitaciones", icon: BookOpenCheck },
       { href: "/onboarding", label: "Onboarding", icon: GraduationCap },
     ],
   },

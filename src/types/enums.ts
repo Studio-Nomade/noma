@@ -511,6 +511,18 @@ export const SURVEY_QUESTION_TYPES = [
 export type SurveyQuestionType = (typeof SURVEY_QUESTION_TYPES)[number];
 export const SURVEY_ASSIGNMENT_STATUSES = ["pendiente", "respondida"] as const;
 
+export const COURSE_PROVIDERS = ["domestika", "otro"] as const;
+export type CourseProvider = (typeof COURSE_PROVIDERS)[number];
+export const COURSE_LEVELS = ["inicial", "intermedio", "avanzado"] as const;
+export type CourseLevel = (typeof COURSE_LEVELS)[number];
+export const COURSE_ENROLLMENT_STATUSES = [
+  "asignado",
+  "en_curso",
+  "completado",
+] as const;
+export type CourseEnrollmentStatus =
+  (typeof COURSE_ENROLLMENT_STATUSES)[number];
+
 // ── Secciones de propuesta (orden de render + contrato IA) ───
 export const PROPOSAL_SECTIONS = [
   "context",
