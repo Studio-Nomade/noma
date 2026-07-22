@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { DataPagination } from "@/components/shared/data-pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoneyRange } from "@/lib/currency/format";
 import { AREAS, AREA_LABELS, type Area } from "@/types/enums";
@@ -54,8 +56,12 @@ export function ServicesList({ services }: { services: Service[] }) {
   const [area, setArea] = useState<Area | "all">("all");
 
   const presentAreas = AREAS.filter((a) => services.some((s) => s.area === a));
-  const visible =
-    area === "all" ? services : services.filter((s) => s.area === area);
+  const visible = useMemo(
+    () => (area === "all" ? services : services.filter((s) => s.area === area)),
+    [area, services],
+  );
+  const pagination = usePagination(visible, "noma:services:page-size");
+  const pageServices = pagination.pageItems;
   const groups = presentAreas.filter((a) => area === "all" || a === area);
 
   return (
@@ -73,7 +79,7 @@ export function ServicesList({ services }: { services: Service[] }) {
 
       <div className="space-y-8">
         {groups.map((a) => {
-          const items = visible.filter((s) => s.area === a);
+          const items = pageServices.filter((s) => s.area === a);
           if (items.length === 0) return null;
           // subáreas en orden de aparición; los sin subárea van al final
           const subareas = [
@@ -113,6 +119,13 @@ export function ServicesList({ services }: { services: Service[] }) {
           );
         })}
       </div>
+      <DataPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   clients,
@@ -18,24 +18,29 @@ export async function getCobranzaTemplates() {
     .orderBy(cobranzaTemplates.moment, cobranzaTemplates.name);
 }
 
-export async function getCobranzaMessages(limit = 50) {
-  return db
-    .select({
-      id: cobranzaMessages.id,
-      moment: cobranzaMessages.moment,
-      toEmail: cobranzaMessages.toEmail,
-      fromEmail: cobranzaMessages.fromEmail,
-      subject: cobranzaMessages.subject,
-      status: cobranzaMessages.status,
-      error: cobranzaMessages.error,
-      sentAt: cobranzaMessages.sentAt,
-      createdAt: cobranzaMessages.createdAt,
-      clientName: clients.companyName,
-    })
-    .from(cobranzaMessages)
-    .leftJoin(clients, eq(cobranzaMessages.clientId, clients.id))
-    .orderBy(desc(cobranzaMessages.createdAt))
-    .limit(limit);
+export async function getCobranzaMessages({ page = 1, pageSize = 20 } = {}) {
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: cobranzaMessages.id,
+        moment: cobranzaMessages.moment,
+        toEmail: cobranzaMessages.toEmail,
+        fromEmail: cobranzaMessages.fromEmail,
+        subject: cobranzaMessages.subject,
+        status: cobranzaMessages.status,
+        error: cobranzaMessages.error,
+        sentAt: cobranzaMessages.sentAt,
+        createdAt: cobranzaMessages.createdAt,
+        clientName: clients.companyName,
+      })
+      .from(cobranzaMessages)
+      .leftJoin(clients, eq(cobranzaMessages.clientId, clients.id))
+      .orderBy(desc(cobranzaMessages.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db.select({ value: count() }).from(cobranzaMessages),
+  ]);
+  return { rows, total: totalRows[0]?.value ?? 0 };
 }
 
 export type ComposerInvoice = {

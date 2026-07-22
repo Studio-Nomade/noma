@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { DocumentDirection } from "@/types/enums";
 import { getDocuments } from "./queries";
 import { DocumentsTable } from "./documents-table";
+import { UrlPagination } from "@/components/shared/url-pagination";
 
 const ESTADOS = [
   "TODOS",
@@ -19,11 +20,19 @@ const ESTADOS = [
 export async function DocumentsView({
   direction,
   estado,
+  page,
+  pageSize,
 }: {
   direction: DocumentDirection;
   estado?: string;
+  page: number;
+  pageSize: number;
 }) {
-  const rows = await getDocuments(direction, { estado });
+  const { rows, total } = await getDocuments(direction, {
+    estado,
+    page,
+    pageSize,
+  });
   const base =
     direction === "VENTA" ? "/finanzas/ingresos" : "/finanzas/egresos";
   const contactoLabel = direction === "VENTA" ? "Cliente" : "Proveedor";
@@ -59,6 +68,7 @@ export async function DocumentsView({
       ) : (
         <DocumentsTable rows={rows} contactLabel={contactoLabel} />
       )}
+      <UrlPagination page={page} pageSize={pageSize} total={total} />
     </>
   );
 }
