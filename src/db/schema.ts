@@ -58,6 +58,9 @@ import {
   SURVEY_STATUSES,
   SURVEY_QUESTION_TYPES,
   SURVEY_ASSIGNMENT_STATUSES,
+  COURSE_PROVIDERS,
+  COURSE_LEVELS,
+  COURSE_ENROLLMENT_STATUSES,
 } from "@/types/enums";
 
 // ── Enums (Postgres) ─────────────────────────────────────────
@@ -113,6 +116,12 @@ export const surveyQuestionTypeEnum = pgEnum(
 export const surveyAssignmentStatusEnum = pgEnum(
   "survey_assignment_status",
   SURVEY_ASSIGNMENT_STATUSES,
+);
+export const courseProviderEnum = pgEnum("course_provider", COURSE_PROVIDERS);
+export const courseLevelEnum = pgEnum("course_level", COURSE_LEVELS);
+export const courseEnrollmentStatusEnum = pgEnum(
+  "course_enrollment_status",
+  COURSE_ENROLLMENT_STATUSES,
 );
 
 // ── Enums del módulo CFO / Finanzas ──────────────────────────
@@ -363,6 +372,57 @@ export const surveyAnswers = pgTable(
     valueOption: text("value_option"),
   },
   (table) => [index("survey_answers_response_idx").on(table.responseId)],
+);
+
+// ── capacitaciones RRHH ─────────────────────────────────────
+export const courses = pgTable(
+  "courses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    provider: courseProviderEnum("provider").default("domestika").notNull(),
+    url: text("url").notNull(),
+    area: areaEnum("area"),
+    level: courseLevelEnum("level").default("inicial").notNull(),
+    durationMin: integer("duration_min"),
+    description: text("description"),
+    thumbnailUrl: text("thumbnail_url"),
+    tags: jsonb("tags").$type<string[]>().default([]).notNull(),
+    active: boolean("active").default(true).notNull(),
+    ...timestamps,
+  },
+  (table) => [index("courses_active_idx").on(table.active)],
+);
+
+export const courseEnrollments = pgTable(
+  "course_enrollments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    teamMemberId: uuid("team_member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    status: courseEnrollmentStatusEnum("status").default("asignado").notNull(),
+    assignedBy: uuid("assigned_by"),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    progressPct: integer("progress_pct").default(0).notNull(),
+    certificateUrl: text("certificate_url"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("course_enrollments_course_member_unique").on(
+      table.courseId,
+      table.teamMemberId,
+    ),
+    index("course_enrollments_member_idx").on(table.teamMemberId),
+  ],
 );
 
 // ── projects ─────────────────────────────────────────────────

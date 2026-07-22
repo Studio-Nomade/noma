@@ -169,6 +169,13 @@
       "when": 1784719096027,
       "tag": "0023_nostalgic_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784720085854,
+      "tag": "0024_safe_hawkeye",
+      "breakpoints": true
     }
   ]
 }
