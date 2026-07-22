@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Surface } from "@/components/shared/surface";
 
 export function EmptyState({
   icon: Icon,
@@ -12,7 +13,11 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="border-border flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-16 text-center">
+    <Surface
+      variant="flat"
+      padding="none"
+      className="flex flex-col items-center justify-center border-dashed px-6 py-16 text-center"
+    >
       <Icon className="text-muted-foreground/60 size-10" strokeWidth={1.5} />
       <h3 className="font-heading mt-4 text-base font-medium">{title}</h3>
       {description && (
@@ -21,6 +26,6 @@ export function EmptyState({
         </p>
       )}
       {action && <div className="mt-6">{action}</div>}
-    </div>
+    </Surface>
   );
 }

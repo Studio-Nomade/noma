@@ -55,7 +55,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="border-border bg-card w-full max-w-sm rounded-2xl border p-8 text-center">
+      <div className="glass-strong glass-sheen w-full max-w-sm rounded-2xl p-8 text-center">
         <div className="mb-8 flex justify-center">
           <Brand />
         </div>

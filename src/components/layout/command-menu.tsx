@@ -151,7 +151,9 @@ export function CommandMenu({ isFinance }: { isFinance: boolean }) {
       description="Busca clientes, proyectos y acciones rápidas."
       className="sm:max-w-xl"
     >
-      <Command shouldFilter={false}>
+      {/* `bg-transparent`: el vidrio lo pone el panel del diálogo; si el Command
+          conserva su `bg-popover` opaco lo tapa. */}
+      <Command shouldFilter={false} className="bg-transparent">
         <CommandInput
           value={query}
           onValueChange={setQuery}
