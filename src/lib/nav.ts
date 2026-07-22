@@ -36,12 +36,20 @@ export interface NavGroup {
   requiresFinance?: boolean;
 }
 
+/**
+ * Ítems sueltos que van ARRIBA de los grupos. El dashboard no pertenece a un
+ * departamento: es la portada transversal del estudio (pipeline, finanzas, RRHH,
+ * calendario), por eso no vive dentro de "Comercial".
+ */
+export const NAV_PRIMARY_ITEMS: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+];
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Comercial",
     icon: Building2,
     children: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
       { href: "/clients", label: "Clientes", icon: Users },
       { href: "/briefs", label: "Briefs", icon: FileText },

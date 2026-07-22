@@ -10,7 +10,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { NAV_FOOTER_ITEMS, NAV_GROUPS, type NavItem } from "@/lib/nav";
+import {
+  NAV_FOOTER_ITEMS,
+  NAV_GROUPS,
+  NAV_PRIMARY_ITEMS,
+  type NavItem,
+} from "@/lib/nav";
 
 const GROUPS_KEY = "noma:sidebar:groups";
 
@@ -60,6 +65,15 @@ export function SidebarNav({
   if (collapsed) {
     return (
       <nav className="flex flex-1 flex-col items-center gap-1">
+        {NAV_PRIMARY_ITEMS.map((item) => (
+          <CollapsedItem
+            key={item.href}
+            item={item}
+            active={isItemActive(pathname, item.href)}
+            onNavigate={onNavigate}
+          />
+        ))}
+        <div className="border-border my-2 w-8 border-t" />
         {visibleGroups
           .flatMap((group) => group.children)
           .map((item) => (
@@ -85,6 +99,15 @@ export function SidebarNav({
 
   return (
     <nav className="flex flex-col gap-1">
+      {NAV_PRIMARY_ITEMS.map((item) => (
+        <ExpandedItem
+          key={item.href}
+          item={item}
+          active={isItemActive(pathname, item.href)}
+          onNavigate={onNavigate}
+        />
+      ))}
+      <div className="border-border my-2 border-t" />
       {visibleGroups.map((group) => {
         const open = openGroups[group.label] ?? group.label === activeGroup;
         const GroupIcon = group.icon;

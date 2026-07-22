@@ -38,7 +38,7 @@ createdb noma                # Postgres local (brew services start postgresql@16
 npm install
 npm run db:deploy            # aplica todas las migraciones a la base local
 npm run db:seed              # áreas, servicios demo, studio_config y datos de Finanzas
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3001 (puerto fijo, ver AGENTS.md)
 ```
 
 > **DEV vs PROD:** en local, `DATABASE_URL` apunta a Postgres local; Supabase queda solo
@@ -105,15 +105,3 @@ servicios/SLA, presupuestos) vive en el repositorio **privado** `noma-ops`, no e
 > servicios y SLA) se mantiene en el repositorio privado `noma-ops`.
 
 El plan de ejecución por fases vive en el plan aprobado del proyecto.
-
-## Centro operativo
-
-- H0 · Command menu — mergeado.
-- H1 · Paginador universal — mergeado.
-- H2 · Sidebar jerárquico — mergeado.
-- H3 · Pipeline con panel lateral — en desarrollo.
-
-### Hallazgos abiertos
-
-- **Dashboard en navegación:** resuelto en H3; vuelve a estar disponible dentro del grupo Comercial.
-- **Estabilidad de `usePagination`:** resuelto en H3; el reinicio de página usa una clave semántica de filtros/orden y no la identidad del array, evitando volver accidentalmente a la página 1 en cada render.
