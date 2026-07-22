@@ -29,6 +29,7 @@ export function ProfileForm({
     roleTitle: string | null;
     area: Area | null;
     phone: string | null;
+    birthDate: string | null;
     photoUrl: string | null;
     teamRole: string;
   };
@@ -40,6 +41,7 @@ export function ProfileForm({
   const [roleTitle, setRoleTitle] = useState(member.roleTitle ?? "");
   const [area, setArea] = useState<string>(member.area ?? NO_AREA);
   const [phone, setPhone] = useState(member.phone ?? "");
+  const [birthDate, setBirthDate] = useState(member.birthDate ?? "");
   const [photoUrl, setPhotoUrl] = useState(member.photoUrl ?? "");
 
   // Vista previa en vivo de la firma generada con los datos actuales.
@@ -52,6 +54,7 @@ export function ProfileForm({
       roleTitle,
       area: area === NO_AREA ? null : (area as Area),
       phone,
+      birthDate,
       photoUrl,
     });
     setSaving(false);
@@ -130,6 +133,17 @@ export function ProfileForm({
             onChange={(e) => setPhotoUrl(e.target.value)}
             placeholder="https://…"
           />
+        </div>
+        <div className="grid gap-1.5">
+          <Label>Fecha de nacimiento</Label>
+          <Input
+            type="date"
+            value={birthDate}
+            onChange={(event) => setBirthDate(event.target.value)}
+          />
+          <p className="text-muted-foreground text-xs">
+            Solo se usa para recordar cumpleaños en el dashboard.
+          </p>
         </div>
       </div>
 
