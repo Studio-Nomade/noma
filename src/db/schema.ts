@@ -11,6 +11,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import {
@@ -52,6 +53,7 @@ import {
   RULE_MATCH_FIELDS,
   COBRANZA_MOMENTS,
   COBRANZA_STATUSES,
+  ANNOUNCEMENT_CATEGORIES,
 } from "@/types/enums";
 
 // ── Enums (Postgres) ─────────────────────────────────────────
@@ -93,6 +95,10 @@ export const docCategoryEnum = pgEnum("doc_category", DOC_CATEGORIES);
 export const knowledgeCategoryEnum = pgEnum(
   "knowledge_category",
   KNOWLEDGE_CATEGORIES,
+);
+export const announcementCategoryEnum = pgEnum(
+  "announcement_category",
+  ANNOUNCEMENT_CATEGORIES,
 );
 
 // ── Enums del módulo CFO / Finanzas ──────────────────────────
@@ -194,10 +200,56 @@ export const teamMembers = pgTable("team_members", {
   repos: jsonb("repos").$type<string[]>().default([]),
   notes: text("notes"),
   phone: text("phone"), // para la firma de correo
+  birthDate: date("birth_date"),
   // Firma de correo (HTML generado por el constructor de perfil).
   emailSignature: text("email_signature"),
   ...timestamps,
 });
+
+// ── comunicación interna ────────────────────────────────────
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "restrict" }),
+    category: announcementCategoryEnum("category").default("novedad").notNull(),
+    pinned: boolean("pinned").default(false).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    attachments: jsonb("attachments")
+      .$type<{ label: string; url: string }[]>()
+      .default([])
+      .notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("announcements_published_idx").on(table.publishedAt),
+    index("announcements_author_idx").on(table.authorId),
+  ],
+);
+
+export const announcementReads = pgTable(
+  "announcement_reads",
+  {
+    announcementId: uuid("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    teamMemberId: uuid("team_member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.announcementId, table.teamMemberId] }),
+    index("announcement_reads_member_idx").on(table.teamMemberId),
+  ],
+);
 
 // ── projects ─────────────────────────────────────────────────
 export const projects = pgTable("projects", {

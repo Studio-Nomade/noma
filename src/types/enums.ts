@@ -492,6 +492,14 @@ export const COBRANZA_MOMENT_LABELS: Record<CobranzaMoment, string> = {
 export const COBRANZA_STATUSES = ["ENVIADO", "PENDIENTE", "ERROR"] as const;
 export type CobranzaStatus = (typeof COBRANZA_STATUSES)[number];
 
+export const ANNOUNCEMENT_CATEGORIES = [
+  "novedad",
+  "proceso",
+  "celebracion",
+  "urgente",
+] as const;
+export type AnnouncementCategory = (typeof ANNOUNCEMENT_CATEGORIES)[number];
+
 // ── Secciones de propuesta (orden de render + contrato IA) ───
 export const PROPOSAL_SECTIONS = [
   "context",

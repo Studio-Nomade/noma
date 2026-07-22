@@ -12,18 +12,37 @@ import {
   getPipeline,
 } from "@/features/dashboard/queries";
 import { listProposals } from "@/features/proposals/queries";
+import { requireUser } from "@/lib/auth";
+import { roleFor } from "@/lib/roles";
+import { getCurrentTeamMember } from "@/features/team/profile";
+import {
+  getAnnouncements,
+  getUpcomingBirthdays,
+} from "@/features/internal-comms/queries";
+import { InternalCommsSection } from "@/features/internal-comms/internal-comms-section";
 
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  const [metrics, nextActions, deliveries, pipeline, proposals] =
-    await Promise.all([
-      getDashboardMetrics(),
-      getNextActions(),
-      getUpcomingDeliveries(),
-      getPipeline(),
-      listProposals(),
-    ]);
+  const user = await requireUser();
+  const member = await getCurrentTeamMember(user);
+  const [
+    metrics,
+    nextActions,
+    deliveries,
+    pipeline,
+    proposals,
+    announcements,
+    birthdays,
+  ] = await Promise.all([
+    getDashboardMetrics(),
+    getNextActions(),
+    getUpcomingDeliveries(),
+    getPipeline(),
+    listProposals(),
+    getAnnouncements(member?.id ?? null),
+    getUpcomingBirthdays(),
+  ]);
 
   const pipelineMap = new Map(pipeline.map((p) => [p.stage, p.n]));
   const pipelineMax = Math.max(1, ...pipeline.map((p) => p.n));
@@ -34,6 +53,12 @@ export default async function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Visión operativa del estudio: pipeline, próximas acciones y entregas."
+      />
+
+      <InternalCommsSection
+        initialAnnouncements={announcements}
+        birthdays={birthdays}
+        canManage={roleFor(user.email).isAdmin}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

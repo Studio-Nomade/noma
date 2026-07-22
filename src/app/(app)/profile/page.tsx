@@ -35,6 +35,7 @@ export default async function ProfilePage() {
               roleTitle: member.roleTitle,
               area: member.area as Area | null,
               phone: member.phone,
+              birthDate: member.birthDate,
               photoUrl: member.photoUrl,
               teamRole: member.teamRole,
             }}

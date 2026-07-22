@@ -16,6 +16,7 @@ const profileSchema = z.object({
   roleTitle: z.string().trim().optional(),
   area: z.enum(AREAS).nullable().optional(),
   phone: z.string().trim().optional(),
+  birthDate: z.union([z.literal(""), z.string().date()]).optional(),
   photoUrl: z
     .union([z.literal(""), z.string().trim().url("URL de foto inválida")])
     .optional(),
@@ -54,6 +55,7 @@ export async function updateMyProfile(
         roleTitle: n(d.roleTitle),
         area: d.area ?? null,
         phone: n(d.phone),
+        birthDate: n(d.birthDate),
         photoUrl: n(d.photoUrl),
         emailSignature,
         updatedAt: new Date(),
