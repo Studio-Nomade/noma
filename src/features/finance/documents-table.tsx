@@ -155,7 +155,7 @@ export function DocumentsTable({
           );
         })}
       </div>
-      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
+      <div className="glass-solid hidden overflow-hidden rounded-xl md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-muted-foreground border-border border-b text-left text-xs">

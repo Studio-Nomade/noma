@@ -26,7 +26,7 @@ export default async function ProfilePage() {
         description="Datos de tu cuenta. Nombre y foto llegan de Google; el resto lo completas tú."
       />
 
-      <div className="border-border bg-card max-w-3xl rounded-xl border p-6">
+      <div className="glass max-w-3xl rounded-xl p-6">
         {member ? (
           <ProfileForm
             email={user.email ?? ""}

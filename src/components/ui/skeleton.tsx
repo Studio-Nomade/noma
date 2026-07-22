@@ -4,7 +4,8 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      // Noma: shimmer sobre vidrio en vez del pulse plano (ver globals.css).
+      className={cn("skeleton-shimmer rounded-md", className)}
       {...props}
     />
   )

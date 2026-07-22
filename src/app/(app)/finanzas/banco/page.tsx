@@ -88,7 +88,7 @@ export default async function BancoPage({
         </div>
       )}
 
-      <div className="border-border bg-card mb-6 flex items-center justify-between rounded-xl border p-5">
+      <div className="glass mb-6 flex items-center justify-between rounded-xl p-5">
         <div>
           <p className="text-muted-foreground text-xs tracking-wide uppercase">
             {account.bank} · {account.name}
@@ -102,7 +102,7 @@ export default async function BancoPage({
 
       {/* Sugerencias de conciliación */}
       {suggestions.length > 0 && (
-        <div className="border-border bg-card mb-6 rounded-xl border p-5">
+        <div className="glass mb-6 rounded-xl p-5">
           <h2 className="font-heading mb-3 flex items-center gap-2 text-base font-medium">
             <Sparkles className="size-4" /> Sugerencias de conciliación
           </h2>
@@ -167,7 +167,7 @@ export default async function BancoPage({
           description="Importa una cartola BCI en la pestaña Importar."
         />
       ) : (
-        <div className="border-border bg-card overflow-x-auto rounded-xl border">
+        <div className="glass-solid overflow-x-auto rounded-xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-border border-b text-left text-xs">

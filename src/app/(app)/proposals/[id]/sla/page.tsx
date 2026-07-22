@@ -62,21 +62,21 @@ export default async function SlaPage({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <SlaEditor proposalId={id} sla={sla} />
           </div>
 
           {/* Finanzas: facturación + inicio oficial */}
           {isFinance && (
             <>
-              <div className="border-border bg-card rounded-xl border p-6">
+              <div className="glass rounded-xl p-6">
                 <h2 className="font-heading mb-3 text-sm font-medium">
                   Facturación (anticipo inicial) · Finanzas
                 </h2>
                 <InvoiceManager proposalId={id} invoice={invoice} />
               </div>
 
-              <div className="border-border bg-card rounded-xl border p-6">
+              <div className="glass rounded-xl p-6">
                 <h2 className="font-heading mb-1 text-sm font-medium">
                   Inicio oficial del proyecto · Finanzas
                 </h2>
@@ -87,7 +87,10 @@ export default async function SlaPage({
                 <KickoffDialog
                   proposalId={id}
                   senderEmail={user.email ?? ""}
-                  contacts={contacts.map((c) => ({ email: c.email, name: c.name }))}
+                  contacts={contacts.map((c) => ({
+                    email: c.email,
+                    name: c.name,
+                  }))}
                   defaultBody={kickoffBody}
                   trigger={
                     <Button>
@@ -102,8 +105,8 @@ export default async function SlaPage({
 
           {!isFinance && (
             <p className="text-muted-foreground text-xs">
-              La facturación y el envío de inicio oficial los gestiona el área de
-              Finanzas (sales@studionomade.cl).
+              La facturación y el envío de inicio oficial los gestiona el área
+              de Finanzas (sales@studionomade.cl).
             </p>
           )}
         </div>

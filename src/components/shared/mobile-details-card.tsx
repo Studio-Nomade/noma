@@ -14,7 +14,7 @@ export function MobileDetailsCard({
   actions?: React.ReactNode;
 }) {
   return (
-    <details className="border-border bg-card group rounded-xl border md:hidden">
+    <details className="glass group rounded-xl md:hidden">
       <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 p-4 [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{title}</span>

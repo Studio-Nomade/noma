@@ -197,17 +197,16 @@ function ExpandedItem({
 }
 
 /**
- * Barra de acento del item activo. Lleva `view-transition-name` para que, al
- * navegar, el navegador la interpole entre la posición vieja y la nueva: el
- * indicador se desliza por el menú sin JS de medición.
+ * Barra de acento del item activo. Entra creciendo desde el centro
+ * (`.indicator-enter`), así el cambio de sección se lee sin necesidad de medir
+ * posiciones en JS.
  */
 function ActiveIndicator({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      style={{ viewTransitionName: "nav-active-indicator" }}
       className={cn(
-        "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[rgb(var(--ambient-1))]",
+        "indicator-enter absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[rgb(var(--ambient-1))]",
         className,
       )}
     />

@@ -79,7 +79,7 @@ export default function OnboardingPage() {
       />
 
       {/* Qué es */}
-      <div className="border-border bg-card rounded-xl border p-6">
+      <div className="glass rounded-xl p-6">
         <h2 className="font-heading mb-2 text-lg font-medium">
           Noma es el corazón operativo del estudio
         </h2>
@@ -94,7 +94,7 @@ export default function OnboardingPage() {
       <h2 className="font-heading mt-8 mb-3 text-sm font-medium tracking-wide uppercase">
         Flujo principal
       </h2>
-      <ol className="border-border bg-card space-y-2 rounded-xl border p-6">
+      <ol className="glass space-y-2 rounded-xl p-6">
         {STEPS.map((s, i) => (
           <li key={i} className="flex gap-3 text-sm">
             <span className="bg-foreground text-background flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-medium">
@@ -114,7 +114,7 @@ export default function OnboardingPage() {
           <Link
             key={m.href}
             href={m.href}
-            className="border-border bg-card hover:border-foreground/20 group rounded-xl border p-5 transition-colors"
+            className="glass hover-lift group rounded-xl p-5"
           >
             <div className="mb-2 flex items-center justify-between">
               <m.icon className="size-5" />
@@ -130,7 +130,7 @@ export default function OnboardingPage() {
       <h2 className="font-heading mt-8 mb-3 text-sm font-medium tracking-wide uppercase">
         Buenas prácticas
       </h2>
-      <ul className="border-border bg-card list-inside list-disc space-y-1.5 rounded-xl border p-6 text-sm">
+      <ul className="glass list-inside list-disc space-y-1.5 rounded-xl p-6 text-sm">
         {TIPS.map((t, i) => (
           <li key={i}>{t}</li>
         ))}

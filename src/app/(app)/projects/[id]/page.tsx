@@ -134,7 +134,7 @@ export default async function ProjectDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="border-border bg-card space-y-5 rounded-xl border p-6">
+          <div className="glass space-y-5 rounded-xl p-6">
             <h2 className="font-heading text-sm font-medium">Detalle</h2>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Tipo de proyecto" value={project.projectType} />
@@ -158,7 +158,7 @@ export default async function ProjectDetailPage({
             <Field label="Notas internas" value={project.internalNotes} />
           </div>
 
-          <section className="border-border bg-card rounded-xl border p-6">
+          <section className="glass rounded-xl p-6">
             <h2 className="font-heading mb-5 text-sm font-medium">Actividad</h2>
             <ProjectTimeline items={timeline} />
           </section>
@@ -166,7 +166,7 @@ export default async function ProjectDetailPage({
 
         <div className="space-y-6">
           {isFinance && finance && (
-            <div className="border-border bg-card rounded-xl border p-6">
+            <div className="glass rounded-xl p-6">
               <h2 className="font-heading mb-4 text-sm font-medium">
                 Resumen financiero
               </h2>
@@ -217,14 +217,14 @@ export default async function ProjectDetailPage({
             </div>
           )}
 
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <h2 className="font-heading mb-4 text-sm font-medium">
               Links y recursos
             </h2>
             <ProjectLinks projectId={project.id} links={links} />
           </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="font-heading text-sm font-medium">
                 Reunión de brief
@@ -293,7 +293,7 @@ export default async function ProjectDetailPage({
             />
           </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <h2 className="font-heading mb-3 text-sm font-medium">
               Cotización
             </h2>
@@ -304,7 +304,7 @@ export default async function ProjectDetailPage({
             <NewProposalButton projectId={project.id} />
           </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <h2 className="font-heading mb-3 text-sm font-medium">Brief</h2>
             <p className="text-muted-foreground mb-3 text-sm">
               Levantamiento estructurado del proyecto (general + preguntas del
@@ -319,7 +319,7 @@ export default async function ProjectDetailPage({
             </Link>
           </div>
 
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="font-heading text-sm font-medium">
                 Traspaso a operación

@@ -44,7 +44,7 @@ export function ProposalReadonly({
   return (
     <div className="space-y-6">
       {/* Servicios */}
-      <div className="border-border bg-card rounded-xl border p-6">
+      <div className="glass rounded-xl p-6">
         <h2 className="font-heading mb-3 text-sm font-medium">Servicios</h2>
         {areas.map((area) => (
           <div key={area} className="mb-3">
@@ -85,7 +85,7 @@ export function ProposalReadonly({
 
       {/* Equipo */}
       {team.length > 0 && (
-        <div className="border-border bg-card rounded-xl border p-6">
+        <div className="glass rounded-xl p-6">
           <h2 className="font-heading mb-3 text-sm font-medium">Equipo</h2>
           <div className="flex flex-wrap gap-4">
             {team.map((m) => (
@@ -109,7 +109,7 @@ export function ProposalReadonly({
 
       {/* Cronograma */}
       {gantt && (
-        <div className="border-border bg-card rounded-xl border p-6">
+        <div className="glass rounded-xl p-6">
           <h2 className="font-heading mb-3 text-sm font-medium">Cronograma</h2>
           <div className="space-y-1.5">
             {gantt.rows.map((r, i) => (
@@ -132,7 +132,7 @@ export function ProposalReadonly({
       )}
 
       {/* Secciones */}
-      <div className="border-border bg-card space-y-4 rounded-xl border p-6">
+      <div className="glass space-y-4 rounded-xl p-6">
         {sectionDefs
           .filter(([, v]) => v && v.trim())
           .map(([label, v]) => (

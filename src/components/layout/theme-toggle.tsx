@@ -22,8 +22,15 @@ export function ThemeToggle({
 
   useEffect(() => setMounted(true), []);
 
-  const isDark = resolvedTheme === "dark";
-  const label = isDark ? "Activar modo claro" : "Activar modo oscuro";
+  // `isDark` se condiciona a `mounted`: en el servidor `resolvedTheme` es
+  // undefined, así que sin el guard la etiqueta accesible difiere entre el HTML
+  // servido y el primer render del cliente (mismatch de hidratación).
+  const isDark = mounted && resolvedTheme === "dark";
+  const label = !mounted
+    ? "Cambiar tema"
+    : isDark
+      ? "Activar modo claro"
+      : "Activar modo oscuro";
 
   return (
     <button
@@ -56,7 +63,7 @@ export function ThemeToggle({
           </>
         )}
       </span>
-      {!collapsed && <span>{mounted && isDark ? "Modo claro" : "Modo oscuro"}</span>}
+      {!collapsed && <span>{isDark ? "Modo claro" : "Modo oscuro"}</span>}
     </button>
   );
 }

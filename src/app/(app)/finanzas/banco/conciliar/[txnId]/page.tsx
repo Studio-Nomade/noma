@@ -38,7 +38,7 @@ export default async function ConciliarPage({
         description={`${formatDate(txn.fecha)} · ${txn.glosa}`}
       />
 
-      <div className="border-border bg-card mb-6 flex items-center justify-between rounded-xl border p-5">
+      <div className="glass mb-6 flex items-center justify-between rounded-xl p-5">
         <div>
           <p className="text-muted-foreground text-xs tracking-wide uppercase">
             {txn.tipo === "ABONO" ? "Abono (por cobrar)" : "Cargo (por pagar)"}
@@ -61,7 +61,7 @@ export default async function ConciliarPage({
       ) : (
         <form action={createReconciliation}>
           <input type="hidden" name="txnId" value={txn.id} />
-          <div className="border-border bg-card overflow-x-auto rounded-xl border">
+          <div className="glass-solid overflow-x-auto rounded-xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-muted-foreground border-border border-b text-left text-xs">
@@ -80,7 +80,9 @@ export default async function ConciliarPage({
                         type="checkbox"
                         name="docIds"
                         value={d.id}
-                        defaultChecked={Math.round(d.saldo) === Math.round(monto)}
+                        defaultChecked={
+                          Math.round(d.saldo) === Math.round(monto)
+                        }
                         className="size-4"
                       />
                     </td>

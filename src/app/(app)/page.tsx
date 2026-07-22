@@ -79,7 +79,7 @@ export default async function DashboardPage() {
         canManage={roleFor(user.email).isAdmin}
       />
 
-      <div className="border-border bg-card mt-8 rounded-xl border p-4 sm:p-6">
+      <div className="glass mt-8 rounded-xl p-4 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="font-heading text-sm font-medium">
             Pipeline comercial
@@ -120,7 +120,7 @@ export default async function DashboardPage() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Próximas acciones */}
-        <div className="border-border bg-card rounded-xl border p-6 lg:col-span-2">
+        <div className="glass rounded-xl p-6 lg:col-span-2">
           <h2 className="font-heading mb-4 flex items-center gap-2 text-sm font-medium">
             <ListChecks className="size-4" />
             Próximas acciones
@@ -150,7 +150,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Próximas entregas */}
-        <div className="border-border bg-card rounded-xl border p-6">
+        <div className="glass rounded-xl p-6">
           <h2 className="font-heading mb-4 flex items-center gap-2 text-sm font-medium">
             <CalendarClock className="size-4" />
             Próximas entregas
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Propuestas recientes */}
-      <div className="border-border bg-card mt-6 rounded-xl border p-6">
+      <div className="glass mt-6 rounded-xl p-6">
         <h2 className="font-heading mb-4 flex items-center gap-2 text-sm font-medium">
           <FileSignature className="size-4" />
           Propuestas recientes

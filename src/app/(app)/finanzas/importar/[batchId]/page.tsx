@@ -108,26 +108,30 @@ export default async function ImportPreviewPage({
       {preview?.transactions && (
         <PreviewTable
           headers={["Fecha", "Glosa", "Tipo", "Monto", ""]}
-          rows={preview.transactions.slice(0, 50).map((t) => [
-            t.fecha.slice(0, 10),
-            t.glosa,
-            t.tipo,
-            formatMoney(t.monto, "CLP"),
-            t.isDuplicate ? "duplicado" : "",
-          ])}
+          rows={preview.transactions
+            .slice(0, 50)
+            .map((t) => [
+              t.fecha.slice(0, 10),
+              t.glosa,
+              t.tipo,
+              formatMoney(t.monto, "CLP"),
+              t.isDuplicate ? "duplicado" : "",
+            ])}
         />
       )}
       {preview?.documents && (
         <PreviewTable
           headers={["Folio", "Contacto", "RUT", "Emisión", "Total", ""]}
-          rows={preview.documents.slice(0, 50).map((d) => [
-            d.folio,
-            d.nombre,
-            d.rut,
-            d.fechaEmision.slice(0, 10),
-            formatMoney(d.total, "CLP"),
-            d.isDuplicate ? "duplicado" : "",
-          ])}
+          rows={preview.documents
+            .slice(0, 50)
+            .map((d) => [
+              d.folio,
+              d.nombre,
+              d.rut,
+              d.fechaEmision.slice(0, 10),
+              formatMoney(d.total, "CLP"),
+              d.isDuplicate ? "duplicado" : "",
+            ])}
         />
       )}
     </>
@@ -142,7 +146,7 @@ function PreviewTable({
   rows: string[][];
 }) {
   return (
-    <div className="border-border bg-card overflow-x-auto rounded-xl border">
+    <div className="glass-solid overflow-x-auto rounded-xl">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-muted-foreground border-border border-b text-left text-xs">
@@ -161,7 +165,7 @@ function PreviewTable({
                   key={j}
                   className={
                     j === r.length - 1 && c === "duplicado"
-                      ? "text-[var(--status-amber)] px-4 py-2 text-xs"
+                      ? "px-4 py-2 text-xs text-[var(--status-amber)]"
                       : "px-4 py-2"
                   }
                 >
