@@ -15,15 +15,30 @@ import {
   ignoreTransaction,
 } from "@/features/finance/reconcile-actions";
 import { formatDate, toNum } from "@/features/finance/helpers";
+import { UrlPagination } from "@/components/shared/url-pagination";
 
 const ESTADOS = ["TODOS", "PENDIENTE", "CONCILIADO", "PARCIAL", "IGNORADO"];
 
 export default async function BancoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cuenta?: string; estado?: string }>;
+  searchParams: Promise<{
+    cuenta?: string;
+    estado?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
 }) {
-  const { cuenta, estado } = await searchParams;
+  const {
+    cuenta,
+    estado,
+    page: rawPage,
+    pageSize: rawPageSize,
+  } = await searchParams;
+  const page = Math.max(1, Number(rawPage) || 1);
+  const pageSize = [20, 50, 100, 200].includes(Number(rawPageSize))
+    ? Number(rawPageSize)
+    : 20;
   const accounts = await getBankAccounts();
 
   if (accounts.length === 0) {
@@ -40,10 +55,11 @@ export default async function BancoPage({
   }
 
   const account = accounts.find((a) => a.id === cuenta) ?? accounts[0];
-  const [txns, suggestions] = await Promise.all([
-    getTransactions(account.id, { estado }),
+  const [transactions, suggestions] = await Promise.all([
+    getTransactions(account.id, { estado }, { page, pageSize }),
     getSuggestions(account.id, 10),
   ]);
+  const { rows: txns, total } = transactions;
 
   return (
     <>
@@ -211,6 +227,7 @@ export default async function BancoPage({
           </table>
         </div>
       )}
+      <UrlPagination page={page} pageSize={pageSize} total={total} />
     </>
   );
 }

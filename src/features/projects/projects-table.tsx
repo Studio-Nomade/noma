@@ -20,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InlineStatusSelect } from "@/components/shared/inline-status-select";
+import { DataPagination } from "@/components/shared/data-pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import {
   SortButton,
   type SortDirection,
@@ -113,6 +115,11 @@ export function ProjectsTable({ projects }: { projects: ProjectListItem[] }) {
     stage,
     status,
   ]);
+  const pagination = usePagination(
+    filtered,
+    "noma:projects:page-size",
+    `${query}:${area}:${stage}:${status}:${priority}:${responsible}:${sortKey}:${sortDirection}`,
+  );
 
   function sortBy(key: ProjectSortKey) {
     if (sortKey === key) {
@@ -194,7 +201,7 @@ export function ProjectsTable({ projects }: { projects: ProjectListItem[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((project) => (
+            {pagination.pageItems.map((project) => (
               <TableRow
                 key={project.id}
                 onClick={(event) => {
@@ -275,6 +282,13 @@ export function ProjectsTable({ projects }: { projects: ProjectListItem[] }) {
           </TableBody>
         </Table>
       </div>
+      <DataPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </div>
   );
 }

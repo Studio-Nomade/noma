@@ -16,6 +16,7 @@ import { cobranzaFromEmail } from "@/features/finance/cobranza/sender";
 import { CobranzaComposer } from "@/features/finance/cobranza/cobranza-composer";
 import { resendCobranza } from "@/features/finance/cobranza/actions";
 import { formatDate } from "@/features/finance/helpers";
+import { UrlPagination } from "@/components/shared/url-pagination";
 
 export default async function CobranzaPage({
   searchParams,
@@ -25,16 +26,23 @@ export default async function CobranzaPage({
     projectId?: string;
     invoiceId?: string;
     moment?: string;
+    page?: string;
+    pageSize?: string;
   }>;
 }) {
   const sp = await searchParams;
-  const [clients, templates, sugeridos, mensajes, cfg] = await Promise.all([
+  const page = Math.max(1, Number(sp.page) || 1);
+  const pageSize = [20, 50, 100, 200].includes(Number(sp.pageSize))
+    ? Number(sp.pageSize)
+    : 20;
+  const [clients, templates, sugeridos, messagePage, cfg] = await Promise.all([
     getComposerContext(),
     getCobranzaTemplates(),
     getSugeridos(),
-    getCobranzaMessages(30),
+    getCobranzaMessages({ page, pageSize }),
     db.select().from(studioConfig).limit(1),
   ]);
+  const mensajes = messagePage.rows;
 
   const studioName = cfg[0]?.studioName ?? "Studio Nomade";
   const senderEmail = cobranzaFromEmail();
@@ -191,6 +199,11 @@ export default async function CobranzaPage({
             </table>
           </div>
         )}
+        <UrlPagination
+          page={page}
+          pageSize={pageSize}
+          total={messagePage.total}
+        />
       </section>
     </>
   );

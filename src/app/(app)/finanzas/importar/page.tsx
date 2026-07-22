@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { count, desc } from "drizzle-orm";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { db } from "@/db";
@@ -7,6 +7,7 @@ import { importBatches, importTemplates } from "@/db/schema";
 import { getBankAccounts } from "@/features/finance/queries";
 import { ImportForm } from "@/features/finance/import-form";
 import { formatDate } from "@/features/finance/helpers";
+import { UrlPagination } from "@/components/shared/url-pagination";
 
 const TYPE_LABELS: Record<string, string> = {
   NUBOX_VENTAS: "Nubox Ventas",
@@ -17,17 +18,31 @@ const TYPE_LABELS: Record<string, string> = {
 export default async function ImportarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ confirmado?: string }>;
+  searchParams: Promise<{
+    confirmado?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
 }) {
-  const { confirmado } = await searchParams;
-  const [templates, accounts, batches] = await Promise.all([
+  const {
+    confirmado,
+    page: rawPage,
+    pageSize: rawPageSize,
+  } = await searchParams;
+  const page = Math.max(1, Number(rawPage) || 1);
+  const pageSize = [20, 50, 100, 200].includes(Number(rawPageSize))
+    ? Number(rawPageSize)
+    : 20;
+  const [templates, accounts, batches, totalRows] = await Promise.all([
     db.select().from(importTemplates),
     getBankAccounts(),
     db
       .select()
       .from(importBatches)
       .orderBy(desc(importBatches.createdAt))
-      .limit(20),
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db.select({ value: count() }).from(importBatches),
   ]);
 
   return (
@@ -76,8 +91,9 @@ export default async function ImportarPage({
                   <div className="min-w-0">
                     <span className="block truncate">{b.fileName}</span>
                     <span className="text-muted-foreground text-xs">
-                      {TYPE_LABELS[b.type] ?? b.type} · {formatDate(b.createdAt)}{" "}
-                      · {b.rowsInserted}/{b.rowsValid} insertados
+                      {TYPE_LABELS[b.type] ?? b.type} ·{" "}
+                      {formatDate(b.createdAt)} · {b.rowsInserted}/{b.rowsValid}{" "}
+                      insertados
                     </span>
                   </div>
                   <StatusBadge value={b.status} />
@@ -85,6 +101,11 @@ export default async function ImportarPage({
               ))}
             </div>
           )}
+          <UrlPagination
+            page={page}
+            pageSize={pageSize}
+            total={totalRows[0]?.value ?? 0}
+          />
         </div>
       </div>
     </>

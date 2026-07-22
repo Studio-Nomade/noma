@@ -137,10 +137,11 @@ export const PIPELINE_STAGES: readonly CommercialStage[] = [
 ] as const;
 
 // Etapas heredadas que se muestran dentro de una columna del Pipeline nuevo.
-export const STAGE_ALIASES: Partial<Record<CommercialStage, CommercialStage>> = {
-  Levantamiento: "Reunión inicial agendada",
-  Diagnóstico: "Reunión inicial agendada",
-};
+export const STAGE_ALIASES: Partial<Record<CommercialStage, CommercialStage>> =
+  {
+    Levantamiento: "Reunión inicial agendada",
+    Diagnóstico: "Reunión inicial agendada",
+  };
 
 export const PRIORITIES = ["Alta", "Media", "Baja"] as const;
 export type Priority = (typeof PRIORITIES)[number];
@@ -231,11 +232,7 @@ export const BRIEF_STATUSES = [
 export type BriefStatus = (typeof BRIEF_STATUSES)[number];
 
 // ── Reunión de brief ─────────────────────────────────────────
-export const MEETING_STATUSES = [
-  "Agendada",
-  "Realizada",
-  "Cancelada",
-] as const;
+export const MEETING_STATUSES = ["Agendada", "Realizada", "Cancelada"] as const;
 export type MeetingStatus = (typeof MEETING_STATUSES)[number];
 
 // ── Notas de reunión (Gemini/Drive/manual) ───────────────────
@@ -491,6 +488,40 @@ export const COBRANZA_MOMENT_LABELS: Record<CobranzaMoment, string> = {
 // Estado de un correo de cobranza
 export const COBRANZA_STATUSES = ["ENVIADO", "PENDIENTE", "ERROR"] as const;
 export type CobranzaStatus = (typeof COBRANZA_STATUSES)[number];
+
+export const ANNOUNCEMENT_CATEGORIES = [
+  "novedad",
+  "proceso",
+  "celebracion",
+  "urgente",
+] as const;
+export type AnnouncementCategory = (typeof ANNOUNCEMENT_CATEGORIES)[number];
+
+export const SURVEY_TYPES = ["clima", "desempeno"] as const;
+export type SurveyType = (typeof SURVEY_TYPES)[number];
+export const SURVEY_STATUSES = ["borrador", "activa", "cerrada"] as const;
+export type SurveyStatus = (typeof SURVEY_STATUSES)[number];
+export const SURVEY_QUESTION_TYPES = [
+  "escala_1_5",
+  "nps",
+  "opcion_multiple",
+  "texto_libre",
+  "si_no",
+] as const;
+export type SurveyQuestionType = (typeof SURVEY_QUESTION_TYPES)[number];
+export const SURVEY_ASSIGNMENT_STATUSES = ["pendiente", "respondida"] as const;
+
+export const COURSE_PROVIDERS = ["domestika", "otro"] as const;
+export type CourseProvider = (typeof COURSE_PROVIDERS)[number];
+export const COURSE_LEVELS = ["inicial", "intermedio", "avanzado"] as const;
+export type CourseLevel = (typeof COURSE_LEVELS)[number];
+export const COURSE_ENROLLMENT_STATUSES = [
+  "asignado",
+  "en_curso",
+  "completado",
+] as const;
+export type CourseEnrollmentStatus =
+  (typeof COURSE_ENROLLMENT_STATUSES)[number];
 
 // ── Secciones de propuesta (orden de render + contrato IA) ───
 export const PROPOSAL_SECTIONS = [

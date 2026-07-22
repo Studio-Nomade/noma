@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InlineStatusSelect } from "@/components/shared/inline-status-select";
+import { DataPagination } from "@/components/shared/data-pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import {
   SortButton,
   type SortDirection,
@@ -79,6 +81,11 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         return sortDirection === "asc" ? comparison : -comparison;
       });
   }, [clients, query, sortDirection, sortKey, status]);
+  const pagination = usePagination(
+    filtered,
+    "noma:clients:page-size",
+    `${query}:${status}:${sortKey}:${sortDirection}`,
+  );
 
   function sortBy(key: ClientSortKey) {
     if (sortKey === key) {
@@ -152,7 +159,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((client) => (
+            {pagination.pageItems.map((client) => (
               <TableRow
                 key={client.id}
                 onClick={(event) => {
@@ -236,6 +243,13 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
           </TableBody>
         </Table>
       </div>
+      <DataPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </div>
   );
 }

@@ -38,7 +38,7 @@ createdb noma                # Postgres local (brew services start postgresql@16
 npm install
 npm run db:deploy            # aplica todas las migraciones a la base local
 npm run db:seed              # áreas, servicios demo, studio_config y datos de Finanzas
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3001 (puerto fijo, ver AGENTS.md)
 ```
 
 > **DEV vs PROD:** en local, `DATABASE_URL` apunta a Postgres local; Supabase queda solo

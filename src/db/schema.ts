@@ -11,6 +11,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import {
@@ -52,6 +53,14 @@ import {
   RULE_MATCH_FIELDS,
   COBRANZA_MOMENTS,
   COBRANZA_STATUSES,
+  ANNOUNCEMENT_CATEGORIES,
+  SURVEY_TYPES,
+  SURVEY_STATUSES,
+  SURVEY_QUESTION_TYPES,
+  SURVEY_ASSIGNMENT_STATUSES,
+  COURSE_PROVIDERS,
+  COURSE_LEVELS,
+  COURSE_ENROLLMENT_STATUSES,
 } from "@/types/enums";
 
 // ── Enums (Postgres) ─────────────────────────────────────────
@@ -93,6 +102,26 @@ export const docCategoryEnum = pgEnum("doc_category", DOC_CATEGORIES);
 export const knowledgeCategoryEnum = pgEnum(
   "knowledge_category",
   KNOWLEDGE_CATEGORIES,
+);
+export const announcementCategoryEnum = pgEnum(
+  "announcement_category",
+  ANNOUNCEMENT_CATEGORIES,
+);
+export const surveyTypeEnum = pgEnum("survey_type", SURVEY_TYPES);
+export const surveyStatusEnum = pgEnum("survey_status", SURVEY_STATUSES);
+export const surveyQuestionTypeEnum = pgEnum(
+  "survey_question_type",
+  SURVEY_QUESTION_TYPES,
+);
+export const surveyAssignmentStatusEnum = pgEnum(
+  "survey_assignment_status",
+  SURVEY_ASSIGNMENT_STATUSES,
+);
+export const courseProviderEnum = pgEnum("course_provider", COURSE_PROVIDERS);
+export const courseLevelEnum = pgEnum("course_level", COURSE_LEVELS);
+export const courseEnrollmentStatusEnum = pgEnum(
+  "course_enrollment_status",
+  COURSE_ENROLLMENT_STATUSES,
 );
 
 // ── Enums del módulo CFO / Finanzas ──────────────────────────
@@ -194,10 +223,207 @@ export const teamMembers = pgTable("team_members", {
   repos: jsonb("repos").$type<string[]>().default([]),
   notes: text("notes"),
   phone: text("phone"), // para la firma de correo
+  birthDate: date("birth_date"),
   // Firma de correo (HTML generado por el constructor de perfil).
   emailSignature: text("email_signature"),
   ...timestamps,
 });
+
+// ── comunicación interna ────────────────────────────────────
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "restrict" }),
+    category: announcementCategoryEnum("category").default("novedad").notNull(),
+    pinned: boolean("pinned").default(false).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    attachments: jsonb("attachments")
+      .$type<{ label: string; url: string }[]>()
+      .default([])
+      .notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("announcements_published_idx").on(table.publishedAt),
+    index("announcements_author_idx").on(table.authorId),
+  ],
+);
+
+export const announcementReads = pgTable(
+  "announcement_reads",
+  {
+    announcementId: uuid("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    teamMemberId: uuid("team_member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.announcementId, table.teamMemberId] }),
+    index("announcement_reads_member_idx").on(table.teamMemberId),
+  ],
+);
+
+// ── encuestas RRHH ──────────────────────────────────────────
+export const surveys = pgTable(
+  "surveys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    type: surveyTypeEnum("type").notNull(),
+    isAnonymous: boolean("is_anonymous").notNull(),
+    status: surveyStatusEnum("status").default("borrador").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    createdBy: uuid("created_by"),
+    minResponsesToReveal: integer("min_responses_to_reveal")
+      .default(3)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("surveys_status_idx").on(table.status)],
+);
+
+export const surveyQuestions = pgTable(
+  "survey_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    surveyId: uuid("survey_id")
+      .notNull()
+      .references(() => surveys.id, { onDelete: "cascade" }),
+    order: integer("order").notNull(),
+    type: surveyQuestionTypeEnum("type").notNull(),
+    label: text("label").notNull(),
+    options: jsonb("options").$type<string[]>().default([]).notNull(),
+    required: boolean("required").default(true).notNull(),
+  },
+  (table) => [index("survey_questions_survey_idx").on(table.surveyId)],
+);
+
+export const surveyAssignments = pgTable(
+  "survey_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    surveyId: uuid("survey_id")
+      .notNull()
+      .references(() => surveys.id, { onDelete: "cascade" }),
+    teamMemberId: uuid("team_member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    status: surveyAssignmentStatusEnum("status").default("pendiente").notNull(),
+    invitedAt: timestamp("invited_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("survey_assignments_survey_member_unique").on(
+      table.surveyId,
+      table.teamMemberId,
+    ),
+  ],
+);
+
+export const surveyResponses = pgTable(
+  "survey_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    surveyId: uuid("survey_id")
+      .notNull()
+      .references(() => surveys.id, { onDelete: "cascade" }),
+    respondentId: uuid("respondent_id").references(() => teamMembers.id, {
+      onDelete: "set null",
+    }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("survey_responses_survey_idx").on(table.surveyId)],
+);
+
+export const surveyAnswers = pgTable(
+  "survey_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    responseId: uuid("response_id")
+      .notNull()
+      .references(() => surveyResponses.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => surveyQuestions.id, { onDelete: "cascade" }),
+    valueNumber: numeric("value_number", { precision: 8, scale: 2 }),
+    valueText: text("value_text"),
+    valueOption: text("value_option"),
+  },
+  (table) => [index("survey_answers_response_idx").on(table.responseId)],
+);
+
+// ── capacitaciones RRHH ─────────────────────────────────────
+export const courses = pgTable(
+  "courses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    provider: courseProviderEnum("provider").default("domestika").notNull(),
+    url: text("url").notNull(),
+    area: areaEnum("area"),
+    level: courseLevelEnum("level").default("inicial").notNull(),
+    durationMin: integer("duration_min"),
+    description: text("description"),
+    thumbnailUrl: text("thumbnail_url"),
+    tags: jsonb("tags").$type<string[]>().default([]).notNull(),
+    active: boolean("active").default(true).notNull(),
+    ...timestamps,
+  },
+  (table) => [index("courses_active_idx").on(table.active)],
+);
+
+export const courseEnrollments = pgTable(
+  "course_enrollments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    teamMemberId: uuid("team_member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    status: courseEnrollmentStatusEnum("status").default("asignado").notNull(),
+    assignedBy: uuid("assigned_by"),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    progressPct: integer("progress_pct").default(0).notNull(),
+    certificateUrl: text("certificate_url"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("course_enrollments_course_member_unique").on(
+      table.courseId,
+      table.teamMemberId,
+    ),
+    index("course_enrollments_member_idx").on(table.teamMemberId),
+  ],
+);
 
 // ── projects ─────────────────────────────────────────────────
 export const projects = pgTable("projects", {
