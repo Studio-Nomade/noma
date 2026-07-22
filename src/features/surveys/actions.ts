@@ -165,6 +165,7 @@ export async function submitSurvey(
     if (!member) throw new Error("Missing team member");
     const surveyId = idSchema.parse(id);
     const answers = z.array(answerSchema).parse(rawAnswers);
+    let wasAnonymous = false;
     await db.transaction(async (tx) => {
       const [survey] = await tx
         .select({
@@ -181,6 +182,7 @@ export async function submitSurvey(
         (survey.endsAt && survey.endsAt < new Date())
       )
         throw new Error("Survey unavailable");
+      wasAnonymous = survey.isAnonymous;
       const [claimed] = await tx
         .update(surveyAssignments)
         .set({
@@ -234,6 +236,22 @@ export async function submitSurvey(
               })),
           );
     });
+    // Anonimato: rompe la correlación por `xmin`.
+    //
+    // La asignación y la respuesta se escriben en la MISMA transacción, así que
+    // Postgres les asigna el mismo `xmin`. Esa columna de sistema es legible por
+    // cualquiera con SELECT, y un `JOIN ... ON a.xmin = r.xmin` revela quién
+    // respondió qué, saltándose los triggers que anulan identidad y timestamp.
+    //
+    // Al tocar TODAS las asignaciones de la encuesta en una transacción aparte,
+    // todas quedan con un `xmin` nuevo e idéntico entre sí y distinto del de
+    // cualquier respuesta, de modo que ese join deja de correlacionar.
+    if (wasAnonymous) {
+      await db
+        .update(surveyAssignments)
+        .set({ surveyId })
+        .where(eq(surveyAssignments.surveyId, surveyId));
+    }
     revalidatePath("/surveys");
     return { ok: true, data: undefined };
   } catch (error) {
