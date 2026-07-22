@@ -117,7 +117,7 @@ export function SidebarNav({
               type="button"
               onClick={() => toggleGroup(group.label)}
               aria-expanded={open}
-              className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+              className="text-muted-foreground hover:text-foreground flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-[var(--dur-base)] ease-[var(--ease-out-expo)] hover:bg-[var(--glass-bg)]"
             >
               <GroupIcon className="size-4 shrink-0" />
               <span className="flex-1 text-left font-medium">
@@ -181,16 +181,36 @@ function ExpandedItem({
     <Link
       href={item.href}
       onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-[var(--dur-base)] ease-[var(--ease-out-expo)]",
         active
-          ? "bg-foreground text-background font-medium"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          ? "glass-hairline text-foreground bg-[var(--glass-bg)] font-medium"
+          : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-bg)]",
       )}
     >
+      {active && <ActiveIndicator />}
       <Icon className="size-4 shrink-0" />
       <span>{item.label}</span>
     </Link>
+  );
+}
+
+/**
+ * Barra de acento del item activo. Lleva `view-transition-name` para que, al
+ * navegar, el navegador la interpole entre la posición vieja y la nueva: el
+ * indicador se desliza por el menú sin JS de medición.
+ */
+function ActiveIndicator({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ viewTransitionName: "nav-active-indicator" }}
+      className={cn(
+        "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[rgb(var(--ambient-1))]",
+        className,
+      )}
+    />
   );
 }
 
@@ -212,11 +232,12 @@ function CollapsedItem({
             href={item.href}
             onClick={onNavigate}
             aria-label={item.label}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "flex size-9 items-center justify-center rounded-lg transition-colors",
+              "relative flex size-9 items-center justify-center rounded-lg transition-all duration-[var(--dur-base)] ease-[var(--ease-out-expo)]",
               active
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                ? "glass-hairline text-foreground bg-[var(--glass-bg)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-bg)]",
             )}
           />
         }

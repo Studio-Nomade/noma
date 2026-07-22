@@ -14,6 +14,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Brand } from "./brand";
 import { SidebarNav } from "./sidebar-nav";
 import { SignOutButton } from "./sign-out-button";
+import { ThemeToggle } from "./theme-toggle";
 
 function SidebarContent({
   email,
@@ -44,26 +45,35 @@ function SidebarContent({
           collapsed={collapsed}
         />
       </div>
-      <div className="border-border border-t px-3 py-4">
-        {onToggleCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground mb-3 flex w-full items-center justify-center rounded-lg p-2 transition-colors"
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="size-4" />
-            ) : (
-              <PanelLeftClose className="size-4" />
-            )}
-          </button>
-        )}
+      <div className="border-border/60 border-t px-3 py-4">
+        <div
+          className={
+            collapsed
+              ? "mb-3 flex flex-col items-center gap-1"
+              : "mb-3 flex items-center gap-1"
+          }
+        >
+          <ThemeToggle collapsed={collapsed} />
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+              className="text-muted-foreground hover:text-foreground hover:glass-hairline flex items-center justify-center rounded-lg p-2 transition-all hover:bg-[var(--glass-bg)]"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </button>
+          )}
+        </div>
         <div
           className={
             collapsed
               ? "flex flex-col items-center gap-2"
-              : "bg-accent/50 flex items-center gap-2 rounded-xl p-2"
+              : "glass-hairline flex items-center gap-2 rounded-xl bg-[var(--glass-bg)] p-2"
           }
         >
           <Link
@@ -137,8 +147,8 @@ export function AppShell({
         <aside
           className={
             collapsed
-              ? "bg-card border-border fixed inset-y-0 left-0 hidden w-20 border-r transition-[width] duration-200 lg:block"
-              : "bg-card border-border fixed inset-y-0 left-0 hidden w-64 border-r transition-[width] duration-200 lg:block"
+              ? "glass-strong border-y-0 border-l-0 fixed inset-y-0 left-0 z-30 hidden w-20 rounded-none transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
+              : "glass-strong border-y-0 border-l-0 fixed inset-y-0 left-0 z-30 hidden w-64 rounded-none transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
           }
         >
           <SidebarContent
@@ -152,16 +162,16 @@ export function AppShell({
         </aside>
 
         {/* Topbar móvil */}
-        <header className="bg-card border-border fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between border-b px-4 lg:hidden">
+        <header className="glass-strong fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between rounded-none border-x-0 border-t-0 px-4 lg:hidden">
           <Brand />
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               aria-label="Abrir menú"
-              className="hover:bg-accent flex size-10 items-center justify-center rounded-md"
+              className="hover:glass-hairline flex size-10 items-center justify-center rounded-lg transition-all hover:bg-[var(--glass-bg)]"
             >
               <Menu className="size-5" />
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="glass-strong w-64 p-0">
               <SheetTitle className="sr-only">Navegación</SheetTitle>
               <SidebarContent
                 email={email}
@@ -178,8 +188,8 @@ export function AppShell({
         <main
           className={
             collapsed
-              ? "min-w-0 flex-1 transition-[padding] duration-200 lg:pl-20"
-              : "min-w-0 flex-1 transition-[padding] duration-200 lg:pl-64"
+              ? "min-w-0 flex-1 transition-[padding] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:pl-20"
+              : "min-w-0 flex-1 transition-[padding] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:pl-64"
           }
         >
           <div className="mx-auto max-w-6xl min-w-0 px-4 pt-20 pb-12 sm:px-6 lg:px-8 lg:pt-8">

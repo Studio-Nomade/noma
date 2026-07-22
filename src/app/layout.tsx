@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Poppins } from "next/font/google";
+import { AmbientBackground } from "@/components/layout/ambient-background";
+import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -32,13 +34,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning: next-themes escribe la clase del tema en <html>
+    // antes de la hidratación; sin esto React reporta el mismatch.
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${dmSans.variable} ${poppins.variable} h-full antialiased`}
     >
-      <body className="bg-background text-foreground flex min-h-full flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
-        <Toaster position="top-right" />
+      <body className="text-foreground flex min-h-full flex-col">
+        <ThemeProvider>
+          <AmbientBackground />
+          <TooltipProvider>{children}</TooltipProvider>
+          <Toaster position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );
