@@ -50,14 +50,14 @@ export default async function PortalPage({
           </div>
         </header>
 
-        <section className="border-border bg-card mb-6 rounded-xl border p-6">
+        <section className="glass glass-sheen mb-6 rounded-xl p-5 sm:p-6">
           <h2 className="font-heading mb-4 text-sm font-medium">
             Estado de cuenta
           </h2>
           <ClientAccountCard account={data.account} />
         </section>
 
-        <section className="border-border bg-card rounded-xl border p-6">
+        <section className="glass glass-sheen rounded-xl p-5 sm:p-6">
           <h2 className="font-heading mb-4 text-sm font-medium">
             Estado de tus proyectos
           </h2>
