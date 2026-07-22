@@ -60,7 +60,7 @@ export function ServicesList({ services }: { services: Service[] }) {
     () => (area === "all" ? services : services.filter((s) => s.area === area)),
     [area, services],
   );
-  const pagination = usePagination(visible, "noma:services:page-size");
+  const pagination = usePagination(visible, "noma:services:page-size", area);
   const pageServices = pagination.pageItems;
   const groups = presentAreas.filter((a) => area === "all" || a === area);
 

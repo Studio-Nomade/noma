@@ -105,3 +105,15 @@ servicios/SLA, presupuestos) vive en el repositorio **privado** `noma-ops`, no e
 > servicios y SLA) se mantiene en el repositorio privado `noma-ops`.
 
 El plan de ejecución por fases vive en el plan aprobado del proyecto.
+
+## Centro operativo
+
+- H0 · Command menu — mergeado.
+- H1 · Paginador universal — mergeado.
+- H2 · Sidebar jerárquico — mergeado.
+- H3 · Pipeline con panel lateral — en desarrollo.
+
+### Hallazgos abiertos
+
+- **Dashboard en navegación:** resuelto en H3; vuelve a estar disponible dentro del grupo Comercial.
+- **Estabilidad de `usePagination`:** resuelto en H3; el reinicio de página usa una clave semántica de filtros/orden y no la identidad del array, evitando volver accidentalmente a la página 1 en cada render.

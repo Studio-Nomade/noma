@@ -1,17 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  CalendarDays,
-  GripVertical,
-  KanbanSquare,
-  List,
-  UserRound,
-} from "lucide-react";
+import { CalendarDays, GripVertical, KanbanSquare, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { AvatarCircle } from "@/components/shared/avatar-circle";
 import {
   Select,
   SelectContent,
@@ -34,6 +29,8 @@ import { formatMoney } from "@/lib/currency/format";
 import { formatDate, toNum } from "@/features/finance/helpers";
 import { setCommercialStage } from "./actions";
 import type { ProjectListItem } from "./queries";
+import type { PipelinePanelData } from "./queries";
+import { PipelinePanel, stageAge } from "./pipeline-panel";
 
 /** Columna del pipeline a la que pertenece una etapa (aplica alias heredados). */
 function columnFor(stage: CommercialStage): CommercialStage {
@@ -41,7 +38,15 @@ function columnFor(stage: CommercialStage): CommercialStage {
   return STAGE_ALIASES[stage] ?? PIPELINE_STAGES[0];
 }
 
-export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
+export function PipelineBoard({
+  projects,
+  panelData,
+  team,
+}: {
+  projects: ProjectListItem[];
+  panelData: Record<string, PipelinePanelData>;
+  team: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [items, setItems] = useState(projects);
@@ -50,6 +55,8 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [area, setArea] = useState<"all" | Area>("all");
   const [responsible, setResponsible] = useState("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const justDragged = useRef(false);
 
   const responsibleOptions = useMemo(
     () =>
@@ -89,7 +96,11 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
     const prev = items;
     // optimista
     setItems((list) =>
-      list.map((p) => (p.id === id ? { ...p, commercialStage: stage } : p)),
+      list.map((p) =>
+        p.id === id
+          ? { ...p, commercialStage: stage, stageChangedAt: new Date() }
+          : p,
+      ),
     );
     setPending((s) => new Set(s).add(id));
     const res = await setCommercialStage(id, stage);
@@ -106,6 +117,13 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
       router.refresh();
     }
   }
+
+  const selectedProject = items.find((item) => item.id === selectedId) ?? null;
+  const selectedSiblings = selectedProject
+    ? (byColumn.get(
+        columnFor(selectedProject.commercialStage as CommercialStage),
+      ) ?? [])
+    : [];
 
   return (
     <div>
@@ -200,9 +218,19 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
                       <div
                         key={p.id}
                         draggable
-                        onDragStart={() => setDragId(p.id)}
-                        onDragEnd={() => setDragId(null)}
-                        onClick={() => router.push(`/projects/${p.id}`)}
+                        onDragStart={() => {
+                          justDragged.current = true;
+                          setDragId(p.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          window.setTimeout(() => {
+                            justDragged.current = false;
+                          }, 0);
+                        }}
+                        onClick={() => {
+                          if (!justDragged.current) setSelectedId(p.id);
+                        }}
                         className={cn(
                           "group border-border bg-card hover:border-foreground/30 cursor-pointer rounded-lg border p-2.5 shadow-sm transition-all",
                           pending.has(p.id) && "opacity-50",
@@ -244,10 +272,19 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
                                 </span>
                               </div>
                               <div className="flex min-w-0 items-center gap-1.5">
-                                <UserRound className="size-3 shrink-0" />
+                                <AvatarCircle
+                                  name={p.responsible ?? "?"}
+                                  className="size-5 shrink-0 text-[8px]"
+                                />
                                 <span className="truncate">
                                   {p.responsible ?? "Sin responsable"}
                                 </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <dt>{stageAge(p.stageChangedAt)}</dt>
+                                <dd>
+                                  {p.proposalCount} prop. · {p.briefCount} brief
+                                </dd>
                               </div>
                             </dl>
                             {p.nextAction && (
@@ -308,7 +345,7 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
               {filteredItems.map((p) => (
                 <tr
                   key={p.id}
-                  onClick={() => router.push(`/projects/${p.id}`)}
+                  onClick={() => setSelectedId(p.id)}
                   className="border-border hover:bg-accent cursor-pointer border-b last:border-0"
                 >
                   <td className="px-4 py-2.5 font-medium">{p.name}</td>
@@ -339,6 +376,18 @@ export function PipelineBoard({ projects }: { projects: ProjectListItem[] }) {
           </table>
         </div>
       )}
+      <PipelinePanel
+        project={selectedProject}
+        siblings={selectedSiblings}
+        details={selectedId ? panelData[selectedId] : undefined}
+        team={team}
+        open={selectedId !== null}
+        onOpenChange={(next) => {
+          if (!next) setSelectedId(null);
+        }}
+        onSelect={setSelectedId}
+        onStageChange={(id, stage) => void move(id, stage)}
+      />
     </div>
   );
 }

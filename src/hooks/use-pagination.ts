@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 const DEFAULT_PAGE_SIZE = 20;
 
-export function usePagination<T>(items: T[], storageKey: string) {
+export function usePagination<T>(
+  items: T[],
+  storageKey: string,
+  resetKey: string | number = items.length,
+) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
 
@@ -15,7 +19,7 @@ export function usePagination<T>(items: T[], storageKey: string) {
 
   useEffect(() => {
     setPage(1);
-  }, [items]);
+  }, [resetKey]);
 
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));

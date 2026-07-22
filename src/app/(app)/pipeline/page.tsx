@@ -2,7 +2,11 @@ import { Plus, KanbanSquare } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { listProjects, listTeamMembers } from "@/features/projects/queries";
+import {
+  getPipelinePanelData,
+  listProjects,
+  listTeamMembers,
+} from "@/features/projects/queries";
 import { listClients } from "@/features/clients/queries";
 import { ProjectDialog } from "@/features/projects/project-dialog";
 import { PipelineBoard } from "@/features/projects/pipeline-board";
@@ -20,6 +24,7 @@ export default async function PipelinePage() {
     companyName: c.companyName,
   }));
   const hasClients = clientOptions.length > 0;
+  const panelData = await getPipelinePanelData(projects);
 
   const newButton = hasClients ? (
     <ProjectDialog
@@ -54,7 +59,7 @@ export default async function PipelinePage() {
           action={newButton}
         />
       ) : (
-        <PipelineBoard projects={projects} />
+        <PipelineBoard projects={projects} panelData={panelData} team={team} />
       )}
     </>
   );
