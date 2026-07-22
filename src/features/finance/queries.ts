@@ -9,6 +9,7 @@ import {
   gte,
   lte,
   isNull,
+  count,
 } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -45,6 +46,7 @@ export interface BankFilters {
 export async function getTransactions(
   bankAccountId: string,
   filters: BankFilters,
+  pagination: { page: number; pageSize: number },
 ) {
   const conds = [
     eq(bankTransactions.bankAccountId, bankAccountId),
@@ -61,12 +63,18 @@ export async function getTransactions(
   if (filters.buscar) {
     conds.push(ilike(bankTransactions.glosa, `%${filters.buscar}%`));
   }
-  return db
-    .select()
-    .from(bankTransactions)
-    .where(and(...conds))
-    .orderBy(desc(bankTransactions.fecha))
-    .limit(300);
+  const where = and(...conds);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(bankTransactions)
+      .where(where)
+      .orderBy(desc(bankTransactions.fecha))
+      .limit(pagination.pageSize)
+      .offset((pagination.page - 1) * pagination.pageSize),
+    db.select({ value: count() }).from(bankTransactions).where(where),
+  ]);
+  return { rows, total: totalRows[0]?.value ?? 0 };
 }
 
 export async function getTransaction(txnId: string) {
@@ -209,7 +217,7 @@ export async function getSuggestions(
 
 export async function getDocuments(
   direction: DocumentDirection,
-  opts: { estado?: string } = {},
+  opts: { estado?: string; page?: number; pageSize?: number } = {},
 ) {
   const conds = [
     eq(finDocuments.direction, direction),
@@ -223,38 +231,46 @@ export async function getDocuments(
       ),
     );
   }
-  return db
-    .select({
-      id: finDocuments.id,
-      type: finDocuments.type,
-      folio: finDocuments.folio,
-      fechaEmision: finDocuments.fechaEmision,
-      fechaVencimiento: finDocuments.fechaVencimiento,
-      neto: finDocuments.neto,
-      iva: finDocuments.iva,
-      total: finDocuments.total,
-      montoConciliado: finDocuments.montoConciliado,
-      status: finDocuments.status,
-      contactName: finContacts.name,
-      contactRut: finContacts.rut,
-      ledgerName: ledgerAccounts.name,
-      pdfPath: finDocuments.pdfPath,
-      xmlPath: finDocuments.xmlPath,
-    })
-    .from(finDocuments)
-    .leftJoin(finContacts, eq(finDocuments.contactId, finContacts.id))
-    .leftJoin(
-      ledgerAccounts,
-      eq(finDocuments.ledgerAccountId, ledgerAccounts.id),
-    )
-    .where(and(...conds))
-    .orderBy(desc(finDocuments.fechaEmision))
-    .limit(500);
+  const page = opts.page ?? 1;
+  const pageSize = opts.pageSize ?? 20;
+  const where = and(...conds);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: finDocuments.id,
+        type: finDocuments.type,
+        folio: finDocuments.folio,
+        fechaEmision: finDocuments.fechaEmision,
+        fechaVencimiento: finDocuments.fechaVencimiento,
+        neto: finDocuments.neto,
+        iva: finDocuments.iva,
+        total: finDocuments.total,
+        montoConciliado: finDocuments.montoConciliado,
+        status: finDocuments.status,
+        contactName: finContacts.name,
+        contactRut: finContacts.rut,
+        ledgerName: ledgerAccounts.name,
+        pdfPath: finDocuments.pdfPath,
+        xmlPath: finDocuments.xmlPath,
+      })
+      .from(finDocuments)
+      .leftJoin(finContacts, eq(finDocuments.contactId, finContacts.id))
+      .leftJoin(
+        ledgerAccounts,
+        eq(finDocuments.ledgerAccountId, ledgerAccounts.id),
+      )
+      .where(where)
+      .orderBy(desc(finDocuments.fechaEmision))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db.select({ value: count() }).from(finDocuments).where(where),
+  ]);
+  return { rows, total: totalRows[0]?.value ?? 0 };
 }
 
 export type FinanceDocumentListItem = Awaited<
   ReturnType<typeof getDocuments>
->[number];
+>["rows"][number];
 
 // ── Clasificación ────────────────────────────────────────────
 

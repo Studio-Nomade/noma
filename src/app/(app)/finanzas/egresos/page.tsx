@@ -7,9 +7,13 @@ import { BulkFilesDialog } from "@/features/finance/bulk-files-dialog";
 export default async function EgresosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; page?: string; pageSize?: string }>;
 }) {
-  const { estado } = await searchParams;
+  const { estado, page: rawPage, pageSize: rawPageSize } = await searchParams;
+  const page = Math.max(1, Number(rawPage) || 1);
+  const pageSize = [20, 50, 100, 200].includes(Number(rawPageSize))
+    ? Number(rawPageSize)
+    : 20;
   return (
     <>
       <PageHeader
@@ -27,7 +31,12 @@ export default async function EgresosPage({
           />
         }
       />
-      <DocumentsView direction="COMPRA" estado={estado} />
+      <DocumentsView
+        direction="COMPRA"
+        estado={estado}
+        page={page}
+        pageSize={pageSize}
+      />
     </>
   );
 }
