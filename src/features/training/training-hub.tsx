@@ -176,7 +176,7 @@ export function TrainingHub({
           {pagination.pageItems.map((course) => (
             <article
               key={course.id}
-              className="border-border bg-card flex flex-col rounded-xl border p-4"
+              className="glass flex flex-col rounded-xl p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge value={course.level} size="xs" />
@@ -476,7 +476,7 @@ function EnrollmentList({
       {rows.map((row) => (
         <div
           key={row.id}
-          className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
+          className="glass flex flex-wrap items-center justify-between gap-3 rounded-xl p-4"
         >
           <div>
             <a
@@ -598,10 +598,7 @@ function TeamSummary({ rows }: { rows: EnrollmentData["team"] }) {
             memberRows.length,
         );
         return (
-          <div
-            key={name}
-            className="border-border bg-card rounded-xl border p-4"
-          >
+          <div key={name} className="glass rounded-xl p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium">{name}</h3>
               <span className="text-sm font-semibold">{average}%</span>

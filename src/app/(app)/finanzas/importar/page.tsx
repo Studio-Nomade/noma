@@ -72,7 +72,7 @@ export default async function ImportarPage({
           }))}
         />
 
-        <div className="border-border bg-card rounded-xl border p-5">
+        <div className="glass rounded-xl p-5">
           <h2 className="font-heading mb-3 text-base font-medium">
             Importaciones recientes
           </h2>

@@ -17,7 +17,7 @@ function ServiceCard({ service }: { service: Service }) {
       trigger={
         <button
           type="button"
-          className="border-border bg-card hover:border-foreground/20 flex flex-col rounded-xl border p-4 text-left transition-colors"
+          className="glass hover-lift flex flex-col rounded-xl p-4 text-left"
         >
           <div className="flex w-full items-start justify-between gap-2">
             <span className="font-medium">{service.name}</span>

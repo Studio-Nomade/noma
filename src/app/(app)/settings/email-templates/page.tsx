@@ -43,7 +43,7 @@ export default async function EmailTemplatesPage() {
           {templates.map((t) => (
             <div
               key={t.id}
-              className="border-border bg-card flex items-start justify-between gap-4 rounded-xl border p-4"
+              className="glass flex items-start justify-between gap-4 rounded-xl p-4"
             >
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-medium">

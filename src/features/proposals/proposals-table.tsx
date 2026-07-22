@@ -57,7 +57,7 @@ export function ProposalsTable({ proposals }: { proposals: ProposalRow[] }) {
           </MobileDetailsCard>
         ))}
       </div>
-      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
+      <div className="glass-solid hidden overflow-hidden rounded-xl md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

@@ -41,10 +41,7 @@ export default async function SinClasificarPage() {
       ) : (
         <div className="space-y-3">
           {docs.map((d) => (
-            <div
-              key={d.id}
-              className="border-border bg-card rounded-xl border p-4"
-            >
+            <div key={d.id} className="glass rounded-xl p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm">
                   <span className="text-muted-foreground text-xs">

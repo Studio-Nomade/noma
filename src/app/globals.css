@@ -91,19 +91,23 @@
   --sidebar-border: hsl(45 14% 89%);
   --sidebar-ring: hsl(60 4% 20%);
 
-  /* Colores semánticos de estado (badges) — par bg / fg */
-  --status-blue: hsl(214 84% 56%);
-  --status-blue-bg: hsl(214 90% 96%);
-  --status-violet: hsl(262 60% 55%);
-  --status-violet-bg: hsl(262 70% 96%);
-  --status-emerald: hsl(160 60% 36%);
-  --status-emerald-bg: hsl(160 55% 95%);
-  --status-amber: hsl(35 85% 45%);
-  --status-amber-bg: hsl(40 90% 95%);
-  --status-red: hsl(0 70% 50%);
-  --status-red-bg: hsl(0 80% 96%);
-  --status-slate: hsl(215 16% 47%);
-  --status-slate-bg: hsl(215 20% 95%);
+  /*
+   * Colores semánticos de estado (badges) — par bg / fg.
+   * El fondo va con alfa (no en color plano) para que el badge deje pasar el
+   * fondo ambiental y pertenezca al mismo sistema que el vidrio.
+   */
+  --status-blue: hsl(214 84% 46%);
+  --status-blue-bg: hsl(214 84% 56% / 13%);
+  --status-violet: hsl(262 60% 52%);
+  --status-violet-bg: hsl(262 60% 55% / 13%);
+  --status-emerald: hsl(160 60% 30%);
+  --status-emerald-bg: hsl(160 60% 36% / 14%);
+  --status-amber: hsl(35 90% 38%);
+  --status-amber-bg: hsl(35 85% 45% / 15%);
+  --status-red: hsl(0 70% 46%);
+  --status-red-bg: hsl(0 70% 50% / 13%);
+  --status-slate: hsl(215 16% 42%);
+  --status-slate-bg: hsl(215 16% 47% / 13%);
 
   /*
    * Vidrio — superficies translúcidas.
@@ -117,7 +121,8 @@
   --glass-shadow:
     0 1px 2px rgb(38 32 22 / 0.04), 0 10px 28px -12px rgb(38 32 22 / 0.12);
   --glass-shadow-lg:
-    0 24px 64px -16px rgb(38 32 22 / 0.24), 0 8px 24px -12px rgb(38 32 22 / 0.14);
+    0 24px 64px -16px rgb(38 32 22 / 0.24),
+    0 8px 24px -12px rgb(38 32 22 / 0.14);
   --glass-blur: 16px;
   --glass-blur-strong: 28px;
   --glass-saturate: 180%;
@@ -187,7 +192,7 @@
   --status-violet: hsl(262 85% 78%);
   --status-violet-bg: hsl(262 70% 62% / 16%);
   --status-emerald: hsl(160 60% 62%);
-  --status-emerald-bg: hsl(160 55% 45%/ 16%);
+  --status-emerald-bg: hsl(160 55% 45%/16%);
   --status-amber: hsl(38 92% 68%);
   --status-amber-bg: hsl(38 85% 55% / 16%);
   --status-red: hsl(0 85% 72%);
@@ -266,7 +271,9 @@
   }
 
   /* Sin backdrop-filter el vidrio sería ilegible: se cae a superficie opaca. */
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @supports not (
+    (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+  ) {
     .glass,
     .glass-strong {
       background-color: var(--card);
@@ -305,6 +312,35 @@
       var(--glass-highlight) 65%,
       transparent 100%
     );
+  }
+
+  /* Carga: barrido de luz sobre la superficie, en vez de un pulse plano. */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--muted);
+  }
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--glass-highlight) 50%,
+      transparent 100%
+    );
+    animation: skeleton-sweep 1.6s var(--ease-out-quint) infinite;
+  }
+
+  /*
+   * Entrada escalonada de listas. El retardo se calcula con `--i` (índice de la
+   * fila) para no necesitar JS: `style={{ "--i": index }}`.
+   */
+  .stagger-in {
+    animation: stagger-enter var(--dur-slow) var(--ease-out-expo) backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
   }
 
   .hover-lift {
@@ -433,6 +469,23 @@
   }
 }
 
+@keyframes skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes stagger-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes ambient-drift-a {
   from {
     transform: translate3d(0, 0, 0) scale(1);
@@ -463,6 +516,38 @@
   }
   to {
     transform: translate3d(-10vw, -8vh, 0) scale(0.88);
+  }
+}
+
+/* ==========================================================================
+   Transiciones de ruta
+   No se usa la View Transitions API: requiere el componente <ViewTransition>
+   de React, que no existe en React estable, y AGENTS.md fija Next 15 por
+   Node 20.12. La entrada se replica remontando el contenedor por ruta
+   (ver PageTransition en src/components/layout/page-transition.tsx).
+   ========================================================================== */
+@layer components {
+  .page-enter {
+    animation: page-enter var(--dur-slow) var(--ease-out-expo) both;
+  }
+
+  /* La barra de acento del item activo entra creciendo desde el centro. */
+  .indicator-enter {
+    animation: indicator-enter var(--dur-slow) var(--ease-spring) both;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes indicator-enter {
+  from {
+    transform: translateY(-50%) scaleY(0);
+    opacity: 0;
   }
 }
 

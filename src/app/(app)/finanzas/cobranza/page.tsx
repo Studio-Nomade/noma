@@ -89,7 +89,7 @@ export default async function CobranzaPage({
                 <Link
                   key={s.projectId}
                   href={`/finanzas/cobranza?${qs.toString()}`}
-                  className="border-border bg-card hover:border-foreground/30 rounded-xl border p-4 transition-colors"
+                  className="glass hover-lift rounded-xl p-4"
                 >
                   <span className="text-muted-foreground text-xs">
                     {COBRANZA_MOMENT_LABELS[s.moment]}
@@ -138,7 +138,7 @@ export default async function CobranzaPage({
             Aún no se han enviado correos de cobranza.
           </div>
         ) : (
-          <div className="border-border bg-card overflow-x-auto rounded-xl border">
+          <div className="glass-solid overflow-x-auto rounded-xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-muted-foreground border-border border-b text-left text-xs">

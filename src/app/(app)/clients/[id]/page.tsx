@@ -81,7 +81,7 @@ export default async function ClientDetailPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="border-border bg-card space-y-5 rounded-xl border p-6 lg:col-span-2">
+        <div className="glass space-y-5 rounded-xl p-6 lg:col-span-2">
           <h2 className="font-heading text-sm font-medium">
             Información de contacto
           </h2>
@@ -106,7 +106,7 @@ export default async function ClientDetailPage({
           )}
         </div>
 
-        <div className="border-border bg-card rounded-xl border p-6">
+        <div className="glass rounded-xl p-6">
           <h2 className="font-heading mb-4 text-sm font-medium">
             Proyectos ({projects.length})
           </h2>
@@ -139,7 +139,7 @@ export default async function ClientDetailPage({
           )}
         </div>
 
-        <div className="border-border bg-card rounded-xl border p-6 lg:col-span-3">
+        <div className="glass rounded-xl p-6 lg:col-span-3">
           <h2 className="font-heading mb-4 text-sm font-medium">
             Contactos (correos)
           </h2>
@@ -147,7 +147,7 @@ export default async function ClientDetailPage({
         </div>
 
         {/* Facturación (preparación Chipax/Nubox) */}
-        <div className="border-border bg-card rounded-xl border p-6 lg:col-span-3">
+        <div className="glass rounded-xl p-6 lg:col-span-3">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-heading text-sm font-medium">Facturación</h2>
             <span className="text-muted-foreground text-xs">

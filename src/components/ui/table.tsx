@@ -23,7 +23,14 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      // Noma: cabecera de vidrio. Sin `sticky`: el wrapper `overflow-x-auto` de
+      // `Table` crea un contenedor de scroll sin altura fija, así que `sticky`
+      // sería inerte. Las filas nunca llevan `backdrop-filter`: filtrar el
+      // fondo por fila arruina el scroll en listados largos.
+      className={cn(
+        "glass-strong rounded-none border-x-0 border-t-0 [&_tr]:border-b",
+        className
+      )}
       {...props}
     />
   )
@@ -57,7 +64,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b transition-colors duration-[var(--dur-fast)] hover:bg-accent/60 has-aria-expanded:bg-accent/60 data-[state=selected]:bg-accent",
         className
       )}
       {...props}

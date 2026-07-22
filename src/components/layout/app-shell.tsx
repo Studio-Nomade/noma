@@ -12,6 +12,7 @@ import {
 import { AvatarCircle } from "@/components/shared/avatar-circle";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Brand } from "./brand";
+import { PageTransition } from "./page-transition";
 import { SidebarNav } from "./sidebar-nav";
 import { SignOutButton } from "./sign-out-button";
 import { ThemeToggle } from "./theme-toggle";
@@ -147,8 +148,8 @@ export function AppShell({
         <aside
           className={
             collapsed
-              ? "glass-strong border-y-0 border-l-0 fixed inset-y-0 left-0 z-30 hidden w-20 rounded-none transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
-              : "glass-strong border-y-0 border-l-0 fixed inset-y-0 left-0 z-30 hidden w-64 rounded-none transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
+              ? "glass-strong fixed inset-y-0 left-0 z-30 hidden w-20 rounded-none border-y-0 border-l-0 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
+              : "glass-strong fixed inset-y-0 left-0 z-30 hidden w-64 rounded-none border-y-0 border-l-0 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:block"
           }
         >
           <SidebarContent
@@ -192,9 +193,10 @@ export function AppShell({
               : "min-w-0 flex-1 transition-[padding] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)] lg:pl-64"
           }
         >
-          <div className="mx-auto max-w-6xl min-w-0 px-4 pt-20 pb-12 sm:px-6 lg:px-8 lg:pt-8">
+          {/* La transición se acota al contenido: el shell no parpadea. */}
+          <PageTransition className="mx-auto max-w-6xl min-w-0 px-4 pt-20 pb-12 sm:px-6 lg:px-8 lg:pt-8">
             {children}
-          </div>
+          </PageTransition>
         </main>
       </div>
     </TooltipProvider>

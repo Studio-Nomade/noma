@@ -26,7 +26,9 @@ export default async function ProposalPreviewPage({
         .proposal-slide { width: 16in !important; height: 9in !important; max-width: none !important; box-shadow: none !important; break-after: page; page-break-after: always; }
       }
     `}</style>
-      <div className="no-print border-border bg-card sticky top-0 z-20 flex items-center justify-between border-b px-6 py-3">
+      {/* Barra de herramientas del preview: vidrio fuerte y sin bordes laterales
+          (va pegada al viewport). No se imprime. */}
+      <div className="glass-strong no-print sticky top-0 z-20 flex items-center justify-between rounded-none border-x-0 border-t-0 px-6 py-3">
         <Link
           href={`/proposals/${id}`}
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm"

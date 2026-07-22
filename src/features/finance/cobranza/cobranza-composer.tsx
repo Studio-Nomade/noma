@@ -28,8 +28,18 @@ type Prefill = {
 };
 
 const MESES = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
 ];
 
 export function CobranzaComposer({
@@ -137,7 +147,7 @@ export function CobranzaComposer({
   }
 
   return (
-    <div className="border-border bg-card space-y-4 rounded-xl border p-5">
+    <div className="glass space-y-4 rounded-xl p-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Labeled label="Cliente">
           <select
@@ -147,7 +157,7 @@ export function CobranzaComposer({
               setProjectId("");
               setInvoiceId("");
             }}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Selecciona un cliente…</option>
             {clients.map((c) => (
@@ -162,7 +172,7 @@ export function CobranzaComposer({
           <select
             value={moment}
             onChange={(e) => setMoment(e.target.value as CobranzaMoment)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
           >
             {COBRANZA_MOMENTS.map((m) => (
               <option key={m} value={m}>
@@ -177,7 +187,7 @@ export function CobranzaComposer({
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
             disabled={!client}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+            className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm disabled:opacity-50"
           >
             <option value="">—</option>
             {client?.projects.map((p) => (
@@ -193,7 +203,7 @@ export function CobranzaComposer({
             value={invoiceId}
             onChange={(e) => setInvoiceId(e.target.value)}
             disabled={!client}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+            className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm disabled:opacity-50"
           >
             <option value="">—</option>
             {client?.invoices
@@ -210,7 +220,7 @@ export function CobranzaComposer({
           <select
             value={templateId}
             onChange={(e) => setTemplateId(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
           >
             {momentTemplates.length === 0 && (
               <option value="">(sin plantillas para este momento)</option>
@@ -228,7 +238,7 @@ export function CobranzaComposer({
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder="cliente@empresa.cl"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
           />
         </Labeled>
       </div>
@@ -238,7 +248,7 @@ export function CobranzaComposer({
           value={cc}
           onChange={(e) => setCc(e.target.value)}
           placeholder="copia@studionomade.cl"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
         />
       </Labeled>
 
@@ -246,7 +256,7 @@ export function CobranzaComposer({
         <input
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
         />
       </Labeled>
 
@@ -255,13 +265,14 @@ export function CobranzaComposer({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={12}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
         />
       </Labeled>
 
       <div className="flex items-center justify-between gap-4">
         <p className="text-muted-foreground text-xs">
-          Variables: {"{cliente} {contacto} {proyecto} {monto} {folio} {mes} {anio}"}
+          Variables:{" "}
+          {"{cliente} {contacto} {proyecto} {monto} {folio} {mes} {anio}"}
         </p>
         <button
           onClick={onSend}
@@ -284,7 +295,9 @@ function Labeled({
 }) {
   return (
     <div>
-      <label className="text-muted-foreground mb-1 block text-xs">{label}</label>
+      <label className="text-muted-foreground mb-1 block text-xs">
+        {label}
+      </label>
       {children}
     </div>
   );

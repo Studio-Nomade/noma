@@ -10,10 +10,14 @@ import type { ClientAccount } from "./invoices-queries";
 /** Etiqueta de estado según saldo y vencimiento (lenguaje del estado de cuenta). */
 function estadoDe(inv: ClientAccount["invoices"][number]) {
   if (inv.saldo === 0) return { texto: "Pagada", tono: "emerald" as const };
-  if (inv.diasVencida === null) return { texto: "Emitida", tono: "slate" as const };
+  if (inv.diasVencida === null)
+    return { texto: "Emitida", tono: "slate" as const };
   if (inv.diasVencida > 0)
     return { texto: `Vencida hace ${inv.diasVencida} d`, tono: "red" as const };
-  return { texto: `Vence en ${Math.abs(inv.diasVencida)} d`, tono: "slate" as const };
+  return {
+    texto: `Vence en ${Math.abs(inv.diasVencida)} d`,
+    tono: "slate" as const,
+  };
 }
 
 const fecha = (d?: string | null) =>
@@ -25,7 +29,13 @@ const fecha = (d?: string | null) =>
       })
     : "—";
 
-function Kpi({ label, children }: { label: string; children: React.ReactNode }) {
+function Kpi({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="border-border rounded-xl border p-4">
       <p className="text-muted-foreground text-xs tracking-wide uppercase">
@@ -100,7 +110,7 @@ export function ClientAccountCard({ account }: { account: ClientAccount }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="border-border bg-card inline-flex rounded-lg border p-0.5">
+        <div className="glass inline-flex rounded-lg p-0.5">
           {(["pendientes", "todas"] as const).map((t) => (
             <button
               key={t}
@@ -179,7 +189,7 @@ export function ClientAccountCard({ account }: { account: ClientAccount }) {
                             href={url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-medium transition-colors hover:bg-accent"
+                            className="hover:bg-accent inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-medium transition-colors"
                           >
                             <Icon className="size-3" />
                             {label}
