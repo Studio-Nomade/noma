@@ -115,7 +115,11 @@ export function ProjectsTable({ projects }: { projects: ProjectListItem[] }) {
     stage,
     status,
   ]);
-  const pagination = usePagination(filtered, "noma:projects:page-size");
+  const pagination = usePagination(
+    filtered,
+    "noma:projects:page-size",
+    `${query}:${area}:${stage}:${status}:${priority}:${responsible}:${sortKey}:${sortDirection}`,
+  );
 
   function sortBy(key: ProjectSortKey) {
     if (sortKey === key) {

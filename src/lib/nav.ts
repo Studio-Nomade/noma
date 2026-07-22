@@ -9,6 +9,7 @@ import {
   FolderKanban,
   GraduationCap,
   HandCoins,
+  LayoutDashboard,
   KanbanSquare,
   Landmark,
   Library,
@@ -34,6 +35,15 @@ export interface NavGroup {
   children: NavItem[];
   requiresFinance?: boolean;
 }
+
+/**
+ * Ítems sueltos que van ARRIBA de los grupos. El dashboard no pertenece a un
+ * departamento: es la portada transversal del estudio (pipeline, finanzas, RRHH,
+ * calendario), por eso no vive dentro de "Comercial".
+ */
+export const NAV_PRIMARY_ITEMS: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+];
 
 export const NAV_GROUPS: NavGroup[] = [
   {

@@ -81,7 +81,11 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         return sortDirection === "asc" ? comparison : -comparison;
       });
   }, [clients, query, sortDirection, sortKey, status]);
-  const pagination = usePagination(filtered, "noma:clients:page-size");
+  const pagination = usePagination(
+    filtered,
+    "noma:clients:page-size",
+    `${query}:${status}:${sortKey}:${sortDirection}`,
+  );
 
   function sortBy(key: ClientSortKey) {
     if (sortKey === key) {
