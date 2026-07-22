@@ -58,9 +58,9 @@ export function PipelinePanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full gap-0 overflow-y-auto sm:max-w-2xl"
+        className="w-[calc(100%-1rem)] max-w-none gap-0 overflow-y-auto sm:w-full sm:max-w-2xl"
       >
-        <SheetHeader className="border-border border-b p-6 pr-14">
+        <SheetHeader className="border-border border-b p-4 pr-12 sm:p-6 sm:pr-14">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <SheetTitle className="truncate text-xl">
@@ -92,7 +92,7 @@ export function PipelinePanel({
               </Button>
             </div>
           </div>
-          <div className="mt-4 flex gap-1 overflow-x-auto pb-1">
+          <div className="mt-4 grid grid-cols-2 gap-1 sm:flex sm:overflow-x-auto sm:pb-1">
             {PIPELINE_STAGES.map((stage) => (
               <button
                 key={stage}
@@ -100,8 +100,8 @@ export function PipelinePanel({
                 onClick={() => onStageChange(project.id, stage)}
                 className={
                   stage === project.commercialStage
-                    ? "bg-foreground text-background shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium"
-                    : "bg-accent text-muted-foreground shrink-0 rounded-full px-2.5 py-1 text-[10px]"
+                    ? "bg-foreground text-background min-h-10 rounded-lg px-2.5 py-1 text-[10px] font-medium sm:min-h-0 sm:shrink-0 sm:rounded-full"
+                    : "bg-accent text-muted-foreground min-h-10 rounded-lg px-2.5 py-1 text-[10px] sm:min-h-0 sm:shrink-0 sm:rounded-full"
                 }
               >
                 {stage}
@@ -162,7 +162,7 @@ export function PipelinePanel({
             </Select>
           </div>
         </SheetHeader>
-        <Tabs defaultValue="activity" className="p-6">
+        <Tabs defaultValue="activity" className="min-w-0 p-4 sm:p-6">
           <TabsList
             variant="line"
             className="max-w-full justify-start overflow-x-auto"

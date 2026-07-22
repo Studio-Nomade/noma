@@ -21,7 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InlineStatusSelect } from "@/components/shared/inline-status-select";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { DataPagination } from "@/components/shared/data-pagination";
+import {
+  MobileDetailsCard,
+  MobileField,
+} from "@/components/shared/mobile-details-card";
 import { usePagination } from "@/hooks/use-pagination";
 import {
   SortButton,
@@ -106,7 +111,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap gap-2">
-        <div className="relative min-w-64 flex-1">
+        <div className="relative min-w-0 flex-[1_1_16rem]">
           <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
             placeholder="Buscar cliente…"
@@ -122,7 +127,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
           <SelectTrigger
             size="sm"
             aria-label="Filtrar clientes por estado"
-            className="min-w-44"
+            className="min-h-10 w-full sm:w-auto sm:min-w-44"
           >
             <SelectValue>
               {status === "all" ? "Todos los estados" : status}
@@ -139,7 +144,73 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         </Select>
       </div>
 
-      <div className="border-border bg-card overflow-x-auto rounded-xl border">
+      <div className="space-y-2 md:hidden">
+        {pagination.pageItems.map((client) => (
+          <MobileDetailsCard
+            key={client.id}
+            title={client.companyName}
+            subtitle={client.contactName ?? "Sin contacto"}
+            badge={<StatusBadge value={client.status} size="xs" />}
+            actions={
+              <>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/clients/${client.id}`)}
+                  className="hover:bg-accent min-h-10 rounded-md px-3 text-sm font-medium"
+                >
+                  Ver cliente
+                </button>
+                {client.status !== "Cerrado" && (
+                  <button
+                    type="button"
+                    onClick={() => close(client)}
+                    disabled={pending}
+                    className="text-muted-foreground hover:bg-accent min-h-10 rounded-md px-3 text-sm"
+                  >
+                    Cerrar
+                  </button>
+                )}
+                <DeleteClientDialog
+                  id={client.id}
+                  name={client.companyName}
+                  trigger={
+                    <button
+                      type="button"
+                      className="text-muted-foreground min-h-10 rounded-md px-3 text-sm hover:text-[var(--status-red)]"
+                    >
+                      Borrar
+                    </button>
+                  }
+                />
+              </>
+            }
+          >
+            <dl className="space-y-2">
+              <MobileField label="Estado">
+                <InlineStatusSelect<ClientStatus>
+                  entityId={client.id}
+                  value={client.status as ClientStatus}
+                  options={CLIENT_STATUSES}
+                  label={`Estado de ${client.companyName}`}
+                  successMessage={(value) =>
+                    `Estado del cliente actualizado a “${value}”`
+                  }
+                  action={setClientStatus}
+                />
+              </MobileField>
+              <MobileField label="Rubro">{client.industry ?? "—"}</MobileField>
+              <MobileField label="Correo">{client.email ?? "—"}</MobileField>
+            </dl>
+          </MobileDetailsCard>
+        ))}
+        {filtered.length === 0 && (
+          <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
+            Sin clientes que coincidan.
+          </p>
+        )}
+      </div>
+
+      <div className="border-border bg-card hidden overflow-hidden rounded-xl border md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

@@ -8,8 +8,8 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex items-start justify-between gap-4">
-      <div>
+    <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
           {title}
         </h1>
@@ -17,7 +17,7 @@ export function PageHeader({
           <p className="text-muted-foreground mt-1 text-sm">{description}</p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="shrink-0 max-sm:w-full">{action}</div>}
     </div>
   );
 }
