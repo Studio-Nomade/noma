@@ -175,7 +175,8 @@ export function BriefHub({ data }: { data: BriefHubData }) {
     setBusy(true);
     const res = await importNotes(data.projectId, {
       source: noteSource,
-      rawText: noteSource === "paste" || noteSource === "file" ? noteText : undefined,
+      rawText:
+        noteSource === "paste" || noteSource === "file" ? noteText : undefined,
       driveUrl: noteSource === "link" ? noteLink : undefined,
       fileName: noteSource === "file" ? noteFileName : undefined,
     });
@@ -266,9 +267,7 @@ export function BriefHub({ data }: { data: BriefHubData }) {
     });
     setBusy(false);
     if (res.ok) {
-      toast.success(
-        auto ? "Notas encontradas y asociadas" : "Nota asociada",
-      );
+      toast.success(auto ? "Notas encontradas y asociadas" : "Nota asociada");
       setCandidates([]);
       setSearchMsg(null);
       setStatus("Notas importadas");
@@ -328,7 +327,7 @@ export function BriefHub({ data }: { data: BriefHubData }) {
         </div>
       </div>
 
-      <div className="border-border bg-card rounded-xl border p-6">
+      <div className="glass rounded-xl p-6">
         {/* ── Paso 1: Reunión ── */}
         {step === 0 && (
           <div className="space-y-4">
@@ -775,7 +774,8 @@ export function BriefHub({ data }: { data: BriefHubData }) {
             ) : (
               <div className="text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm">
                 <Lock className="size-4" />
-                Aprueba el brief (paso 5) para habilitar la creación de propuesta.
+                Aprueba el brief (paso 5) para habilitar la creación de
+                propuesta.
               </div>
             )}
           </div>

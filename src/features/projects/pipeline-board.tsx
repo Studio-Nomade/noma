@@ -128,7 +128,7 @@ export function PipelineBoard({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="border-border bg-card hidden rounded-lg border p-0.5 md:inline-flex">
+        <div className="glass-solid hidden rounded-lg p-0.5 md:inline-flex">
           <button
             onClick={() => setView("kanban")}
             className={cn(
@@ -204,7 +204,7 @@ export function PipelineBoard({
                     key={project.id}
                     type="button"
                     onClick={() => setSelectedId(project.id)}
-                    className="border-border bg-card min-h-14 w-full rounded-lg border p-3 text-left shadow-sm"
+                    className="glass min-h-14 w-full rounded-lg p-3 text-left"
                   >
                     <span className="block truncate text-sm font-medium">
                       {project.name}
@@ -281,11 +281,13 @@ export function PipelineBoard({
                     </span>
                   </div>
                   <div className="flex flex-col gap-2 px-2 pb-2">
-                    {list.map((p) => {
+                    {list.map((p, index) => {
                       const theme = AREA_THEME[p.area];
                       return (
                         <div
                           key={p.id}
+                          // Entrada escalonada por índice (ver .stagger-in).
+                          style={{ "--i": index } as React.CSSProperties}
                           draggable
                           onDragStart={() => {
                             justDragged.current = true;
@@ -301,7 +303,7 @@ export function PipelineBoard({
                             if (!justDragged.current) setSelectedId(p.id);
                           }}
                           className={cn(
-                            "group border-border bg-card hover:border-foreground/30 cursor-pointer rounded-lg border p-2.5 shadow-sm transition-all",
+                            "glass hover-lift stagger-in group cursor-pointer rounded-lg p-2.5",
                             pending.has(p.id) && "opacity-50",
                             dragId === p.id && "rotate-1 opacity-60",
                           )}
@@ -397,7 +399,7 @@ export function PipelineBoard({
             })}
           </div>
         ) : (
-          <div className="border-border bg-card overflow-hidden rounded-xl border">
+          <div className="glass-solid overflow-hidden rounded-xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-border text-muted-foreground border-b text-left text-xs">

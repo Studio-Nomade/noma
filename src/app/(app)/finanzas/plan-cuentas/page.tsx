@@ -44,7 +44,7 @@ export default async function PlanCuentasPage() {
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="border-border bg-card lg:col-span-2 rounded-xl border p-5">
+        <div className="glass rounded-xl p-5 lg:col-span-2">
           <h2 className="font-heading mb-3 text-base font-medium">
             Plan de cuentas
           </h2>
@@ -75,7 +75,7 @@ export default async function PlanCuentasPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="border-border bg-card rounded-xl border p-5">
+          <div className="glass rounded-xl p-5">
             <h2 className="font-heading mb-3 text-base font-medium">
               Líneas de negocio
             </h2>
@@ -83,13 +83,15 @@ export default async function PlanCuentasPage() {
               {lineas.map((l) => (
                 <li key={l.id} className="flex justify-between">
                   <span>{l.name}</span>
-                  <span className="text-muted-foreground text-xs">{l.code}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {l.code}
+                  </span>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="border-border bg-card rounded-xl border p-5">
+          <div className="glass rounded-xl p-5">
             <h2 className="font-heading mb-3 text-base font-medium">
               Centros de costo
             </h2>
@@ -97,7 +99,9 @@ export default async function PlanCuentasPage() {
               {centros.map((c) => (
                 <li key={c.id} className="flex justify-between">
                   <span>{c.name}</span>
-                  <span className="text-muted-foreground text-xs">{c.code}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {c.code}
+                  </span>
                 </li>
               ))}
             </ul>

@@ -183,7 +183,7 @@ export default async function ProposalDetailPage({
             />
           ) : (
             <>
-              <div className="border-border bg-card rounded-xl border p-6">
+              <div className="glass rounded-xl p-6">
                 <ServiceSelector
                   proposalId={id}
                   selected={selected}
@@ -191,11 +191,11 @@ export default async function ProposalDetailPage({
                 />
               </div>
 
-              <div className="border-border bg-card rounded-xl border p-6">
+              <div className="glass rounded-xl p-6">
                 <TeamSelector proposalId={id} team={team} members={members} />
               </div>
 
-              <div className="border-border bg-card rounded-xl border p-6">
+              <div className="glass rounded-xl p-6">
                 <ProposalContentForm
                   proposalId={id}
                   initial={{
@@ -212,7 +212,7 @@ export default async function ProposalDetailPage({
                 />
               </div>
 
-              <div className="border-border bg-card rounded-xl border p-6">
+              <div className="glass rounded-xl p-6">
                 <StagesEditor
                   proposalId={id}
                   initial={proposal.timelineStages ?? []}
@@ -221,14 +221,14 @@ export default async function ProposalDetailPage({
             </>
           )}
 
-          <div className="border-border bg-card rounded-xl border p-6">
+          <div className="glass rounded-xl p-6">
             <ProposalNotes rootId={root} notes={notes} />
           </div>
         </div>
 
         {/* Columna derecha: Inversión (sticky) + Versiones */}
         <div className="space-y-6">
-          <div className="border-border bg-card sticky top-6 rounded-xl border p-6">
+          <div className="glass sticky top-6 rounded-xl p-6">
             <h2 className="font-heading mb-4 text-sm font-medium">Inversión</h2>
             <dl className="space-y-2 text-sm">
               <Row

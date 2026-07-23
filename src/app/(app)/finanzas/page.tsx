@@ -1,7 +1,10 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
 import { formatMoney } from "@/lib/currency/format";
-import { getDashboardKpis, getFlujoCajaProyectado } from "@/features/finance/queries";
+import {
+  getDashboardKpis,
+  getFlujoCajaProyectado,
+} from "@/features/finance/queries";
 import { FlujoBars } from "@/features/finance/flujo-bars";
 
 export default async function FinanceDashboardPage() {
@@ -42,17 +45,18 @@ export default async function FinanceDashboardPage() {
         />
       </div>
 
-      <div className="border-border bg-card mb-8 rounded-xl border p-5">
+      <div className="glass mb-8 rounded-xl p-5">
         <h2 className="font-heading mb-1 text-base font-medium">
           Flujo de caja real (12 meses)
         </h2>
         <p className="text-muted-foreground mb-4 text-xs">
-          Ingresos (verde) y egresos (rojo) por mes, desde movimientos bancarios.
+          Ingresos (verde) y egresos (rojo) por mes, desde movimientos
+          bancarios.
         </p>
         <FlujoBars data={kpis.flujo} />
       </div>
 
-      <div className="border-border bg-card rounded-xl border p-5">
+      <div className="glass rounded-xl p-5">
         <h2 className="font-heading mb-1 text-base font-medium">
           Flujo proyectado (por vencimiento)
         </h2>

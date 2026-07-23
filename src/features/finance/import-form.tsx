@@ -28,7 +28,7 @@ export function ImportForm({
     <form
       action={createImportDraft}
       onSubmit={() => setPending(true)}
-      className="border-border bg-card space-y-4 rounded-xl border p-5"
+      className="glass space-y-4 rounded-xl p-5"
     >
       <div>
         <label className="mb-1 block text-sm font-medium">
