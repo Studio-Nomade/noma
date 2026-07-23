@@ -192,7 +192,9 @@ export function BulkImportDialog({ trigger }: { trigger: React.ReactElement }) {
 
               {parsed.ignored.length > 0 && (
                 <p className="text-muted-foreground text-xs">
-                  <span className="text-[var(--status-amber)]">Se ignorarán:</span>{" "}
+                  <span className="text-[var(--status-amber)]">
+                    Se ignorarán:
+                  </span>{" "}
                   {parsed.ignored.join(", ")}
                 </p>
               )}
@@ -205,7 +207,10 @@ export function BulkImportDialog({ trigger }: { trigger: React.ReactElement }) {
                   <thead className="bg-muted/40">
                     <tr>
                       {parsed.recognized.slice(0, 5).map((h) => (
-                        <th key={h} className="px-2.5 py-1.5 text-left font-medium">
+                        <th
+                          key={h}
+                          className="px-2.5 py-1.5 text-left font-medium"
+                        >
                           {h}
                         </th>
                       ))}

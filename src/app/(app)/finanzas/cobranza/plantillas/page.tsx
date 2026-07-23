@@ -50,7 +50,7 @@ function TemplateForm({ template }: { template?: CobranzaTemplate }) {
   const isNew = !template;
   const editId = isNew ? "new" : `edit-${template!.id}`;
   return (
-    <div className="border-border bg-card rounded-xl border p-5">
+    <div className="glass rounded-xl p-5">
       {/* Form de borrado separado (los forms no pueden anidarse) */}
       {template && (
         <form id={`del-${template.id}`} action={deleteCobranzaTemplate}>
@@ -59,59 +59,59 @@ function TemplateForm({ template }: { template?: CobranzaTemplate }) {
       )}
       <form id={editId} action={saveCobranzaTemplate} className="space-y-3">
         {template && <input type="hidden" name="id" value={template.id} />}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-muted-foreground mb-1 block text-xs">
+              Nombre
+            </label>
+            <input
+              name="name"
+              defaultValue={template?.name}
+              required
+              placeholder="Inicio de proyecto"
+              className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-muted-foreground mb-1 block text-xs">
+              Momento
+            </label>
+            <select
+              name="moment"
+              defaultValue={template?.moment ?? "INICIO"}
+              className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
+            >
+              {COBRANZA_MOMENTS.map((m: CobranzaMoment) => (
+                <option key={m} value={m}>
+                  {COBRANZA_MOMENT_LABELS[m]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div>
           <label className="text-muted-foreground mb-1 block text-xs">
-            Nombre
+            Asunto
           </label>
           <input
-            name="name"
-            defaultValue={template?.name}
+            name="subject"
+            defaultValue={template?.subject}
             required
-            placeholder="Inicio de proyecto"
             className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>
         <div>
           <label className="text-muted-foreground mb-1 block text-xs">
-            Momento
+            Cuerpo
           </label>
-          <select
-            name="moment"
-            defaultValue={template?.moment ?? "INICIO"}
+          <textarea
+            name="body"
+            defaultValue={template?.body}
+            required
+            rows={isNew ? 8 : 10}
             className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
-          >
-            {COBRANZA_MOMENTS.map((m: CobranzaMoment) => (
-              <option key={m} value={m}>
-                {COBRANZA_MOMENT_LABELS[m]}
-              </option>
-            ))}
-          </select>
+          />
         </div>
-      </div>
-      <div>
-        <label className="text-muted-foreground mb-1 block text-xs">
-          Asunto
-        </label>
-        <input
-          name="subject"
-          defaultValue={template?.subject}
-          required
-          className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="text-muted-foreground mb-1 block text-xs">
-          Cuerpo
-        </label>
-        <textarea
-          name="body"
-          defaultValue={template?.body}
-          required
-          rows={isNew ? 8 : 10}
-          className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </div>
         <div className="flex items-center justify-between">
           <button
             type="submit"
@@ -123,7 +123,7 @@ function TemplateForm({ template }: { template?: CobranzaTemplate }) {
             <button
               form={`del-${template.id}`}
               type="submit"
-              className="text-muted-foreground hover:text-[var(--status-red)] text-xs"
+              className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
             >
               Eliminar
             </button>

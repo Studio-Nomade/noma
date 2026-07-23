@@ -99,10 +99,7 @@ export function SurveysHub({
             (question) => question.surveyId === survey.id,
           );
           return (
-            <article
-              key={survey.id}
-              className="border-border bg-card rounded-xl border p-5"
-            >
+            <article key={survey.id} className="glass rounded-xl p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">

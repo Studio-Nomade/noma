@@ -64,7 +64,7 @@ export default async function ReportesPage() {
             value={formatMoney(resultado.resultado, "CLP")}
           />
         </div>
-        <div className="border-border bg-card overflow-x-auto rounded-xl border">
+        <div className="glass-solid overflow-x-auto rounded-xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-border border-b text-left text-xs">
@@ -108,13 +108,13 @@ export default async function ReportesPage() {
 
       {/* Flujo de caja */}
       <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="border-border bg-card rounded-xl border p-5">
+        <div className="glass rounded-xl p-5">
           <h2 className="font-heading mb-3 text-base font-medium">
             Flujo de caja real (12 meses)
           </h2>
           <FlujoBars data={flujoReal} />
         </div>
-        <div className="border-border bg-card rounded-xl border p-5">
+        <div className="glass rounded-xl p-5">
           <h2 className="font-heading mb-3 text-base font-medium">
             Flujo proyectado (por vencimiento)
           </h2>
@@ -161,7 +161,7 @@ export default async function ReportesPage() {
 
       {/* Por línea de negocio */}
       <section>
-        <div className="border-border bg-card overflow-x-auto rounded-xl border">
+        <div className="glass-solid overflow-x-auto rounded-xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-border border-b text-left text-xs">
@@ -213,7 +213,7 @@ function ContactoTable({
   rows: { name: string; rut: string; neto: number; docs: number }[];
 }) {
   return (
-    <div className="border-border bg-card rounded-xl border p-5">
+    <div className="glass rounded-xl p-5">
       <h2 className="font-heading mb-3 text-base font-medium">{title}</h2>
       {rows.length === 0 ? (
         <p className="text-muted-foreground py-4 text-sm">Sin datos.</p>

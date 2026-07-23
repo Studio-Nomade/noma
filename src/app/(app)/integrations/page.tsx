@@ -97,10 +97,7 @@ export default function IntegrationsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {INTEGRATIONS.map((it) => (
-          <div
-            key={it.name}
-            className="border-border bg-card rounded-xl border p-5"
-          >
+          <div key={it.name} className="glass rounded-xl p-5">
             <div className="mb-2 flex items-center justify-between">
               <p className="font-medium">{it.name}</p>
               <Badge status={it.status} />

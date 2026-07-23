@@ -107,7 +107,7 @@ export function InternalCommsSection({
 
   return (
     <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(240px,1fr)]">
-      <div className="border-border bg-card rounded-xl border p-6">
+      <div className="glass rounded-xl p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-heading flex items-center gap-2 text-base font-medium">
@@ -239,7 +239,7 @@ export function InternalCommsSection({
           onPageSizeChange={pagination.setPageSize}
         />
       </div>
-      <div className="border-border bg-card rounded-xl border p-6">
+      <div className="glass rounded-xl p-6">
         <h2 className="font-heading mb-4 flex items-center gap-2 text-base font-medium">
           <Cake className="size-4" /> Cumpleaños
         </h2>

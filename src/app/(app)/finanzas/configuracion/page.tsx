@@ -41,7 +41,7 @@ export default async function ConfiguracionPage() {
         <h2 className="font-heading mb-3 text-base font-medium">
           Cuentas bancarias
         </h2>
-        <div className="border-border bg-card mb-4 overflow-x-auto rounded-xl border">
+        <div className="glass-solid mb-4 overflow-x-auto rounded-xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-border border-b text-left text-xs">
@@ -70,7 +70,7 @@ export default async function ConfiguracionPage() {
                       <input type="hidden" name="id" value={a.id} />
                       <button
                         type="submit"
-                        className="text-muted-foreground hover:text-[var(--status-red)] text-xs"
+                        className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
                       >
                         Eliminar
                       </button>
@@ -83,10 +83,15 @@ export default async function ConfiguracionPage() {
         </div>
         <form
           action={createBankAccount}
-          className="border-border bg-card flex flex-wrap items-end gap-3 rounded-xl border p-4"
+          className="glass flex flex-wrap items-end gap-3 rounded-xl p-4"
         >
           <Field name="bank" label="Banco" placeholder="BCI" required />
-          <Field name="name" label="Nombre" placeholder="Cuenta Corriente" required />
+          <Field
+            name="name"
+            label="Nombre"
+            placeholder="Cuenta Corriente"
+            required
+          />
           <Field name="number" label="N.º cuenta" placeholder="89784081" />
           <div>
             <label className="text-muted-foreground mb-1 block text-xs">
@@ -127,7 +132,7 @@ export default async function ConfiguracionPage() {
           </form>
         </div>
 
-        <div className="border-border bg-card mb-4 overflow-x-auto rounded-xl border">
+        <div className="glass-solid mb-4 overflow-x-auto rounded-xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-border border-b text-left text-xs">
@@ -186,7 +191,7 @@ export default async function ConfiguracionPage() {
                           <input type="hidden" name="id" value={r.id} />
                           <button
                             type="submit"
-                            className="text-muted-foreground hover:text-[var(--status-red)] text-xs"
+                            className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
                           >
                             Eliminar
                           </button>
@@ -202,9 +207,14 @@ export default async function ConfiguracionPage() {
 
         <form
           action={createClassificationRule}
-          className="border-border bg-card grid grid-cols-1 gap-3 rounded-xl border p-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="glass grid grid-cols-1 gap-3 rounded-xl p-4 sm:grid-cols-2 lg:grid-cols-3"
         >
-          <Field name="name" label="Nombre de la regla" placeholder="Arriendo oficina" required />
+          <Field
+            name="name"
+            label="Nombre de la regla"
+            placeholder="Arriendo oficina"
+            required
+          />
           <div>
             <label className="text-muted-foreground mb-1 block text-xs">
               Campo
@@ -233,7 +243,12 @@ export default async function ConfiguracionPage() {
               <option value="lte">≤ (monto)</option>
             </select>
           </div>
-          <Field name="matchValue" label="Valor" placeholder="inmobiliaria" required />
+          <Field
+            name="matchValue"
+            label="Valor"
+            placeholder="inmobiliaria"
+            required
+          />
           <SelectField name="ledgerAccountId" label="Cuenta contable">
             {options.ledgers.map((o) => (
               <option key={o.id} value={o.id}>
@@ -290,7 +305,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-muted-foreground mb-1 block text-xs">{label}</label>
+      <label className="text-muted-foreground mb-1 block text-xs">
+        {label}
+      </label>
       <input
         name={name}
         type={type}
@@ -313,7 +330,9 @@ function SelectField({
 }) {
   return (
     <div>
-      <label className="text-muted-foreground mb-1 block text-xs">{label}</label>
+      <label className="text-muted-foreground mb-1 block text-xs">
+        {label}
+      </label>
       <select
         name={name}
         defaultValue=""

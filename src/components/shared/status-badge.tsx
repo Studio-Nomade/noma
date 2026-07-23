@@ -108,9 +108,14 @@ export function StatusBadge({
   const color = COLOR_BY_VALUE[value] ?? "slate";
   return (
     <span
-      style={STYLE_BY_COLOR[color]}
+      style={{
+        ...STYLE_BY_COLOR[color],
+        // Hairline del propio color del estado, derivado de `currentColor`
+        // para no repetir los seis tokens.
+        borderColor: "color-mix(in oklab, currentColor 26%, transparent)",
+      }}
       className={cn(
-        "inline-flex items-center rounded-full font-medium whitespace-nowrap",
+        "inline-flex items-center rounded-full border font-medium whitespace-nowrap",
         size === "xs" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs",
       )}
     >
