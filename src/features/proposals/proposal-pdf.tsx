@@ -754,7 +754,7 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
         </DeckPage>
       )}
       <DeckPage accent={accent}>
-        <Text style={[s.display, { fontSize: 48 }]}>INVERSIÓN.</Text>
+        <Text style={[s.display, { fontSize: 48 }]}>TOTALES.</Text>
         <View
           style={{
             marginTop: "auto",

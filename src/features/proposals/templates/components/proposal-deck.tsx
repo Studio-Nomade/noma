@@ -539,7 +539,7 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
         </SlideFrame>
       )}
       <SlideFrame accent={accent}>
-        <DisplayTitle text="INVERSIÓN">INVERSIÓN.</DisplayTitle>
+        <DisplayTitle text="TOTALES">TOTALES.</DisplayTitle>
         <div className="mt-auto grid grid-cols-[1.15fr_.85fr] gap-[7%]">
           <div>
             <p className="proposal-eyebrow mb-[3%] text-[.8cqw] tracking-[.16em] uppercase">
