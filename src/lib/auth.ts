@@ -68,9 +68,32 @@ export async function requireAdmin() {
  */
 export async function requireFinance(redirectOnDenied = false): Promise<User> {
   const user = await requireUser();
-  if (!roleFor(user.email).isFinance) {
+  if (!roleFor(user.email).canFinance) {
     if (redirectOnDenied) redirect("/");
     throw new Error("Acción no autorizada: requiere acceso a Finanzas.");
   }
   return user;
+}
+
+async function requireCapability(
+  capability: "canEditCatalog" | "canLegal" | "canPeople",
+  label: string,
+) {
+  const user = await requireUser();
+  if (!roleFor(user.email)[capability]) {
+    throw new Error(`Acción no autorizada: requiere acceso a ${label}.`);
+  }
+  return user;
+}
+
+export function requireCatalogEditor() {
+  return requireCapability("canEditCatalog", "Catálogo");
+}
+
+export function requireLegal() {
+  return requireCapability("canLegal", "Legal y Compliance");
+}
+
+export function requirePeople() {
+  return requireCapability("canPeople", "Personas");
 }

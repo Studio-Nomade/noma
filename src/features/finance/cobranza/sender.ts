@@ -1,7 +1,8 @@
 import "server-only";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { userIntegrations } from "@/db/schema";
+import {
+  resolveEmailSender,
+  type ResolvedEmailSender,
+} from "@/features/email/signatures";
 
 /**
  * Remitente de cobranza. Por requerimiento, los correos salen SIEMPRE desde
@@ -20,39 +21,9 @@ export function cobranzaFromEmail(): string {
   );
 }
 
-export type CobranzaSender =
-  | { ok: true; userId: string; from: string }
-  | { ok: false; from: string; reason: string };
+export type CobranzaSender = ResolvedEmailSender;
 
 /** Resuelve la casilla remitente (userId + email) o explica por qué no se puede enviar. */
 export async function resolveCobranzaSender(): Promise<CobranzaSender> {
-  const from = cobranzaFromEmail();
-
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    return {
-      ok: false,
-      from,
-      reason:
-        "Falta configurar GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET en el entorno.",
-    };
-  }
-
-  const [row] = await db
-    .select({
-      userId: userIntegrations.userId,
-      token: userIntegrations.googleRefreshToken,
-    })
-    .from(userIntegrations)
-    .where(eq(userIntegrations.email, from))
-    .limit(1);
-
-  if (!row?.userId || !row.token) {
-    return {
-      ok: false,
-      from,
-      reason: `La casilla remitente (${from}) no ha autorizado el envío. Debe iniciar sesión en Noma una vez con esa cuenta.`,
-    };
-  }
-
-  return { ok: true, userId: row.userId, from };
+  return resolveEmailSender("commercial");
 }

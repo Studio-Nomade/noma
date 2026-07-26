@@ -11,7 +11,7 @@ export default async function FinanceLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  if (!roleFor(user.email).isFinance) notFound();
+  if (!roleFor(user.email).canFinance) notFound();
 
   return (
     <div>
