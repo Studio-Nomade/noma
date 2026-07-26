@@ -40,38 +40,74 @@ function revalidate() {
 export async function createReconciliation(formData: FormData): Promise<void> {
   const user = await requireFinance();
 
-  const txnId = formData.get("txnId") as string;
+  const txnIds = [
+    ...formData.getAll("txnIds").map(String),
+    ...formData.getAll("txnId").map(String),
+  ].filter(Boolean);
   const docIds = formData.getAll("docIds").map(String).filter(Boolean);
-  if (!txnId || docIds.length === 0) {
+  if (txnIds.length === 0 || docIds.length === 0) {
     throw new Error("Falta el movimiento o los documentos.");
   }
+  await reconcileMany(txnIds, docIds, user.id, "manual");
+  revalidate();
+}
 
+export async function reconcileMany(
+  txnIds: string[],
+  docIds: string[],
+  actorId: string,
+  source: "manual" | "automatic",
+) {
   await db.transaction(async (tx) => {
-    const [txn] = await tx
+    const txns = await tx
       .select()
       .from(bankTransactions)
-      .where(eq(bankTransactions.id, txnId))
-      .limit(1);
-    if (!txn) throw new Error("Movimiento no encontrado.");
+      .where(inArray(bankTransactions.id, txnIds));
+    if (txns.length !== txnIds.length) {
+      throw new Error("Uno o más movimientos no fueron encontrados.");
+    }
+    if (new Set(txns.map((txn) => txn.tipo)).size > 1) {
+      throw new Error("No se pueden mezclar cargos y abonos.");
+    }
 
     const docs = await tx
       .select()
       .from(finDocuments)
       .where(inArray(finDocuments.id, docIds));
 
-    let remaining = toNum(txn.monto) - toNum(txn.montoConciliado);
     const [rec] = await tx
       .insert(reconciliations)
-      .values({ status: "ACTIVA", createdById: user.id })
+      .values({
+        status: "ACTIVA",
+        note: source === "automatic" ? "Conciliación automática" : null,
+        createdById: actorId,
+      })
       .returning({ id: reconciliations.id });
 
-    let appliedTotal = 0;
+    const txnRemaining = new Map(
+      txns.map((txn) => [
+        txn.id,
+        Math.max(0, toNum(txn.monto) - toNum(txn.montoConciliado)),
+      ]),
+    );
+    const txnApplied = new Map<string, number>();
     for (const doc of docs) {
       const saldo = toNum(doc.total) - toNum(doc.montoConciliado);
-      if (saldo <= 0 || remaining <= 0) continue;
-      const applied = Math.min(saldo, remaining);
-      remaining -= applied;
-      appliedTotal += applied;
+      const available = [...txnRemaining.values()].reduce(
+        (sum, amount) => sum + amount,
+        0,
+      );
+      if (saldo <= 0 || available <= 0) continue;
+      const applied = Math.min(saldo, available);
+      let toDistribute = applied;
+      for (const txn of txns) {
+        const remaining = txnRemaining.get(txn.id) ?? 0;
+        if (remaining <= 0 || toDistribute <= 0) continue;
+        const portion = Math.min(remaining, toDistribute);
+        txnRemaining.set(txn.id, remaining - portion);
+        txnApplied.set(txn.id, (txnApplied.get(txn.id) ?? 0) + portion);
+        toDistribute -= portion;
+      }
 
       await tx.insert(reconciliationDocuments).values({
         reconciliationId: rec.id,
@@ -93,34 +129,39 @@ export async function createReconciliation(formData: FormData): Promise<void> {
         .where(eq(finDocuments.id, doc.id));
     }
 
-    await tx.insert(reconciliationTransactions).values({
-      reconciliationId: rec.id,
-      bankTransactionId: txn.id,
-      amountApplied: money(appliedTotal),
-    });
+    for (const txn of txns) {
+      const applied = txnApplied.get(txn.id) ?? 0;
+      if (applied <= 0) continue;
+      await tx.insert(reconciliationTransactions).values({
+        reconciliationId: rec.id,
+        bankTransactionId: txn.id,
+        amountApplied: money(applied),
+      });
+      const txnConciliado = toNum(txn.montoConciliado) + applied;
+      const txnStatus: BankTxnStatus =
+        txnConciliado >= toNum(txn.monto) - 0.5 ? "CONCILIADO" : "PARCIAL";
+      await tx
+        .update(bankTransactions)
+        .set({ montoConciliado: money(txnConciliado), status: txnStatus })
+        .where(eq(bankTransactions.id, txn.id));
+    }
 
-    const txnConciliado = toNum(txn.montoConciliado) + appliedTotal;
-    const txnStatus: BankTxnStatus =
-      txnConciliado >= toNum(txn.monto) - 0.5 ? "CONCILIADO" : "PARCIAL";
-    await tx
-      .update(bankTransactions)
-      .set({ montoConciliado: money(txnConciliado), status: txnStatus })
-      .where(eq(bankTransactions.id, txn.id));
-
+    const totalDifference = [...txnRemaining.values()].reduce(
+      (sum, amount) => sum + amount,
+      0,
+    );
     await tx
       .update(reconciliations)
-      .set({ difference: money(toNum(txn.monto) - appliedTotal) })
+      .set({ difference: money(totalDifference) })
       .where(eq(reconciliations.id, rec.id));
 
     await logActivity({
       entityType: "reconciliation",
       entityId: rec.id,
-      action: "reconciliation_created",
-      actorId: user.id,
-    });
+      action: `reconciliation_created:${source}`,
+      actorId,
+    }, tx);
   });
-
-  revalidate();
 }
 
 /** Deshace una conciliación, revirtiendo saldos y estados. */

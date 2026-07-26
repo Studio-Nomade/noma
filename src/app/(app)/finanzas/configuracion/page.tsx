@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
@@ -5,6 +6,7 @@ import {
   getBankAccounts,
   getClassificationRules,
   getClassificationOptions,
+  getReconciliationRules,
 } from "@/features/finance/queries";
 import {
   createBankAccount,
@@ -13,7 +15,10 @@ import {
   deleteClassificationRule,
   toggleClassificationRule,
   applyRulesToUnclassified,
+  toggleReconciliationRule,
+  runAutomaticReconciliation,
 } from "@/features/finance/config-actions";
+import { cn } from "@/lib/utils";
 
 const FIELD_LABELS: Record<string, string> = {
   CONTACTO: "Nombre contacto",
@@ -22,11 +27,17 @@ const FIELD_LABELS: Record<string, string> = {
   MONTO: "Monto",
 };
 
-export default async function ConfiguracionPage() {
-  const [accounts, rules, options] = await Promise.all([
+export default async function ConfiguracionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab = "clasificacion" } = await searchParams;
+  const [accounts, rules, options, reconciliationRules] = await Promise.all([
     getBankAccounts(),
     getClassificationRules(),
     getClassificationOptions(),
+    getReconciliationRules(),
   ]);
 
   return (
@@ -116,7 +127,28 @@ export default async function ConfiguracionPage() {
         </form>
       </section>
 
+      <div className="border-border mb-6 flex gap-1 border-b">
+        {[
+          ["clasificacion", "Clasificación"],
+          ["conciliacion", "Conciliación"],
+        ].map(([key, label]) => (
+          <Link
+            key={key}
+            href={`/finanzas/configuracion?tab=${key}`}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm",
+              tab === key
+                ? "border-foreground font-medium"
+                : "text-muted-foreground border-transparent",
+            )}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+
       {/* ── Reglas de clasificación ── */}
+      {tab === "clasificacion" ? (
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-heading text-base font-medium">
@@ -286,6 +318,81 @@ export default async function ConfiguracionPage() {
           </div>
         </form>
       </section>
+      ) : (
+        <section>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-base font-medium">
+                Automatizaciones de conciliación
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Las reglas activas se evalúan en orden sobre coincidencias de
+                monto exacto.
+              </p>
+            </div>
+            {accounts[0] && (
+              <form action={runAutomaticReconciliation}>
+                <input
+                  type="hidden"
+                  name="accountId"
+                  value={accounts[0].id}
+                />
+                <button
+                  type="submit"
+                  className="bg-foreground text-background rounded-md px-4 py-2 text-sm font-medium"
+                >
+                  Ejecutar conciliación automática
+                </button>
+              </form>
+            )}
+          </div>
+          <div className="glass-solid overflow-hidden rounded-xl">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-border border-b text-left text-xs">
+                  <th className="px-4 py-3">Regla</th>
+                  <th className="px-4 py-3">Coincidencia</th>
+                  <th className="px-4 py-3 text-right">Ejecuciones</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {reconciliationRules.map((rule) => (
+                  <tr key={rule.id} className="border-border/60 border-b">
+                    <td className="px-4 py-3 font-medium">{rule.name}</td>
+                    <td className="px-4 py-3 text-xs">{rule.matchType}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {rule.executionCount}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        value={rule.isActive ? "Activo" : "Inactivo"}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <form action={toggleReconciliationRule}>
+                        <input type="hidden" name="id" value={rule.id} />
+                        <input
+                          type="hidden"
+                          name="isActive"
+                          value={String(rule.isActive)}
+                        />
+                        <button
+                          type="submit"
+                          className="text-muted-foreground hover:text-foreground text-xs"
+                        >
+                          {rule.isActive ? "Desactivar" : "Activar"}
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </>
   );
 }

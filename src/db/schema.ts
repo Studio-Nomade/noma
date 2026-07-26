@@ -1351,10 +1351,23 @@ export const classificationRules = pgTable(
     ),
     priority: integer("priority").default(100).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
+    executionCount: integer("execution_count").default(0).notNull(),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [index("classification_rules_active_idx").on(t.isActive, t.priority)],
 );
+
+// ── reconciliation_rules (automatizaciones de conciliación) ──
+export const reconciliationRules = pgTable("reconciliation_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  matchType: text("match_type").notNull(), // RUT | MONTO | FOLIO | DESCRIPCION
+  isActive: boolean("is_active").default(true).notNull(),
+  executionCount: integer("execution_count").default(0).notNull(),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  ...timestamps,
+});
 
 // ── bank_accounts ────────────────────────────────────────────
 export const bankAccounts = pgTable("bank_accounts", {
