@@ -34,6 +34,18 @@ Los access tokens se renuevan server-side antes de expirar. Si Asana no informa 
 duración, Noma aplica una vigencia conservadora de una hora. Una falla de red, configuración o
 autorización degrada la tarjeta a un estado reconectable y no bloquea la carga del dashboard.
 
+### Slack personal
+
+Slack entrega el user token dentro de `authed_user`; Noma lo cifra y guarda junto al usuario y
+workspace conectados. El dashboard consulta hasta 20 conversaciones de las que el usuario es
+miembro y completa su conteo de no leídos con un fan-out acotado. El resultado saneado se cachea
+por usuario durante 60 segundos y solo expone nombre, contador y deep-link a Slack.
+
+Los tokens personales no expiran salvo revocación o rotación. Respuestas como `invalid_auth`,
+`token_revoked` o `missing_scope` degradan la tarjeta y permiten volver a conectar la cuenta.
+Un feed de menciones queda fuera de alcance porque requiere permisos y disponibilidad de API
+adicionales.
+
 ## Estado por herramienta
 
 | Herramienta             | Uso en el estudio                                                                      | V1 (Noma)                           | Futuro                                   |
