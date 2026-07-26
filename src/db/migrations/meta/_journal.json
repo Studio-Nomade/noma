@@ -190,6 +190,13 @@
       "when": 1785065202458,
       "tag": "0026_living_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1785079600952,
+      "tag": "0027_loose_avengers",
+      "breakpoints": true
     }
   ]
 }

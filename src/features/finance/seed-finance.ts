@@ -4,19 +4,20 @@ import {
   businessLines,
   costCenters,
   ledgerAccounts,
+  services,
   bankAccounts,
   importTemplates,
   cobranzaTemplates,
 } from "@/db/schema";
 import type { Area, LedgerAccountType, CobranzaMoment } from "@/types/enums";
+import { importPrivatePlanOfAccounts } from "./plan-accounts/import-private";
+import { ensureServiceLedgerAccount } from "./plan-accounts/service-link";
 
 /**
  * Seed del módulo CFO / Finanzas — idempotente.
  * Líneas de negocio alineadas a las áreas del estudio, centros de costo espejo,
- * plan de cuentas base, cuenta BCI por defecto y plantillas de importación.
- *
- * Nota: el cruce fino con el plan de cuentas real de Chipax queda para una fase
- * posterior (ver plan). Este plan de cuentas es una base editable.
+ * plan de cuentas privado (cuando está disponible), cuenta BCI por defecto y
+ * plantillas de importación.
  */
 
 // Líneas de negocio = áreas de Noma (código estable) + administración interna.
@@ -31,6 +32,7 @@ const BUSINESS_LINES: { code: string; name: string; area?: Area }[] = [
   { code: "STR", name: "Strategy / Consultoría", area: "STR" },
   { code: "ADMIN", name: "Administración / gastos internos" },
 ];
+const COST_CENTER_CODES = new Set(["B&D", "WD", "A&D", "A&A", "ADMIN"]);
 
 type Acc = {
   code: string;
@@ -40,39 +42,24 @@ type Acc = {
   area?: Area;
 };
 const ACCOUNTS: Acc[] = [
-  { code: "1", name: "Ingresos", type: "INGRESO" },
-  { code: "1.1", name: "Ventas de servicios", type: "INGRESO", parent: "1" },
-  { code: "1.2", name: "Otros ingresos", type: "INGRESO", parent: "1" },
-  { code: "2", name: "Costos", type: "COSTO" },
+  { code: "AUTO.ACTIVOS", name: "Activos", type: "ACTIVO" },
+  { code: "AUTO.PASIVOS", name: "Pasivos", type: "PASIVO" },
+  { code: "AUTO.PATRIMONIO", name: "Patrimonio", type: "PATRIMONIO" },
+  { code: "AUTO.INGRESOS", name: "Ingresos", type: "INGRESO" },
   {
-    code: "2.1",
-    name: "Costos directos de proyectos",
-    type: "COSTO",
-    parent: "2",
+    code: "AUTO.INGRESOS.EXPLOTACION",
+    name: "Ingresos de Explotación",
+    type: "INGRESO",
+    parent: "AUTO.INGRESOS",
   },
   {
-    code: "2.2",
-    name: "Freelance y colaboradores",
-    type: "COSTO",
-    parent: "2",
+    code: "AUTO.INGRESOS.EXPLOTACION.SERVICIOS",
+    name: "Ingresos por Servicios del Giro",
+    type: "INGRESO",
+    parent: "AUTO.INGRESOS.EXPLOTACION",
   },
-  { code: "3", name: "Gastos", type: "GASTO" },
-  { code: "3.1", name: "Gastos de administración", type: "GASTO", parent: "3" },
-  {
-    code: "3.2",
-    name: "Servicios básicos y arriendo",
-    type: "GASTO",
-    parent: "3",
-  },
-  { code: "3.3", name: "Honorarios", type: "GASTO", parent: "3" },
-  { code: "3.4", name: "Remuneraciones", type: "GASTO", parent: "3" },
-  { code: "3.5", name: "Software y suscripciones", type: "GASTO", parent: "3" },
-  { code: "3.6", name: "Marketing y publicidad", type: "GASTO", parent: "3" },
-  { code: "3.7", name: "Impuestos", type: "GASTO", parent: "3" },
-  { code: "4", name: "Activos", type: "ACTIVO" },
-  { code: "4.1", name: "Banco", type: "ACTIVO", parent: "4" },
-  { code: "5", name: "Pasivos", type: "PASIVO" },
-  { code: "6", name: "Patrimonio", type: "PATRIMONIO" },
+  { code: "AUTO.COSTOS", name: "Costos", type: "COSTO" },
+  { code: "AUTO.GASTOS", name: "Gastos", type: "GASTO" },
 ];
 
 const TEMPLATES: {
@@ -135,15 +122,23 @@ export async function seedFinance() {
         target: businessLines.code,
         set: { name: bl.name },
       });
-    await db
-      .insert(costCenters)
-      .values({ code: `CC-${bl.code}`, name: bl.name })
-      .onConflictDoUpdate({ target: costCenters.code, set: { name: bl.name } });
+    if (COST_CENTER_CODES.has(bl.code)) {
+      await db
+        .insert(costCenters)
+        .values({ code: `CC-${bl.code}`, name: bl.name })
+        .onConflictDoUpdate({
+          target: costCenters.code,
+          set: { name: bl.name },
+        });
+    }
   }
-  console.log(`✓ ${BUSINESS_LINES.length} líneas de negocio + centros de costo`);
+  console.log(
+    `✓ ${BUSINESS_LINES.length} líneas de negocio + ${COST_CENTER_CODES.size} centros de costo`,
+  );
 
-  // ── Plan de cuentas (padres antes que hijos; array ya ordenado) ──
-  for (const a of ACCOUNTS) {
+  const privatePlan = await importPrivatePlanOfAccounts();
+  const seedAccounts = privatePlan ? [] : ACCOUNTS;
+  for (const a of seedAccounts) {
     let parentId: string | null = null;
     if (a.parent) {
       const [p] = await db
@@ -161,7 +156,24 @@ export async function seedFinance() {
         set: { name: a.name, type: a.type, parentId },
       });
   }
-  console.log(`✓ ${ACCOUNTS.length} cuentas del plan de cuentas`);
+  if (privatePlan) {
+    console.log(
+      `✓ ${privatePlan.accounts} cuentas privadas importadas; ${privatePlan.linkedServices} servicios vinculados`,
+    );
+  } else {
+    console.log(
+      `• plan privado no disponible; ${ACCOUNTS.length} cuentas técnicas creadas`,
+    );
+  }
+
+  const catalogServices = await db
+    .select({ id: services.id })
+    .from(services)
+    .where(eq(services.status, "Activo"));
+  for (const service of catalogServices) {
+    await ensureServiceLedgerAccount(service.id);
+  }
+  console.log(`✓ ${catalogServices.length} servicios vinculados al plan de cuentas`);
 
   // ── Cuenta bancaria por defecto (BCI) ──────────────────────
   const [bank] = await db

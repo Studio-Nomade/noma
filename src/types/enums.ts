@@ -476,6 +476,13 @@ export const LEDGER_ACCOUNT_TYPES = [
 ] as const;
 export type LedgerAccountType = (typeof LEDGER_ACCOUNT_TYPES)[number];
 
+export const LEDGER_ACCOUNT_KINDS = [
+  "CUENTA",
+  "SERVICIO",
+  "PRODUCTO",
+] as const;
+export type LedgerAccountKind = (typeof LEDGER_ACCOUNT_KINDS)[number];
+
 // Tipo de importación (fuente del archivo)
 export const IMPORT_TYPES = [
   "NUBOX_VENTAS",

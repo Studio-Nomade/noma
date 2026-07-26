@@ -49,6 +49,7 @@ import {
   BANK_TXN_TYPES,
   BANK_TXN_STATUSES,
   LEDGER_ACCOUNT_TYPES,
+  LEDGER_ACCOUNT_KINDS,
   IMPORT_TYPES,
   IMPORT_STATUSES,
   RECONCILIATION_STATUSES,
@@ -151,6 +152,10 @@ export const bankTxnStatusEnum = pgEnum("bank_txn_status", BANK_TXN_STATUSES);
 export const ledgerAccountTypeEnum = pgEnum(
   "ledger_account_type",
   LEDGER_ACCOUNT_TYPES,
+);
+export const ledgerAccountKindEnum = pgEnum(
+  "ledger_account_kind",
+  LEDGER_ACCOUNT_KINDS,
 );
 export const importTypeEnum = pgEnum("import_type", IMPORT_TYPES);
 export const importStatusEnum = pgEnum("import_status", IMPORT_STATUSES);
@@ -638,6 +643,11 @@ export const services = pgTable("services", {
   // trazabilidad del insumo de origen (Excel/PDF)
   sourceFile: text("source_file"),
   sourceYear: text("source_year"),
+  ledgerAccountId: uuid("ledger_account_id")
+    .unique()
+    .references((): AnyPgColumn => ledgerAccounts.id, {
+      onDelete: "set null",
+    }),
   ...timestamps,
 });
 
@@ -1144,9 +1154,16 @@ export const ledgerAccounts = pgTable("ledger_accounts", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   type: ledgerAccountTypeEnum("type").notNull(),
+  kind: ledgerAccountKindEnum("kind").default("CUENTA").notNull(),
+  description: text("description"),
   parentId: uuid("parent_id").references((): AnyPgColumn => ledgerAccounts.id, {
     onDelete: "set null",
   }),
+  serviceId: uuid("service_id")
+    .unique()
+    .references(() => services.id, {
+      onDelete: "set null",
+    }),
   // Cruce opcional con las áreas del estudio (servicios ↔ plan de cuentas).
   area: areaEnum("area"),
   status: recordStatusEnum("status").default("ACTIVO").notNull(),
