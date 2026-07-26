@@ -29,6 +29,8 @@ import { UserConnectionsCard } from "@/features/integrations/connections-card";
 import { getIntegrationOverview } from "@/features/integrations/queries";
 import { getMyAsanaTasks } from "@/features/asana/my-tasks";
 import { MyAsanaTasksCard } from "@/features/asana/my-tasks-card";
+import { getMySlackChannels } from "@/features/slack/my-channels";
+import { MySlackChannelsCard } from "@/features/slack/my-channels-card";
 
 export const metadata = { title: "Dashboard" };
 
@@ -48,6 +50,7 @@ export default async function DashboardPage() {
     meetingProjects,
     integrationOverview,
     myAsanaTasks,
+    mySlackChannels,
   ] = await Promise.all([
     getDashboardMetrics(),
     getNextActions(),
@@ -61,6 +64,7 @@ export default async function DashboardPage() {
     getMeetingProjectOptions(),
     getIntegrationOverview(user.id),
     getMyAsanaTasks(user.id),
+    getMySlackChannels(user.id),
   ]);
 
   const recentProposals = proposals.slice(0, 5);
@@ -108,6 +112,14 @@ export default async function DashboardPage() {
         result={myAsanaTasks}
         connection={integrationOverview.personal.find(
           (connection) => connection.provider === "asana",
+        )!}
+        encryptionConfigured={integrationOverview.encryptionConfigured}
+      />
+
+      <MySlackChannelsCard
+        result={mySlackChannels}
+        connection={integrationOverview.personal.find(
+          (connection) => connection.provider === "slack",
         )!}
         encryptionConfigured={integrationOverview.encryptionConfigured}
       />
