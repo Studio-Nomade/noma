@@ -217,7 +217,13 @@ export async function getSuggestions(
 
 export async function getDocuments(
   direction: DocumentDirection,
-  opts: { estado?: string; page?: number; pageSize?: number } = {},
+  opts: {
+    estado?: string;
+    page?: number;
+    pageSize?: number;
+    types?: (typeof finDocuments.type.enumValues)[number][];
+    statuses?: (typeof finDocuments.status.enumValues)[number][];
+  } = {},
 ) {
   const conds = [
     eq(finDocuments.direction, direction),
@@ -230,6 +236,12 @@ export async function getDocuments(
         opts.estado as (typeof finDocuments.status.enumValues)[number],
       ),
     );
+  }
+  if (opts.types?.length) {
+    conds.push(inArray(finDocuments.type, opts.types));
+  }
+  if (opts.statuses?.length && (!opts.estado || opts.estado === "TODOS")) {
+    conds.push(inArray(finDocuments.status, opts.statuses));
   }
   const page = opts.page ?? 1;
   const pageSize = opts.pageSize ?? 20;

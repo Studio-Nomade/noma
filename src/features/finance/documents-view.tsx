@@ -2,7 +2,10 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
-import type { DocumentDirection } from "@/types/enums";
+import type {
+  DocumentDirection,
+  FinDocumentType,
+} from "@/types/enums";
 import { getDocuments } from "./queries";
 import { DocumentsTable } from "./documents-table";
 import { UrlPagination } from "@/components/shared/url-pagination";
@@ -22,19 +25,36 @@ export async function DocumentsView({
   estado,
   page,
   pageSize,
+  types,
+  statuses,
+  baseHref,
 }: {
   direction: DocumentDirection;
   estado?: string;
   page: number;
   pageSize: number;
+  types?: FinDocumentType[];
+  statuses?: (
+    | "EMITIDA"
+    | "PARCIAL"
+    | "VENCIDA"
+    | "PAGADA"
+    | "ANULADA"
+    | "CONCILIADA"
+  )[];
+  baseHref?: string;
 }) {
   const { rows, total } = await getDocuments(direction, {
     estado,
     page,
     pageSize,
+    types,
+    statuses,
   });
   const base =
-    direction === "VENTA" ? "/finanzas/ingresos" : "/finanzas/egresos";
+    baseHref ??
+    (direction === "VENTA" ? "/finanzas/ingresos" : "/finanzas/egresos");
+  const separator = base.includes("?") ? "&" : "?";
   const contactoLabel = direction === "VENTA" ? "Cliente" : "Proveedor";
 
   return (
@@ -45,7 +65,7 @@ export async function DocumentsView({
           return (
             <Link
               key={e}
-              href={e === "TODOS" ? base : `${base}?estado=${e}`}
+              href={e === "TODOS" ? base : `${base}${separator}estado=${e}`}
               className={cn(
                 "rounded-full px-3 py-1 text-xs transition-colors",
                 active

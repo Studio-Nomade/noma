@@ -55,6 +55,7 @@ function toDefaults(client?: Client | null): ClientFormValues {
     billingEmail: client?.billingEmail ?? "",
     financialStatus: client?.financialStatus ?? "Sin información",
     billingNotes: client?.billingNotes ?? "",
+    paymentTermDays: client?.paymentTermDays ?? 30,
   };
 }
 
@@ -206,6 +207,17 @@ export function ClientDialog({
                 error={errors.billingEmail?.message}
               >
                 <Input type="email" {...register("billingEmail")} />
+              </Field>
+              <Field
+                label="Plazo de pago (días)"
+                error={errors.paymentTermDays?.message}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={365}
+                  {...register("paymentTermDays", { valueAsNumber: true })}
+                />
               </Field>
               <Field
                 label="Dirección tributaria"

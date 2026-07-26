@@ -159,6 +159,10 @@ export default async function ClientDetailPage({
             <Field label="Razón social" value={client.legalName} />
             <Field label="Giro" value={client.taxActivity} />
             <Field label="Email de facturación" value={client.billingEmail} />
+            <Field
+              label="Plazo de pago"
+              value={`${client.paymentTermDays} días`}
+            />
             <Field label="Dirección tributaria" value={client.taxAddress} />
             <Field label="Comuna" value={client.comuna} />
             <Field label="Región" value={client.region} />
