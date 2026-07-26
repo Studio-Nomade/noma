@@ -1,19 +1,32 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Input } from "@/components/ui/input";
 import { formatMoneyRange } from "@/lib/currency/format";
 import { AREAS, AREA_LABELS, type Area } from "@/types/enums";
+import type { Rates } from "@/lib/currency/convert";
 import type { Service } from "@/db/schema";
 import { ServiceDialog } from "./service-dialog";
 
-function ServiceCard({ service }: { service: Service }) {
+function ServiceCard({
+  service,
+  rates,
+  subareasByArea,
+}: {
+  service: Service;
+  rates?: Rates;
+  subareasByArea: Record<string, string[]>;
+}) {
   return (
     <ServiceDialog
       service={service}
+      rates={rates}
+      subareasByArea={subareasByArea}
       trigger={
         <button
           type="button"
@@ -52,20 +65,48 @@ function ServiceCard({ service }: { service: Service }) {
   );
 }
 
-export function ServicesList({ services }: { services: Service[] }) {
+export function ServicesList({
+  services,
+  rates,
+  subareasByArea,
+}: {
+  services: Service[];
+  rates?: Rates;
+  subareasByArea: Record<string, string[]>;
+}) {
   const [area, setArea] = useState<Area | "all">("all");
+  const [query, setQuery] = useState("");
 
   const presentAreas = AREAS.filter((a) => services.some((s) => s.area === a));
-  const visible = useMemo(
-    () => (area === "all" ? services : services.filter((s) => s.area === area)),
-    [area, services],
+  const visible = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return services.filter((s) => {
+      if (area !== "all" && s.area !== area) return false;
+      if (!q) return true;
+      return [s.name, s.subarea, s.description]
+        .filter(Boolean)
+        .some((v) => v!.toLowerCase().includes(q));
+    });
+  }, [area, query, services]);
+  const pagination = usePagination(
+    visible,
+    "noma:services:page-size",
+    `${area}:${query}`,
   );
-  const pagination = usePagination(visible, "noma:services:page-size", area);
   const pageServices = pagination.pageItems;
   const groups = presentAreas.filter((a) => area === "all" || a === area);
 
   return (
     <div>
+      <div className="relative mb-4">
+        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+        <Input
+          placeholder="Buscar servicio por nombre, subárea o descripción…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
       <div className="mb-6 flex flex-wrap gap-2">
         <FilterChip active={area === "all"} onClick={() => setArea("all")}>
           Todos
@@ -76,6 +117,12 @@ export function ServicesList({ services }: { services: Service[] }) {
           </FilterChip>
         ))}
       </div>
+
+      {visible.length === 0 && (
+        <p className="text-muted-foreground py-12 text-center text-sm">
+          Sin servicios que coincidan con la búsqueda.
+        </p>
+      )}
 
       <div className="space-y-8">
         {groups.map((a) => {
@@ -102,7 +149,12 @@ export function ServicesList({ services }: { services: Service[] }) {
                       {items
                         .filter((s) => s.subarea === sub)
                         .map((s) => (
-                          <ServiceCard key={s.id} service={s} />
+                          <ServiceCard
+                            key={s.id}
+                            service={s}
+                            rates={rates}
+                            subareasByArea={subareasByArea}
+                          />
                         ))}
                     </div>
                   </div>
@@ -110,7 +162,12 @@ export function ServicesList({ services }: { services: Service[] }) {
                 {noSub.length > 0 && (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {noSub.map((s) => (
-                      <ServiceCard key={s.id} service={s} />
+                      <ServiceCard
+                        key={s.id}
+                        service={s}
+                        rates={rates}
+                        subareasByArea={subareasByArea}
+                      />
                     ))}
                   </div>
                 )}

@@ -623,7 +623,13 @@ export const services = pgTable("services", {
   subarea: text("subarea"),
   category: text("category"),
   description: text("description"),
+  // Entregables: `deliverables` (texto plano) se conserva como fallback del
+  // catálogo ya cargado; `deliverableItems` es el formato estructurado nuevo
+  // (título + descripción opcional), editable ítem a ítem como en el constructor.
   deliverables: text("deliverables"),
+  deliverableItems: jsonb("deliverable_items")
+    .$type<{ title: string; description?: string }[]>()
+    .default([]),
   estimatedTime: text("estimated_time"),
   complexityLevel: complexityLevelEnum("complexity_level"),
   priceType: priceTypeEnum("price_type").default("uf").notNull(),

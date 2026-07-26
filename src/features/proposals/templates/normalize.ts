@@ -48,7 +48,14 @@ export function normalizeServices(
       name: row.name,
       subarea: row.subarea,
       description: row.description,
-      deliverables: lines(row.deliverables),
+      // Prioriza los entregables estructurados; cae al texto plano si están vacíos.
+      deliverables: row.deliverableItems?.length
+        ? row.deliverableItems.map((item) =>
+            item.description
+              ? `${item.title} — ${item.description}`
+              : item.title,
+          )
+        : lines(row.deliverables),
       exclusions: lines(row.requirements),
       amount,
       currency,

@@ -3,16 +3,33 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { listServices } from "@/features/services/queries";
+import { getLatestRates } from "@/lib/currency/rates";
 import { ServiceDialog } from "@/features/services/service-dialog";
 import { ServicesList } from "@/features/services/services-list";
 
 export const metadata = { title: "Servicios" };
 
 export default async function ServicesPage() {
-  const services = await listServices();
+  const [services, rates] = await Promise.all([
+    listServices(),
+    getLatestRates(),
+  ]);
+
+  // Subáreas ya usadas por área, para sugerirlas en el datalist del formulario.
+  const subareasByArea = services.reduce<Record<string, string[]>>(
+    (acc, service) => {
+      if (!service.subarea) return acc;
+      const list = (acc[service.area] ??= []);
+      if (!list.includes(service.subarea)) list.push(service.subarea);
+      return acc;
+    },
+    {},
+  );
 
   const newButton = (
     <ServiceDialog
+      rates={rates}
+      subareasByArea={subareasByArea}
       trigger={
         <Button>
           <Plus className="size-4" />
@@ -38,7 +55,11 @@ export default async function ServicesPage() {
           action={newButton}
         />
       ) : (
-        <ServicesList services={services} />
+        <ServicesList
+          services={services}
+          rates={rates}
+          subareasByArea={subareasByArea}
+        />
       )}
     </>
   );

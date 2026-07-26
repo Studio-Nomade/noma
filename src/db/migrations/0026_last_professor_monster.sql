@@ -1,0 +1,1 @@
+ALTER TABLE "services" ADD COLUMN "deliverable_items" jsonb DEFAULT '[]'::jsonb;

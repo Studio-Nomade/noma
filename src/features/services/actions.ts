@@ -12,11 +12,20 @@ import type { ServiceStatus } from "@/types/enums";
 function normalize(values: ServiceFormValues) {
   const d = serviceSchema.parse(values);
   const emptyToNull = (v?: string) => (v && v.trim() !== "" ? v : null);
+  // Descarta filas de entregable sin título; recorta la descripción vacía.
+  const deliverableItems = (d.deliverableItems ?? [])
+    .map((item) => ({
+      title: item.title.trim(),
+      description: item.description?.trim() || undefined,
+    }))
+    .filter((item) => item.title !== "");
   return {
     name: d.name,
     area: d.area,
+    subarea: emptyToNull(d.subarea),
     description: emptyToNull(d.description),
     deliverables: emptyToNull(d.deliverables),
+    deliverableItems,
     estimatedTime: emptyToNull(d.estimatedTime),
     priceMinAmount: emptyToNull(d.priceMinAmount),
     priceMaxAmount: emptyToNull(d.priceMaxAmount),

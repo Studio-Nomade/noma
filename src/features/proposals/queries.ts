@@ -84,6 +84,7 @@ export async function getProposalServices(proposalId: string) {
       unit: services.unit,
       description: services.description,
       deliverables: services.deliverables,
+      deliverableItems: services.deliverableItems,
       requirements: services.requirements,
     })
     .from(proposalServices)
