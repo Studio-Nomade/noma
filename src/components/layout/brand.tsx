@@ -17,6 +17,7 @@ export function Brand({ collapsed = false }: { collapsed?: boolean }) {
           src="/assets/brand/nomade-black.png"
           alt=""
           fill
+          sizes="40px"
           priority
           className="object-contain dark:hidden"
         />
@@ -24,6 +25,7 @@ export function Brand({ collapsed = false }: { collapsed?: boolean }) {
           src="/assets/brand/nomade-white.png"
           alt=""
           fill
+          sizes="40px"
           priority
           className="hidden object-contain dark:block"
         />

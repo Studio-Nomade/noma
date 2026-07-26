@@ -35,11 +35,12 @@ Drive. Sin ellas esas acciones fallan (el resto de la app funciona).
 
 Opcionales (activan integraciones; si faltan, la funcionalidad degrada y avisa):
 
-| Variable              | Para qué                                              |
-| --------------------- | ----------------------------------------------------- |
-| `ANTHROPIC_API_KEY`   | Procesar notas con Claude (hoy corre una capa mock)    |
-| `ASANA_ACCESS_TOKEN`  | Crear la tarea al traspasar a operación                |
-| `ASANA_PROJECT_GID`   | Proyecto de Asana donde se crea la tarea               |
+| Variable              | Para qué                                            |
+| --------------------- | --------------------------------------------------- |
+| `ANTHROPIC_API_KEY`   | Procesar notas con Claude (hoy corre una capa mock) |
+| `ASANA_ACCESS_TOKEN`  | Crear la tarea al traspasar a operación             |
+| `ASANA_PROJECT_GID`   | Proyecto de Asana donde se crea la tarea            |
+| `ASANA_WORKSPACE_GID` | Listar proyectos del workspace (opcional)           |
 
 > **Importante:** en Vercel (serverless) usa el **pooler de transacción, puerto
 > 6543**:
@@ -103,11 +104,11 @@ Requiere el secreto de repositorio **`DATABASE_URL`** (GitHub → Settings →
 Secrets and variables → Actions). Las tres conexiones de Supabase NO son
 intercambiables:
 
-| Uso                    | Conexión (Supabase → Connect) | Host                        | Puerto |
-| ---------------------- | ----------------------------- | --------------------------- | ------ |
-| App en Vercel          | Transaction pooler            | `aws-*.pooler.supabase.com` | 6543   |
-| **Migraciones (CI)**   | **Session pooler**            | `aws-*.pooler.supabase.com` | 5432   |
-| Direct connection      | ❌ no usar desde CI            | `db.<ref>.supabase.co`      | 5432   |
+| Uso                  | Conexión (Supabase → Connect) | Host                        | Puerto |
+| -------------------- | ----------------------------- | --------------------------- | ------ |
+| App en Vercel        | Transaction pooler            | `aws-*.pooler.supabase.com` | 6543   |
+| **Migraciones (CI)** | **Session pooler**            | `aws-*.pooler.supabase.com` | 5432   |
+| Direct connection    | ❌ no usar desde CI           | `db.<ref>.supabase.co`      | 5432   |
 
 > **La "Direct connection" no sirve en GitHub Actions:** solo resuelve en IPv6 y
 > los runners son IPv4 — la conexión nunca se establece. El **Session pooler**
