@@ -22,6 +22,7 @@ function SidebarContent({
   name,
   photoUrl,
   isFinance,
+  isPeople,
   onNavigate,
   collapsed = false,
   onToggleCollapsed,
@@ -30,6 +31,7 @@ function SidebarContent({
   name?: string | null;
   photoUrl?: string | null;
   isFinance?: boolean;
+  isPeople?: boolean;
   onNavigate?: () => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
@@ -43,6 +45,7 @@ function SidebarContent({
         <SidebarNav
           onNavigate={onNavigate}
           isFinance={isFinance}
+          isPeople={isPeople}
           collapsed={collapsed}
         />
       </div>
@@ -117,12 +120,14 @@ export function AppShell({
   name,
   photoUrl,
   isFinance,
+  isPeople,
   children,
 }: {
   email?: string;
   name?: string | null;
   photoUrl?: string | null;
   isFinance?: boolean;
+  isPeople?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -157,6 +162,7 @@ export function AppShell({
             name={name}
             photoUrl={photoUrl}
             isFinance={isFinance}
+            isPeople={isPeople}
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
           />
@@ -179,6 +185,7 @@ export function AppShell({
                 name={name}
                 photoUrl={photoUrl}
                 isFinance={isFinance}
+                isPeople={isPeople}
                 onNavigate={() => setOpen(false)}
               />
             </SheetContent>

@@ -26,16 +26,23 @@ function isItemActive(pathname: string, href: string) {
 export function SidebarNav({
   onNavigate,
   isFinance = false,
+  isPeople = false,
   collapsed = false,
 }: {
   onNavigate?: () => void;
   isFinance?: boolean;
+  isPeople?: boolean;
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
   const visibleGroups = NAV_GROUPS.filter(
     (group) => !group.requiresFinance || isFinance,
-  );
+  ).map((group) => ({
+    ...group,
+    children: group.children.filter(
+      (item) => !item.requiresPeople || isPeople,
+    ),
+  }));
   const activeGroup = visibleGroups.find(
     (group) =>
       group.children.some((item) => isItemActive(pathname, item.href)) ||

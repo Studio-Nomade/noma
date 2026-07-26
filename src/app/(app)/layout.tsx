@@ -10,13 +10,15 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  const isFinance = roleFor(user.email).isFinance;
+  const role = roleFor(user.email);
+  const isFinance = role.isFinance;
   const member = await getCurrentTeamMember(user);
   return (
     <>
       <AppShell
         email={user.email}
         isFinance={isFinance}
+        isPeople={role.canPeople}
         name={member?.name ?? null}
         photoUrl={member?.photoUrl ?? null}
       >
