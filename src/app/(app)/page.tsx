@@ -27,6 +27,8 @@ import {
 import { DashboardIntegrations } from "@/features/dashboard/dashboard-integrations";
 import { UserConnectionsCard } from "@/features/integrations/connections-card";
 import { getIntegrationOverview } from "@/features/integrations/queries";
+import { getMyAsanaTasks } from "@/features/asana/my-tasks";
+import { MyAsanaTasksCard } from "@/features/asana/my-tasks-card";
 
 export const metadata = { title: "Dashboard" };
 
@@ -45,6 +47,7 @@ export default async function DashboardPage() {
     operations,
     meetingProjects,
     integrationOverview,
+    myAsanaTasks,
   ] = await Promise.all([
     getDashboardMetrics(),
     getNextActions(),
@@ -57,6 +60,7 @@ export default async function DashboardPage() {
     getAsanaOperationsSummary(),
     getMeetingProjectOptions(),
     getIntegrationOverview(user.id),
+    getMyAsanaTasks(user.id),
   ]);
 
   const recentProposals = proposals.slice(0, 5);
@@ -98,6 +102,14 @@ export default async function DashboardPage() {
         connections={integrationOverview.personal}
         encryptionConfigured={integrationOverview.encryptionConfigured}
         redirectTo="/"
+      />
+
+      <MyAsanaTasksCard
+        result={myAsanaTasks}
+        connection={integrationOverview.personal.find(
+          (connection) => connection.provider === "asana",
+        )!}
+        encryptionConfigured={integrationOverview.encryptionConfigured}
       />
 
       {/* Pipeline */}

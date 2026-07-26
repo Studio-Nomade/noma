@@ -7,6 +7,7 @@ import {
 } from "@/features/integrations/providers";
 import { saveUserConnection } from "@/features/integrations/tokens";
 import { logActivity } from "@/lib/activity";
+import { getAsanaAccountMetadata } from "@/features/asana/oauth";
 
 export const runtime = "nodejs";
 
@@ -172,6 +173,13 @@ export async function GET(
     });
     if (!tokens) {
       return errorRedirect(request, redirectTo, `${provider.id}_oauth_failed`);
+    }
+
+    if (provider.id === "asana") {
+      const account = await getAsanaAccountMetadata(tokens.accessToken);
+      tokens.externalAccountId =
+        account.externalAccountId ?? tokens.externalAccountId;
+      tokens.meta = { ...tokens.meta, ...account.meta };
     }
 
     await saveUserConnection({
