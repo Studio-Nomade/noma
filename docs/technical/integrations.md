@@ -1,7 +1,26 @@
 # Integraciones · Noma
 
-Studio Nomade ya opera con un ecosistema de herramientas. En V1 Noma **documenta y enlaza**
-(no integra automáticamente). Toda integración futura se apoya en la tabla `resource_links`.
+Studio Nomade ya opera con un ecosistema de herramientas. Noma combina enlaces guardados en
+`resource_links`, integraciones globales del estudio y conexiones OAuth personales.
+
+## Modelos de conexión
+
+- **Google Workspace** ya es per-user mediante Supabase Auth. Su refresh token se mantiene en
+  `user_integrations` para no romper Gmail, Calendar, Meet y Drive.
+- **Asana operacional** usa `ASANA_ACCESS_TOKEN` central para traspasos y resumen de proyectos.
+  Este acceso no se reemplaza por la futura conexión personal.
+- **Asana y Slack personales** usan `user_connections`, con PK `(user_id, provider)`. Access y
+  refresh tokens se cifran con AES-256-GCM antes de persistirse.
+- **OpenAI y Gemini** son cuentas API centrales del estudio configuradas por entorno. No existe
+  un flujo para conectar suscripciones personales.
+
+`NOMA_TOKEN_ENCRYPTION_KEY` debe ser base64 de exactamente 32 bytes. Se genera con
+`openssl rand -base64 32`, se configura en `.env.local` y Vercel, y nunca se versiona. Su
+rotación requiere volver a conectar las cuentas existentes.
+
+Los callbacks OAuth viven bajo `/api/integrations/<provider>/callback`, validan `state` contra
+una cookie httpOnly/SameSite=Lax y nunca entregan tokens al cliente. La desconexión intenta
+revocar el acceso externo y siempre elimina el registro local.
 
 ## Estado por herramienta
 
@@ -28,11 +47,12 @@ Los enlaces de Asana admiten dos modelos operativos: una oportunidad puede vincu
 dashboard detecta el tipo por la URL, consulta el recurso correspondiente y muestra solo
 avance/cierre; no replica las tareas en Noma.
 
-## IA (preparada)
+## IA centralizada
 
-`src/lib/ai/provider.ts` expone `LLMProvider.generateProposal(input)` con el
-`response_json_schema` de las 12 secciones. Activación en v1.1 con Anthropic Claude
-(server-side). Ver [ADR-004](../decisions/ADR-004-ai-provider.md).
+`/integrations` muestra si `OPENAI_API_KEY` y `GEMINI_API_KEY` están configuradas sin revelar
+sus valores. Los administradores pueden probar cada conexión mediante una llamada server-side
+mínima. Anthropic queda fuera de esta etapa. El procesador de briefs conserva su mock hasta
+que se active un proveedor real detrás del contrato `BriefExtraction`.
 
 ## Portal cliente (V2)
 

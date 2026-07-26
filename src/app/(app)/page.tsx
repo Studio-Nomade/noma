@@ -25,6 +25,8 @@ import {
   getMeetingProjectOptions,
 } from "@/features/dashboard/integrations";
 import { DashboardIntegrations } from "@/features/dashboard/dashboard-integrations";
+import { UserConnectionsCard } from "@/features/integrations/connections-card";
+import { getIntegrationOverview } from "@/features/integrations/queries";
 
 export const metadata = { title: "Dashboard" };
 
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
     calendar,
     operations,
     meetingProjects,
+    integrationOverview,
   ] = await Promise.all([
     getDashboardMetrics(),
     getNextActions(),
@@ -53,6 +56,7 @@ export default async function DashboardPage() {
     getDashboardCalendar(user.id),
     getAsanaOperationsSummary(),
     getMeetingProjectOptions(),
+    getIntegrationOverview(user.id),
   ]);
 
   const recentProposals = proposals.slice(0, 5);
@@ -88,6 +92,12 @@ export default async function DashboardPage() {
         calendar={calendar}
         operations={operations}
         meetingProjects={meetingProjects}
+      />
+
+      <UserConnectionsCard
+        connections={integrationOverview.personal}
+        encryptionConfigured={integrationOverview.encryptionConfigured}
+        redirectTo="/"
       />
 
       {/* Pipeline */}
