@@ -14,6 +14,11 @@ import {
 import { requireUser } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import {
+  BRAND_BUCKET,
+  publicUrl,
+  uploadToStorage,
+} from "@/lib/supabase/storage";
+import {
   DISCOUNT_KINDS,
   SERVICE_PRIORITIES,
   type DiscountKind,
@@ -156,6 +161,9 @@ export async function createProposalVersion(
           proposalId: row.id,
           memberId: t.memberId,
           roleInProject: t.roleInProject,
+          customName: t.customName,
+          customRoleTitle: t.customRoleTitle,
+          customPhotoUrl: t.customPhotoUrl,
           position: t.position,
         })),
       );
@@ -394,6 +402,59 @@ export async function removeProposalTeamMember(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "removeProposalTeamMember");
+  }
+}
+
+/**
+ * Agrega una persona externa (freelance de apoyo) al equipo de la propuesta:
+ * no está en team_members, así que sus datos van en los campos custom_* y la
+ * foto (opcional) se sube al bucket público de marca. La imagen se guarda tal
+ * cual; el deck la recorta a cuadrado por CSS (formato consistente).
+ */
+export async function addProposalCustomMember(
+  proposalId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const name = String(formData.get("name") ?? "").trim();
+    const roleTitle = String(formData.get("roleTitle") ?? "").trim();
+    if (!name) return { ok: false, error: "El nombre es obligatorio." };
+
+    let customPhotoUrl: string | null = null;
+    const photo = formData.get("photo");
+    if (photo instanceof File && photo.size > 0) {
+      if (!photo.type.startsWith("image/")) {
+        return { ok: false, error: "El archivo debe ser una imagen." };
+      }
+      if (photo.size > 5 * 1024 * 1024) {
+        return { ok: false, error: "La imagen supera el máximo de 5 MB." };
+      }
+      const ext = (photo.name.split(".").pop() ?? "png")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      const path = `proposals/${proposalId}/team/${crypto.randomUUID()}.${ext || "png"}`;
+      const bytes = Buffer.from(await photo.arrayBuffer());
+      await uploadToStorage(BRAND_BUCKET, path, bytes, photo.type);
+      customPhotoUrl = publicUrl(BRAND_BUCKET, path);
+    }
+
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(proposalTeam)
+      .where(eq(proposalTeam.proposalId, proposalId));
+    await db.insert(proposalTeam).values({
+      proposalId,
+      memberId: null,
+      customName: name,
+      customRoleTitle: roleTitle || null,
+      customPhotoUrl,
+      position: count,
+    });
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "addProposalCustomMember");
   }
 }
 

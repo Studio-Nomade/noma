@@ -779,10 +779,16 @@ export const proposalTeam = pgTable(
     proposalId: uuid("proposal_id")
       .notNull()
       .references(() => proposals.id, { onDelete: "cascade" }),
-    memberId: uuid("member_id")
-      .notNull()
-      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    // Nullable: cuando es null, la fila es una persona externa (freelance) que
+    // no está en el equipo base; sus datos van en los campos custom_*.
+    memberId: uuid("member_id").references(() => teamMembers.id, {
+      onDelete: "cascade",
+    }),
     roleInProject: text("role_in_project"),
+    // Persona externa (freelance de apoyo) que no vive en team_members.
+    customName: text("custom_name"),
+    customRoleTitle: text("custom_role_title"),
+    customPhotoUrl: text("custom_photo_url"),
     position: integer("position").default(0).notNull(),
   },
   (t) => [uniqueIndex("proposal_team_unique").on(t.proposalId, t.memberId)],

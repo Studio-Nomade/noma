@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   proposals,
@@ -127,7 +127,12 @@ export async function getProposalNotes(rootId: string) {
     .orderBy(desc(proposalNotes.createdAt));
 }
 
-/** Equipo de la propuesta (con datos del integrante). */
+/**
+ * Equipo de la propuesta. `leftJoin` porque las personas externas (freelance)
+ * no tienen fila en team_members; sus datos se coalescen desde los campos
+ * custom_* para que el resto del código (deck/PDF) los trate igual que a un
+ * integrante base.
+ */
 export async function getProposalTeam(proposalId: string) {
   return db
     .select({
@@ -135,12 +140,20 @@ export async function getProposalTeam(proposalId: string) {
       memberId: proposalTeam.memberId,
       roleInProject: proposalTeam.roleInProject,
       position: proposalTeam.position,
-      name: teamMembers.name,
-      roleTitle: teamMembers.roleTitle,
-      photoUrl: teamMembers.photoUrl,
+      name: sql<string>`coalesce(${teamMembers.name}, ${proposalTeam.customName}, 'Colaborador')`,
+      roleTitle: sql<
+        string | null
+      >`coalesce(${teamMembers.roleTitle}, ${proposalTeam.customRoleTitle})`,
+      photoUrl: sql<
+        string | null
+      >`coalesce(${teamMembers.photoUrl}, ${proposalTeam.customPhotoUrl})`,
+      isExternal: sql<boolean>`${proposalTeam.memberId} is null`,
+      customName: proposalTeam.customName,
+      customRoleTitle: proposalTeam.customRoleTitle,
+      customPhotoUrl: proposalTeam.customPhotoUrl,
     })
     .from(proposalTeam)
-    .innerJoin(teamMembers, eq(proposalTeam.memberId, teamMembers.id))
+    .leftJoin(teamMembers, eq(proposalTeam.memberId, teamMembers.id))
     .where(eq(proposalTeam.proposalId, proposalId))
     .orderBy(asc(proposalTeam.position));
 }
