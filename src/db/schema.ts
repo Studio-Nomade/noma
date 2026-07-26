@@ -28,6 +28,8 @@ import {
   CONTACT_PROFILES,
   PROPOSAL_STATUSES,
   SERVICE_STATUSES,
+  SERVICE_PRIORITIES,
+  DISCOUNT_KINDS,
   COMPLEXITY_LEVELS,
   PRICE_TYPES,
   SLA_STATUSES,
@@ -83,6 +85,11 @@ export const cfoRequestStatusEnum = pgEnum(
 export const contactProfileEnum = pgEnum("contact_profile", CONTACT_PROFILES);
 export const proposalStatusEnum = pgEnum("proposal_status", PROPOSAL_STATUSES);
 export const serviceStatusEnum = pgEnum("service_status", SERVICE_STATUSES);
+export const servicePriorityEnum = pgEnum(
+  "service_priority",
+  SERVICE_PRIORITIES,
+);
+export const discountKindEnum = pgEnum("discount_kind", DISCOUNT_KINDS);
 export const complexityLevelEnum = pgEnum(
   "complexity_level",
   COMPLEXITY_LEVELS,
@@ -721,6 +728,11 @@ export const proposals = pgTable("proposals", {
   ),
   status: proposalStatusEnum("status").default("Borrador").notNull(),
   nextAction: text("next_action"),
+  // Descuento comercial editable (se muestra en el PDF tras la sumatoria).
+  // Se aplica sobre el neto, antes de IVA (convención SII).
+  discountLabel: text("discount_label"),
+  discountKind: discountKindEnum("discount_kind"),
+  discountValue: numeric("discount_value", { precision: 14, scale: 2 }),
   version: integer("version").default(1).notNull(),
   // raíz de la cadena de versiones (la v1 apunta a sí misma).
   rootId: uuid("root_id"),
@@ -739,6 +751,9 @@ export const proposalServices = pgTable(
       .notNull()
       .references(() => services.id, { onDelete: "restrict" }),
     position: integer("position").default(0).notNull(),
+    // Cantidad (ej. 3 videos del mismo servicio) y prioridad (recargo).
+    quantity: integer("quantity").default(1).notNull(),
+    priority: servicePriorityEnum("priority").default("Normal").notNull(),
     customPriceAmount: numeric("custom_price_amount", {
       precision: 14,
       scale: 2,
@@ -840,6 +855,27 @@ export const userIntegrations = pgTable("user_integrations", {
     .defaultNow()
     .notNull(),
 });
+
+// ── user_connections (OAuth per-user; tokens siempre cifrados) ──
+// Google conserva su flujo histórico en user_integrations. Esta tabla normaliza
+// las conexiones personales nuevas (Asana, Slack y futuros proveedores).
+export const userConnections = pgTable(
+  "user_connections",
+  {
+    userId: uuid("user_id").notNull(), // auth.users.id
+    provider: text("provider").notNull(),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    externalAccountId: text("external_account_id"),
+    meta: jsonb("meta").$type<Record<string, unknown>>().default({}).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.provider] }),
+    index("user_connections_user_idx").on(t.userId),
+  ],
+);
 
 // ── studio_config (singleton) ────────────────────────────────
 export const studioConfig = pgTable("studio_config", {

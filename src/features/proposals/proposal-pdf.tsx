@@ -754,7 +754,7 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
         </DeckPage>
       )}
       <DeckPage accent={accent}>
-        <Text style={[s.display, { fontSize: 48 }]}>INVERSIÓN.</Text>
+        <Text style={[s.display, { fontSize: 48 }]}>TOTALES.</Text>
         <View
           style={{
             marginTop: "auto",
@@ -847,6 +847,12 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
               label="Neto referencial"
               value={formatMoney(data.totals.netClp, "CLP")}
             />
+            {data.totals.discountClp > 0 && (
+              <PdfRow
+                label={data.totals.discountLabel || "Descuento"}
+                value={`− ${formatMoney(data.totals.discountClp, "CLP")}`}
+              />
+            )}
             <PdfRow
               label="IVA 19%"
               value={formatMoney(data.totals.ivaClp, "CLP")}

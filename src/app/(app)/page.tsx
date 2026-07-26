@@ -19,6 +19,18 @@ import {
   getUpcomingBirthdays,
 } from "@/features/internal-comms/queries";
 import { InternalCommsSection } from "@/features/internal-comms/internal-comms-section";
+import {
+  getAsanaOperationsSummary,
+  getDashboardCalendar,
+  getMeetingProjectOptions,
+} from "@/features/dashboard/integrations";
+import { DashboardIntegrations } from "@/features/dashboard/dashboard-integrations";
+import { UserConnectionsCard } from "@/features/integrations/connections-card";
+import { getIntegrationOverview } from "@/features/integrations/queries";
+import { getMyAsanaTasks } from "@/features/asana/my-tasks";
+import { MyAsanaTasksCard } from "@/features/asana/my-tasks-card";
+import { getMySlackChannels } from "@/features/slack/my-channels";
+import { MySlackChannelsCard } from "@/features/slack/my-channels-card";
 
 export const metadata = { title: "Dashboard" };
 
@@ -33,6 +45,12 @@ export default async function DashboardPage() {
     proposals,
     announcements,
     birthdays,
+    calendar,
+    operations,
+    meetingProjects,
+    integrationOverview,
+    myAsanaTasks,
+    mySlackChannels,
   ] = await Promise.all([
     getDashboardMetrics(),
     getNextActions(),
@@ -41,6 +59,12 @@ export default async function DashboardPage() {
     listProposals(),
     getAnnouncements(member?.id ?? null),
     getUpcomingBirthdays(),
+    getDashboardCalendar(user.id),
+    getAsanaOperationsSummary(),
+    getMeetingProjectOptions(),
+    getIntegrationOverview(user.id),
+    getMyAsanaTasks(user.id),
+    getMySlackChannels(user.id),
   ]);
 
   const recentProposals = proposals.slice(0, 5);
@@ -71,6 +95,34 @@ export default async function DashboardPage() {
           subtext="propuestas enviadas"
         />
       </div>
+
+      <DashboardIntegrations
+        calendar={calendar}
+        operations={operations}
+        meetingProjects={meetingProjects}
+      />
+
+      <UserConnectionsCard
+        connections={integrationOverview.personal}
+        encryptionConfigured={integrationOverview.encryptionConfigured}
+        redirectTo="/"
+      />
+
+      <MyAsanaTasksCard
+        result={myAsanaTasks}
+        connection={integrationOverview.personal.find(
+          (connection) => connection.provider === "asana",
+        )!}
+        encryptionConfigured={integrationOverview.encryptionConfigured}
+      />
+
+      <MySlackChannelsCard
+        result={mySlackChannels}
+        connection={integrationOverview.personal.find(
+          (connection) => connection.provider === "slack",
+        )!}
+        encryptionConfigured={integrationOverview.encryptionConfigured}
+      />
 
       {/* Pipeline */}
       <InternalCommsSection

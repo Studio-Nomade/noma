@@ -288,6 +288,27 @@ export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 export const SERVICE_STATUSES = ["Activo", "Inactivo"] as const;
 export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
 
+// Prioridad de un servicio dentro de una cotización: recargo sobre el valor base.
+export const SERVICE_PRIORITIES = [
+  "Normal",
+  "Prioridad",
+  "Contra Reloj",
+  "Crítico",
+] as const;
+export type ServicePriority = (typeof SERVICE_PRIORITIES)[number];
+
+// Recargo por prioridad (multiplicador sobre el precio base del servicio).
+export const PRIORITY_SURCHARGE: Record<ServicePriority, number> = {
+  Normal: 0,
+  Prioridad: 0.15,
+  "Contra Reloj": 0.3,
+  Crítico: 0.5,
+};
+
+// Tipo de descuento editable en la cotización: porcentaje, monto CLP o monto UF.
+export const DISCOUNT_KINDS = ["percent", "clp", "uf"] as const;
+export type DiscountKind = (typeof DISCOUNT_KINDS)[number];
+
 // Nivel de complejidad de servicios compuestos (Desarrollo de Marca, planes…)
 export const COMPLEXITY_LEVELS = [
   "Light",

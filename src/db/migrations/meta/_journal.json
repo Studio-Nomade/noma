@@ -176,6 +176,20 @@
       "when": 1784720085854,
       "tag": "0024_safe_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785021631519,
+      "tag": "0025_late_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785065202458,
+      "tag": "0026_living_zemo",
+      "breakpoints": true
     }
   ]
 }

@@ -85,6 +85,13 @@ No se eliminan → se marcan `Cerrado`.
 `access_references jsonb` (referencias a gestor de contraseñas — **nunca** secretos en claro),
 `repos jsonb`, `notes`.
 
+### user_connections (OAuth per-user)
+
+PK compuesta (`user_id`, `provider`) para conexiones personales de Asana y Slack.
+`access_token` y `refresh_token` se guardan cifrados con AES-256-GCM; `expires_at`,
+`external_account_id` y `meta jsonb` conservan datos operativos no secretos. Google mantiene
+su refresh token en `user_integrations` por compatibilidad con SSO, Gmail y Calendar.
+
 ### knowledge_docs
 
 `title`, `area`, `category` (knowledge_category), `content` (markdown), `links jsonb`.

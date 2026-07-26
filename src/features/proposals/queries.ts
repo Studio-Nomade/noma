@@ -71,6 +71,8 @@ export async function getProposalServices(proposalId: string) {
       id: proposalServices.id,
       serviceId: proposalServices.serviceId,
       position: proposalServices.position,
+      quantity: proposalServices.quantity,
+      priority: proposalServices.priority,
       customPriceAmount: proposalServices.customPriceAmount,
       customPriceCurrency: proposalServices.customPriceCurrency,
       name: services.name,
@@ -94,7 +96,11 @@ export type ProposalServiceRow = Awaited<
   ReturnType<typeof getProposalServices>
 >[number];
 
-/** Todas las versiones de una propuesta (misma raíz), ordenadas por versión. */
+/**
+ * Todas las versiones de una propuesta (misma raíz), ordenadas por versión.
+ * Resuelve el autor (`createdBy` = auth.users.id) al nombre del integrante vía
+ * `teamMembers.userId`, para poder mostrar quién hizo cada versión.
+ */
 export async function getProposalVersions(rootId: string) {
   return db
     .select({
@@ -102,8 +108,11 @@ export async function getProposalVersions(rootId: string) {
       version: proposals.version,
       status: proposals.status,
       updatedAt: proposals.updatedAt,
+      createdAt: proposals.createdAt,
+      authorName: teamMembers.name,
     })
     .from(proposals)
+    .leftJoin(teamMembers, eq(teamMembers.userId, proposals.createdBy))
     .where(eq(proposals.rootId, rootId))
     .orderBy(asc(proposals.version));
 }
