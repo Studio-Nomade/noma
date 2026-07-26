@@ -856,6 +856,27 @@ export const userIntegrations = pgTable("user_integrations", {
     .notNull(),
 });
 
+// ── user_connections (OAuth per-user; tokens siempre cifrados) ──
+// Google conserva su flujo histórico en user_integrations. Esta tabla normaliza
+// las conexiones personales nuevas (Asana, Slack y futuros proveedores).
+export const userConnections = pgTable(
+  "user_connections",
+  {
+    userId: uuid("user_id").notNull(), // auth.users.id
+    provider: text("provider").notNull(),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    externalAccountId: text("external_account_id"),
+    meta: jsonb("meta").$type<Record<string, unknown>>().default({}).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.provider] }),
+    index("user_connections_user_idx").on(t.userId),
+  ],
+);
+
 // ── studio_config (singleton) ────────────────────────────────
 export const studioConfig = pgTable("studio_config", {
   id: uuid("id").primaryKey().defaultRandom(),
