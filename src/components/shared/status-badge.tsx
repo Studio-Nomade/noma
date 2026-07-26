@@ -81,6 +81,11 @@ const COLOR_BY_VALUE: Record<string, StatusColor> = {
   // Finanzas — cobranza
   ENVIADO: "emerald",
   ERROR: "red",
+  // Finanzas — nota de venta
+  ENVIADA: "blue",
+  FACTURADA_PARCIAL: "amber",
+  FACTURADA: "emerald",
+  FACTURADO: "blue",
 };
 
 const STYLE_BY_COLOR: Record<StatusColor, React.CSSProperties> = {
