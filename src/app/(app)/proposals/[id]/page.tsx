@@ -25,6 +25,7 @@ import { ProposalContentForm } from "@/features/proposals/proposal-content-form"
 import { StagesEditor } from "@/features/proposals/stages-editor";
 import { ProposalDeleteButton } from "@/features/proposals/proposal-delete-button";
 import { ProposalVersions } from "@/features/proposals/proposal-versions";
+import { DiscountEditor } from "@/features/proposals/discount-editor";
 import { ProposalNotes } from "@/features/proposals/proposal-notes";
 import { SendProposalDialog } from "@/features/proposals/send-dialog";
 import { Button } from "@/components/ui/button";
@@ -74,8 +75,15 @@ export default async function ProposalDetailPage({
     currency: (s.customPriceCurrency ??
       s.priceCurrency ??
       "UF") as LineItem["currency"],
+    quantity: s.quantity,
+    priority: s.priority,
   }));
-  const totals = computeTotals(items, ufClp);
+  const discount = {
+    label: proposal.discountLabel,
+    kind: proposal.discountKind,
+    value: proposal.discountValue != null ? Number(proposal.discountValue) : null,
+  };
+  const totals = computeTotals(items, ufClp, discount);
 
   const sendVars = {
     cliente: clientName ?? "",
@@ -229,7 +237,7 @@ export default async function ProposalDetailPage({
         {/* Columna derecha: Inversión (sticky) + Versiones */}
         <div className="space-y-6">
           <div className="glass sticky top-6 rounded-xl p-6">
-            <h2 className="font-heading mb-4 text-sm font-medium">Inversión</h2>
+            <h2 className="font-heading mb-4 text-sm font-medium">Totales</h2>
             <dl className="space-y-2 text-sm">
               <Row
                 label="Subtotal (UF)"
@@ -242,6 +250,12 @@ export default async function ProposalDetailPage({
                 />
               )}
               <Row label="Neto" value={formatMoney(totals.netClp, "CLP")} />
+              <DiscountEditor
+                proposalId={id}
+                initial={discount}
+                discountClp={totals.discountClp}
+                locked={locked}
+              />
               <Row label="IVA 19%" value={formatMoney(totals.iva, "CLP")} />
               <div className="border-border mt-2 border-t pt-2">
                 <Row

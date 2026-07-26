@@ -3,7 +3,8 @@ import { AREA_LABELS, type Area, type Currency } from "@/types/enums";
 import { AvatarCircle } from "@/components/shared/avatar-circle";
 import type { Proposal } from "@/db/schema";
 import type { ProposalServiceRow, ProposalTeamRow } from "./queries";
-import type { ProposalTotals } from "./totals";
+import { lineAmount, type ProposalTotals } from "./totals";
+import { PRIORITY_SURCHARGE } from "@/types/enums";
 import { computeGantt } from "./gantt";
 import { parseStructuredContent } from "./structured-content";
 
@@ -56,30 +57,61 @@ export function ProposalReadonly({
             <ul className="divide-border divide-y">
               {services
                 .filter((s) => s.area === area)
-                .map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex justify-between gap-3 py-2 text-sm"
-                  >
-                    <span>{s.name}</span>
-                    <span className="font-medium">
-                      {formatMoney(
-                        s.customPriceAmount ?? s.priceAmount,
-                        (s.customPriceCurrency ??
-                          s.priceCurrency ??
-                          "UF") as Currency,
-                      )}
-                    </span>
-                  </li>
-                ))}
+                .map((s) => {
+                  const currency = (s.customPriceCurrency ??
+                    s.priceCurrency ??
+                    "UF") as Currency;
+                  const base = Number(s.customPriceAmount ?? s.priceAmount);
+                  const line = lineAmount({
+                    amount: Number.isFinite(base) ? base : null,
+                    currency,
+                    quantity: s.quantity,
+                    priority: s.priority,
+                  });
+                  const surcharge = PRIORITY_SURCHARGE[s.priority];
+                  return (
+                    <li
+                      key={s.id}
+                      className="flex justify-between gap-3 py-2 text-sm"
+                    >
+                      <span className="min-w-0">
+                        {s.name}
+                        {(s.quantity > 1 || surcharge > 0) && (
+                          <span className="text-muted-foreground ml-1 text-xs">
+                            {s.quantity > 1 && `×${s.quantity}`}
+                            {surcharge > 0 &&
+                              ` · ${s.priority} +${Math.round(surcharge * 100)}%`}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-medium whitespace-nowrap">
+                        {formatMoney(line, currency)}
+                      </span>
+                    </li>
+                  );
+                })}
             </ul>
           </div>
         ))}
-        <div className="border-border mt-3 flex justify-between border-t pt-3 text-sm">
-          <span className="text-muted-foreground">Total (IVA incl.)</span>
-          <span className="font-semibold">
-            {formatMoney(totals.totalClp, "CLP")}
-          </span>
+        <div className="border-border mt-3 space-y-1.5 border-t pt-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Neto</span>
+            <span>{formatMoney(totals.netClp, "CLP")}</span>
+          </div>
+          {totals.discountClp > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                {proposal.discountLabel || "Descuento"}
+              </span>
+              <span style={{ color: "var(--status-emerald)" }}>
+                − {formatMoney(totals.discountClp, "CLP")}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold">
+            <span>Total (IVA incl.)</span>
+            <span>{formatMoney(totals.totalClp, "CLP")}</span>
+          </div>
         </div>
       </div>
 

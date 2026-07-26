@@ -13,7 +13,13 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
-import type { ProposalStatus } from "@/types/enums";
+import {
+  DISCOUNT_KINDS,
+  SERVICE_PRIORITIES,
+  type DiscountKind,
+  type ProposalStatus,
+  type ServicePriority,
+} from "@/types/enums";
 
 /** Campos de texto editables de la propuesta. */
 const EDITABLE_FIELDS = [
@@ -111,6 +117,10 @@ export async function createProposalVersion(
         team: p.team,
         commercialConditions: p.commercialConditions,
         nextAction: p.nextAction,
+        // el descuento comercial se arrastra a la nueva versión
+        discountLabel: p.discountLabel,
+        discountKind: p.discountKind,
+        discountValue: p.discountValue,
         status: "Borrador",
         version: nextVersion,
         rootId: root,
@@ -129,6 +139,8 @@ export async function createProposalVersion(
           proposalId: row.id,
           serviceId: s.serviceId,
           position: s.position,
+          quantity: s.quantity,
+          priority: s.priority,
           customPriceAmount: s.customPriceAmount,
           customPriceCurrency: s.customPriceCurrency,
         })),
@@ -255,6 +267,88 @@ export async function removeProposalService(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "removeProposalService");
+  }
+}
+
+/** Cambia la prioridad (recargo) de un servicio dentro de la cotización. */
+export async function updateProposalServicePriority(
+  rowId: string,
+  proposalId: string,
+  priority: ServicePriority,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    if (!SERVICE_PRIORITIES.includes(priority)) {
+      return { ok: false, error: "Prioridad inválida." };
+    }
+    await db
+      .update(proposalServices)
+      .set({ priority })
+      .where(
+        and(
+          eq(proposalServices.id, rowId),
+          eq(proposalServices.proposalId, proposalId),
+        ),
+      );
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateProposalServicePriority");
+  }
+}
+
+/** Cambia la cantidad de un servicio (ej. 3 videos). Mínimo 1. */
+export async function updateProposalServiceQuantity(
+  rowId: string,
+  proposalId: string,
+  quantity: number,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const qty = Math.max(1, Math.min(999, Math.floor(quantity)));
+    if (!Number.isFinite(qty)) {
+      return { ok: false, error: "Cantidad inválida." };
+    }
+    await db
+      .update(proposalServices)
+      .set({ quantity: qty })
+      .where(
+        and(
+          eq(proposalServices.id, rowId),
+          eq(proposalServices.proposalId, proposalId),
+        ),
+      );
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateProposalServiceQuantity");
+  }
+}
+
+/** Guarda el descuento comercial de la cotización (nombre + tipo + valor). */
+export async function updateProposalDiscount(
+  proposalId: string,
+  input: { label: string; kind: DiscountKind | null; value: number | null },
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const hasDiscount =
+      input.kind != null && input.value != null && input.value > 0;
+    if (input.kind != null && !DISCOUNT_KINDS.includes(input.kind)) {
+      return { ok: false, error: "Tipo de descuento inválido." };
+    }
+    await db
+      .update(proposals)
+      .set({
+        discountLabel: hasDiscount ? input.label.trim() || "Descuento" : null,
+        discountKind: hasDiscount ? input.kind : null,
+        discountValue: hasDiscount ? String(input.value) : null,
+      })
+      .where(eq(proposals.id, proposalId));
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateProposalDiscount");
   }
 }
 

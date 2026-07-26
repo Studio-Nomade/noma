@@ -3,15 +3,34 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, Minus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatMoney } from "@/lib/currency/format";
-import { AREA_LABELS, type Area, type Currency } from "@/types/enums";
+import {
+  AREA_LABELS,
+  SERVICE_PRIORITIES,
+  type Area,
+  type Currency,
+  type ServicePriority,
+} from "@/types/enums";
 import type { Service } from "@/db/schema";
 import type { ProposalServiceRow } from "./queries";
-import { addProposalService, removeProposalService } from "./actions";
+import { lineAmount } from "./totals";
+import {
+  addProposalService,
+  removeProposalService,
+  updateProposalServicePriority,
+  updateProposalServiceQuantity,
+} from "./actions";
 
 function groupByArea<T extends { area: Area }>(items: T[]): [Area, T[]][] {
   const map = new Map<Area, T[]>();
@@ -65,6 +84,28 @@ export function ServiceSelector({
       else toast.error(res.error);
     });
   }
+  function setPriority(rowId: string, priority: ServicePriority) {
+    startTransition(async () => {
+      const res = await updateProposalServicePriority(
+        rowId,
+        proposalId,
+        priority,
+      );
+      if (res.ok) router.refresh();
+      else toast.error(res.error);
+    });
+  }
+  function setQuantity(rowId: string, quantity: number) {
+    startTransition(async () => {
+      const res = await updateProposalServiceQuantity(
+        rowId,
+        proposalId,
+        quantity,
+      );
+      if (res.ok) router.refresh();
+      else toast.error(res.error);
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -86,40 +127,97 @@ export function ServiceSelector({
                 </p>
               )}
               <ul className="divide-border divide-y">
-                {items.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-center justify-between gap-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{s.name}</p>
-                      {s.subarea && (
-                        <p className="text-muted-foreground text-xs">
-                          {s.subarea}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium whitespace-nowrap">
-                        {formatMoney(
-                          s.customPriceAmount ?? s.priceAmount,
-                          (s.customPriceCurrency ??
-                            s.priceCurrency ??
-                            "UF") as Currency,
+                {items.map((s) => {
+                  const baseAmount = Number(s.customPriceAmount ?? s.priceAmount);
+                  const currency = (s.customPriceCurrency ??
+                    s.priceCurrency ??
+                    "UF") as Currency;
+                  const lineTotal = lineAmount({
+                    amount: Number.isFinite(baseAmount) ? baseAmount : null,
+                    currency,
+                    quantity: s.quantity,
+                    priority: s.priority,
+                  });
+                  return (
+                    <li key={s.id} className="py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {s.name}
+                          </p>
+                          {s.subarea && (
+                            <p className="text-muted-foreground text-xs">
+                              {s.subarea}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <span className="text-sm font-medium whitespace-nowrap">
+                            {formatMoney(lineTotal, currency)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => remove(s.id)}
+                            disabled={pending}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Quitar"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {/* Cantidad */}
+                        <div className="glass-hairline flex items-center rounded-lg">
+                          <button
+                            type="button"
+                            aria-label="Menos"
+                            disabled={pending || s.quantity <= 1}
+                            onClick={() => setQuantity(s.id, s.quantity - 1)}
+                            className="hover:text-foreground text-muted-foreground flex size-7 items-center justify-center disabled:opacity-40"
+                          >
+                            <Minus className="size-3.5" />
+                          </button>
+                          <span className="w-8 text-center text-sm tabular-nums">
+                            {s.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Más"
+                            disabled={pending}
+                            onClick={() => setQuantity(s.id, s.quantity + 1)}
+                            className="hover:text-foreground text-muted-foreground flex size-7 items-center justify-center disabled:opacity-40"
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                        </div>
+                        {/* Prioridad */}
+                        <Select
+                          value={s.priority}
+                          onValueChange={(v) =>
+                            setPriority(s.id, v as ServicePriority)
+                          }
+                        >
+                          <SelectTrigger size="sm" className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SERVICE_PRIORITIES.map((p) => (
+                              <SelectItem key={p} value={p}>
+                                {p}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {s.quantity > 1 && (
+                          <span className="text-muted-foreground text-xs">
+                            {formatMoney(baseAmount, currency)} c/u
+                          </span>
                         )}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => remove(s.id)}
-                        disabled={pending}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label="Quitar"
-                      >
-                        <X className="size-4" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))

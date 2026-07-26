@@ -615,6 +615,12 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
               label="Neto referencial"
               value={formatMoney(data.totals.netClp, "CLP")}
             />
+            {data.totals.discountClp > 0 && (
+              <InvestmentRow
+                label={data.totals.discountLabel || "Descuento"}
+                value={`− ${formatMoney(data.totals.discountClp, "CLP")}`}
+              />
+            )}
             <InvestmentRow
               label="IVA 19%"
               value={formatMoney(data.totals.ivaClp, "CLP")}
