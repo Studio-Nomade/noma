@@ -18,7 +18,7 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...        # solo servidor
 DATABASE_URL=postgresql://postgres:[PASSWORD]@db.<ref>.supabase.co:5432/postgres
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3001
 NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN=studionomade.cl   # opcional
 ```
 
@@ -45,7 +45,7 @@ npm run rates:sync     # carga UF y dólar del día
 2. Authorized redirect URI: `https://<ref>.supabase.co/auth/v1/callback`.
 3. En Supabase **Authentication → Providers → Google**: pegar Client ID y Client Secret,
    habilitar.
-4. En **Authentication → URL Configuration**: agregar `http://localhost:3000` y
+4. En **Authentication → URL Configuration**: agregar `http://localhost:3001` y
    `https://app.studionomade.cl` a Site URL / Redirect URLs.
 5. (Opcional) restringir el dominio con `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` (validado en
    `/auth/callback`).
@@ -56,7 +56,7 @@ npm run rates:sync     # carga UF y dólar del día
 npm run dev
 ```
 
-Ir a `http://localhost:3000` → redirige a `/login` → "Continuar con Google" → Dashboard.
+Ir a `http://localhost:3001` → redirige a `/login` → "Continuar con Google" → Dashboard.
 
 ## 7. Sincronización diaria de tasas (producción)
 

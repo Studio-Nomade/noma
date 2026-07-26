@@ -5,15 +5,15 @@ Studio Nomade ya opera con un ecosistema de herramientas. En V1 Noma **documenta
 
 ## Estado por herramienta
 
-| Herramienta             | Uso en el estudio                                                                      | V1 (Noma)                           | Futuro                                          |
-| ----------------------- | -------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------- |
-| **Google Drive**        | Unidades compartidas por área → carpetas cliente → subcarpetas por proyecto (fechadas) | Link a carpeta por cliente/proyecto | Crear carpetas y leer documentos vía API        |
-| **Gemini / Meet Notes** | Notas de reuniones en Drive                                                            | Link a la minuta                    | Vincular minutas automáticamente                |
-| **Google Calendar**     | Agendamiento                                                                           | —                                   | Mostrar próximas reuniones por cliente/proyecto |
-| **Google Meet**         | Reuniones                                                                              | Guardar link de reunión             | —                                               |
-| **Slack**               | Canales por cliente/proyecto/área                                                      | Link a canal                        | Alertas y resúmenes                             |
-| **Asana**               | Control de proyectos (réplica por áreas)                                               | Link a proyecto Asana               | Extraer estado de avance (portal cliente)       |
-| **Canva**               | Presentaciones y piezas editables                                                      | Link a presentación                 | —                                               |
+| Herramienta             | Uso en el estudio                                                                      | V1 (Noma)                           | Futuro                                   |
+| ----------------------- | -------------------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------- |
+| **Google Drive**        | Unidades compartidas por área → carpetas cliente → subcarpetas por proyecto (fechadas) | Link a carpeta por cliente/proyecto | Crear carpetas y leer documentos vía API |
+| **Gemini / Meet Notes** | Notas de reuniones en Drive                                                            | Link a la minuta                    | Vincular minutas automáticamente         |
+| **Google Calendar**     | Agendamiento                                                                           | Agenda semanal + crear reuniones    | Sincronización incremental               |
+| **Google Meet**         | Reuniones                                                                              | Guardar link de reunión             | —                                        |
+| **Slack**               | Canales por cliente/proyecto/área                                                      | Link a canal                        | Alertas y resúmenes                      |
+| **Asana**               | Control de proyectos (réplica por áreas)                                               | Estado de tarea/proyecto vinculado  | Portal cliente                           |
+| **Canva**               | Presentaciones y piezas editables                                                      | Link a presentación                 | —                                        |
 
 ## `resource_links` (modelo)
 
@@ -22,6 +22,11 @@ notion, slack, canva, meet, calendar, other) · `label` · `url`.
 
 Esto permite que, al activar una integración, ya exista el lugar donde viven los enlaces y su
 tipo, sin migración de datos.
+
+Los enlaces de Asana admiten dos modelos operativos: una oportunidad puede vincularse a una
+**tarea principal** dentro de un proyecto general o a un **proyecto independiente**. El
+dashboard detecta el tipo por la URL, consulta el recurso correspondiente y muestra solo
+avance/cierre; no replica las tareas en Noma.
 
 ## IA (preparada)
 

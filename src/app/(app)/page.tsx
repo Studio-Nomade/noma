@@ -19,6 +19,12 @@ import {
   getUpcomingBirthdays,
 } from "@/features/internal-comms/queries";
 import { InternalCommsSection } from "@/features/internal-comms/internal-comms-section";
+import {
+  getAsanaOperationsSummary,
+  getDashboardCalendar,
+  getMeetingProjectOptions,
+} from "@/features/dashboard/integrations";
+import { DashboardIntegrations } from "@/features/dashboard/dashboard-integrations";
 
 export const metadata = { title: "Dashboard" };
 
@@ -33,6 +39,9 @@ export default async function DashboardPage() {
     proposals,
     announcements,
     birthdays,
+    calendar,
+    operations,
+    meetingProjects,
   ] = await Promise.all([
     getDashboardMetrics(),
     getNextActions(),
@@ -41,6 +50,9 @@ export default async function DashboardPage() {
     listProposals(),
     getAnnouncements(member?.id ?? null),
     getUpcomingBirthdays(),
+    getDashboardCalendar(user.id),
+    getAsanaOperationsSummary(),
+    getMeetingProjectOptions(),
   ]);
 
   const recentProposals = proposals.slice(0, 5);
@@ -71,6 +83,12 @@ export default async function DashboardPage() {
           subtext="propuestas enviadas"
         />
       </div>
+
+      <DashboardIntegrations
+        calendar={calendar}
+        operations={operations}
+        meetingProjects={meetingProjects}
+      />
 
       {/* Pipeline */}
       <InternalCommsSection
