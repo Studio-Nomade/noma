@@ -539,7 +539,7 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
         </SlideFrame>
       )}
       <SlideFrame accent={accent}>
-        <DisplayTitle text="INVERSIÓN">INVERSIÓN.</DisplayTitle>
+        <DisplayTitle text="TOTALES">TOTALES.</DisplayTitle>
         <div className="mt-auto grid grid-cols-[1.15fr_.85fr] gap-[7%]">
           <div>
             <p className="proposal-eyebrow mb-[3%] text-[.8cqw] tracking-[.16em] uppercase">
@@ -615,6 +615,12 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
               label="Neto referencial"
               value={formatMoney(data.totals.netClp, "CLP")}
             />
+            {data.totals.discountClp > 0 && (
+              <InvestmentRow
+                label={data.totals.discountLabel || "Descuento"}
+                value={`− ${formatMoney(data.totals.discountClp, "CLP")}`}
+              />
+            )}
             <InvestmentRow
               label="IVA 19%"
               value={formatMoney(data.totals.ivaClp, "CLP")}

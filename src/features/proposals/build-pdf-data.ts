@@ -35,8 +35,15 @@ export async function buildProposalPdfData(
     currency: (sv.customPriceCurrency ??
       sv.priceCurrency ??
       "UF") as LineItem["currency"],
+    quantity: sv.quantity,
+    priority: sv.priority,
   }));
-  const totals = computeTotals(items, ufClp);
+  const totals = computeTotals(items, ufClp, {
+    label: proposal.discountLabel,
+    kind: proposal.discountKind,
+    value:
+      proposal.discountValue != null ? Number(proposal.discountValue) : null,
+  });
   const normalizedServices = normalizeServices(services);
   const cadenceUf = (cadence: "one-time" | "monthly" | "quarterly") =>
     normalizedServices
@@ -81,6 +88,8 @@ export async function buildProposalPdfData(
       quarterlyUf: cadenceUf("quarterly"),
       directClp: totals.subtotalClpDirect,
       netClp: totals.netClp,
+      discountClp: totals.discountClp,
+      discountLabel: proposal.discountLabel ?? null,
       ivaClp: totals.iva,
       totalClp: totals.totalClp,
       ufClp,

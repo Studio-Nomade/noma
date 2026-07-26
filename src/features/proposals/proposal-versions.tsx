@@ -14,7 +14,18 @@ type Version = {
   id: string;
   version: number;
   status: string;
+  createdAt: Date | string | null;
+  authorName: string | null;
 };
+
+function when(date: Date | string | null): string {
+  if (!date) return "";
+  return new Date(date).toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export function ProposalVersions({
   currentId,
@@ -60,13 +71,21 @@ export function ProposalVersions({
               <Link
                 href={`/proposals/${v.id}`}
                 className={cn(
-                  "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
+                  "flex items-start justify-between gap-2 rounded-lg px-3 py-2 text-sm",
                   isCurrent ? "bg-accent font-medium" : "hover:bg-accent/50",
                 )}
               >
-                <span>
-                  v{v.version}
-                  {isCurrent && " · actual"}
+                <span className="min-w-0">
+                  <span className="block">
+                    v{v.version}
+                    {isCurrent && " · actual"}
+                  </span>
+                  {/* Autoría: quién creó cada versión y cuándo (resuelve el caso
+                      "la v01 la hizo Ana y no había cómo saberlo"). */}
+                  <span className="text-muted-foreground block truncate text-xs font-normal">
+                    {v.authorName ?? "—"}
+                    {when(v.createdAt) && ` · ${when(v.createdAt)}`}
+                  </span>
                 </span>
                 <StatusBadge value={v.status} size="xs" />
               </Link>

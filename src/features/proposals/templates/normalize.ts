@@ -1,7 +1,8 @@
-import type { Currency, Area } from "@/types/enums";
+import { PRIORITY_SURCHARGE, type Currency, type Area } from "@/types/enums";
 import type { ProposalServiceRow, ProposalTeamRow } from "../queries";
 import type { BillingCadence, ProposalTemplateService } from "./types";
 import { formatMoney } from "@/lib/currency/format";
+import { lineAmount } from "../totals";
 import { getTeamPhoto } from "./assets";
 
 export function lines(value: string | null | undefined): string[] {
@@ -22,10 +23,25 @@ export function normalizeServices(
   rows: ProposalServiceRow[],
 ): ProposalTemplateService[] {
   return rows.map((row) => {
-    const amount = Number(row.customPriceAmount ?? row.priceAmount) || 0;
+    const base = Number(row.customPriceAmount ?? row.priceAmount) || 0;
     const currency = (row.customPriceCurrency ??
       row.priceCurrency ??
       "UF") as Currency;
+    const quantity = row.quantity ?? 1;
+    const surcharge = PRIORITY_SURCHARGE[row.priority] ?? 0;
+    // Monto efectivo de la línea: base × cantidad × (1 + recargo de prioridad).
+    const amount = lineAmount({ amount: base, currency, quantity, priority: row.priority });
+    const cadence = normalizeCadence(row.unit);
+    const cadenceSuffix =
+      cadence === "monthly"
+        ? " / mes"
+        : cadence === "quarterly"
+          ? " / trimestre"
+          : "";
+    // El recargo por prioridad se muestra explícito en el deck (decisión de negocio).
+    const priorityNote =
+      surcharge > 0 ? ` · ${row.priority} +${Math.round(surcharge * 100)}%` : "";
+    const qtyNote = quantity > 1 ? ` · ×${quantity}` : "";
     return {
       id: row.id,
       area: row.area as Area,
@@ -36,8 +52,11 @@ export function normalizeServices(
       exclusions: lines(row.requirements),
       amount,
       currency,
-      cadence: normalizeCadence(row.unit),
-      valueLabel: `${formatMoney(amount, currency)}${normalizeCadence(row.unit) === "monthly" ? " / mes" : normalizeCadence(row.unit) === "quarterly" ? " / trimestre" : ""} + IVA`,
+      cadence,
+      quantity,
+      priority: row.priority,
+      surcharge,
+      valueLabel: `${formatMoney(amount, currency)}${cadenceSuffix} + IVA${qtyNote}${priorityNote}`,
     };
   });
 }

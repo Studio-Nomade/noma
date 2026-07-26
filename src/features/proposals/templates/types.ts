@@ -12,10 +12,13 @@ export type ProposalTemplateService = {
   description: string | null;
   deliverables: string[];
   exclusions: string[];
-  amount: number;
+  amount: number; // monto efectivo de la línea (base × cantidad × recargo)
   currency: Currency;
   cadence: BillingCadence;
   valueLabel: string;
+  quantity: number;
+  priority: string; // etiqueta de prioridad (ej. "Contra Reloj")
+  surcharge: number; // recargo por prioridad (0, 0.15, 0.3, 0.5)
 };
 
 export type ProposalTemplateData = {
@@ -48,6 +51,8 @@ export type ProposalTemplateData = {
     quarterlyUf: number;
     directClp: number;
     netClp: number;
+    discountClp: number;
+    discountLabel: string | null;
     ivaClp: number;
     totalClp: number;
     ufClp: number;
