@@ -22,6 +22,18 @@ Los callbacks OAuth viven bajo `/api/integrations/<provider>/callback`, validan 
 una cookie httpOnly/SameSite=Lax y nunca entregan tokens al cliente. La desconexión intenta
 revocar el acceso externo y siempre elimina el registro local.
 
+### Asana personal
+
+La conexión personal solicita identidad y lectura de usuarios, proyectos y tareas. El callback
+guarda la identidad de la cuenta y el workspace principal dentro de la metadata cifrada de
+`user_connections`. El dashboard usa exclusivamente el token del usuario autenticado para
+mostrar sus tareas abiertas; nunca reutiliza `ASANA_ACCESS_TOKEN`, que permanece reservado para
+las automatizaciones operacionales del estudio.
+
+Los access tokens se renuevan server-side antes de expirar. Si Asana no informa una nueva
+duración, Noma aplica una vigencia conservadora de una hora. Una falla de red, configuración o
+autorización degrada la tarjeta a un estado reconectable y no bloquea la carga del dashboard.
+
 ## Estado por herramienta
 
 | Herramienta             | Uso en el estudio                                                                      | V1 (Noma)                           | Futuro                                   |
