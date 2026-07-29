@@ -30,6 +30,9 @@ import { ProposalNotes } from "@/features/proposals/proposal-notes";
 import { SendProposalDialog } from "@/features/proposals/send-dialog";
 import { Button } from "@/components/ui/button";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
+import { roleFor } from "@/lib/roles";
+import { getSalesOrderByProposal } from "@/features/finance/sales-orders/queries";
+import { createSalesOrderAndOpen } from "@/features/finance/sales-orders/actions";
 
 export default async function ProposalDetailPage({
   params,
@@ -54,6 +57,7 @@ export default async function ProposalDetailPage({
     notes,
     contacts,
     templates,
+    salesOrder,
   ] = await Promise.all([
     requireUser(),
     getProposalServices(id),
@@ -67,6 +71,7 @@ export default async function ProposalDetailPage({
       ? getClientContacts(proposal.clientId)
       : Promise.resolve([]),
     listTemplatesForArea(projectArea),
+    getSalesOrderByProposal(id),
   ]);
 
   const ufClp = Number(rates.ufClp) || 0;
@@ -97,6 +102,7 @@ export default async function ProposalDetailPage({
   const teamEmails: string[] = [];
 
   const locked = proposal.status === "Aprobada";
+  const canFinance = roleFor(user.email).canFinance;
   const accent = AREA_THEME[projectArea].accent;
 
   return (
@@ -175,6 +181,22 @@ export default async function ProposalDetailPage({
             <FileCheck className="size-4" />
             Generar / ver SLA
           </Link>
+          {canFinance &&
+            (salesOrder ? (
+              <Link
+                href={`/finanzas/notas-de-venta/${salesOrder.id}`}
+                className="border-border inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium"
+              >
+                Ver nota de venta
+              </Link>
+            ) : (
+              <form action={createSalesOrderAndOpen.bind(null, id)}>
+                <Button type="submit" variant="outline">
+                  <FileCheck className="size-4" />
+                  Generar nota de venta
+                </Button>
+              </form>
+            ))}
         </div>
       )}
 

@@ -34,6 +34,7 @@ import { HandoffDialog } from "@/features/projects/handoff-dialog";
 import { ProjectTimeline } from "@/features/projects/project-timeline";
 import { ScheduleMeetingDialog } from "@/features/briefs/schedule-meeting-dialog";
 import { NewProposalButton } from "@/features/proposals/new-proposal-button";
+import { getSalesOrdersForProject } from "@/features/finance/sales-orders/queries";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -57,7 +58,17 @@ export default async function ProjectDetailPage({
   const { project, clientName } = row;
   const isFinance = roleFor(user.email).isFinance;
 
-  const [links, clients, team, contacts, meetings, cfo, timeline, finance] =
+  const [
+    links,
+    clients,
+    team,
+    contacts,
+    meetings,
+    cfo,
+    timeline,
+    finance,
+    salesOrders,
+  ] =
     await Promise.all([
       getProjectLinks(id),
       listClients(),
@@ -67,6 +78,7 @@ export default async function ProjectDetailPage({
       getCfoRequest(id),
       getProjectTimeline(id, { includeFinance: isFinance }),
       isFinance ? getProjectFinance(id) : Promise.resolve(null),
+      isFinance ? getSalesOrdersForProject(id) : Promise.resolve([]),
     ]);
   const asanaLink = links.find((l) => l.type === "asana") ?? null;
   const isHandedOff = project.commercialStage === "Traspasado a operación";
@@ -196,6 +208,19 @@ export default async function ProjectDetailPage({
               </dl>
 
               <div className="mt-5 grid gap-2">
+                {salesOrders.map((order) => (
+                  <Link
+                    key={order.id}
+                    href={`/finanzas/notas-de-venta/${order.id}`}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "w-full",
+                    )}
+                  >
+                    <FileText className="size-4" />
+                    {order.folio}
+                  </Link>
+                ))}
                 <Link
                   href={`/finanzas/cobranza?clientId=${project.clientId}&projectId=${project.id}&moment=INICIO`}
                   className={cn(buttonVariants(), "w-full")}
