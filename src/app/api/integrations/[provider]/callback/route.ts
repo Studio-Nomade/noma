@@ -6,6 +6,7 @@ import {
   type ConnectionProvider,
 } from "@/features/integrations/providers";
 import { saveUserConnection } from "@/features/integrations/tokens";
+import { safeInternalRedirect } from "@/features/integrations/oauth-redirect";
 import { logActivity } from "@/lib/activity";
 import { getAsanaAccountMetadata } from "@/features/asana/oauth";
 
@@ -140,7 +141,7 @@ export async function GET(
   const state = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
   const providerError = request.nextUrl.searchParams.get("error");
-  const redirectTo = oauthCookie?.redirectTo ?? "/integrations";
+  const redirectTo = safeInternalRedirect(oauthCookie?.redirectTo);
 
   if (providerError) {
     return errorRedirect(request, redirectTo, `${provider.id}_denied`);
