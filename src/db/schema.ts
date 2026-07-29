@@ -856,6 +856,19 @@ export const emailTemplates = pgTable("email_templates", {
   ...timestamps,
 });
 
+export const emailSignatures = pgTable("email_signatures", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  area: areaEnum("area"),
+  role: text("role").notNull(),
+  senderName: text("sender_name").notNull(),
+  senderEmail: text("sender_email").notNull(),
+  signatureHtml: text("signature_html").notNull(),
+  signatureText: text("signature_text").notNull(),
+  status: text("status").default("Activo").notNull(),
+  ...timestamps,
+});
+
 // ── user_integrations (token de Google para enviar como el usuario) ──
 export const userIntegrations = pgTable("user_integrations", {
   userId: uuid("user_id").primaryKey(), // auth.users.id

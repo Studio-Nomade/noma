@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { slas } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireLegal } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { formatMoney } from "@/lib/currency/format";
 import { getLatestRates } from "@/lib/currency/rates";
@@ -22,7 +22,7 @@ export async function generateSla(
   params?: SlaParams,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const user = await requireUser();
+    const user = await requireLegal();
     const row = await getProposal(proposalId);
     if (!row) return { ok: false, error: "Propuesta no encontrada." };
     const { proposal, clientName, projectName, projectArea, projectAreas } =
@@ -96,7 +96,7 @@ export async function updateSlaSection(
   body: string,
 ): Promise<ActionResult> {
   try {
-    await requireUser();
+    await requireLegal();
     const [row] = await db
       .select()
       .from(slas)
@@ -122,7 +122,7 @@ export async function setSlaStatus(
   status: SlaStatus,
 ): Promise<ActionResult> {
   try {
-    await requireUser();
+    await requireLegal();
     await db
       .update(slas)
       .set({ status, updatedAt: new Date() })
@@ -141,7 +141,7 @@ export async function signSla(
   name: string,
 ): Promise<ActionResult> {
   try {
-    await requireUser();
+    await requireLegal();
     if (!name.trim())
       return { ok: false, error: "Indica el nombre del firmante." };
     await db

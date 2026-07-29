@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { listServices } from "@/features/services/queries";
 import { ServiceDialog } from "@/features/services/service-dialog";
 import { ServicesList } from "@/features/services/services-list";
+import { requireUser } from "@/lib/auth";
+import { roleFor } from "@/lib/roles";
 
 export const metadata = { title: "Servicios" };
 
 export default async function ServicesPage() {
-  const services = await listServices();
+  const [services, user] = await Promise.all([listServices(), requireUser()]);
+  const canEdit = roleFor(user.email).canEditCatalog;
 
-  const newButton = (
+  const newButton = canEdit ? (
     <ServiceDialog
       trigger={
         <Button>
@@ -20,7 +23,7 @@ export default async function ServicesPage() {
         </Button>
       }
     />
-  );
+  ) : null;
 
   return (
     <>
@@ -38,7 +41,7 @@ export default async function ServicesPage() {
           action={newButton}
         />
       ) : (
-        <ServicesList services={services} />
+        <ServicesList services={services} canEdit={canEdit} />
       )}
     </>
   );

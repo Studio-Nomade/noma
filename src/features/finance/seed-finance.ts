@@ -8,6 +8,7 @@ import {
   bankAccounts,
   importTemplates,
   cobranzaTemplates,
+  emailSignatures,
 } from "@/db/schema";
 import type { Area, LedgerAccountType, CobranzaMoment } from "@/types/enums";
 import { importPrivatePlanOfAccounts } from "./plan-accounts/import-private";
@@ -209,6 +210,46 @@ export async function seedFinance() {
     }
   }
   console.log(`✓ ${TEMPLATES.length} plantillas de importación`);
+
+  const signatures = [
+    {
+      key: "commercial:default",
+      role: "comercialFinanciero",
+      senderName: "Studio Nomade · Comercial",
+      senderEmail: "sales@studionomade.cl",
+      signatureText: "Equipo Comercial\nStudio Nomade",
+      signatureHtml:
+        "<p>Equipo Comercial<br><strong>Studio Nomade</strong></p>",
+    },
+    {
+      key: "legal:default",
+      role: "legalCompliance",
+      senderName: "Studio Nomade · Legal",
+      senderEmail: "legal@studionomade.cl",
+      signatureText: "Legal y Compliance\nStudio Nomade",
+      signatureHtml:
+        "<p>Legal y Compliance<br><strong>Studio Nomade</strong></p>",
+    },
+    {
+      key: "people:default",
+      role: "personas",
+      senderName: "Studio Nomade · Personas",
+      senderEmail: "people@studionomade.cl",
+      signatureText: "Equipo de Personas\nStudio Nomade",
+      signatureHtml:
+        "<p>Equipo de Personas<br><strong>Studio Nomade</strong></p>",
+    },
+  ];
+  for (const signature of signatures) {
+    await db
+      .insert(emailSignatures)
+      .values(signature)
+      .onConflictDoUpdate({
+        target: emailSignatures.key,
+        set: { ...signature, updatedAt: new Date() },
+      });
+  }
+  console.log(`✓ ${signatures.length} firmas de correo por rol`);
 
   // ── Plantillas de cobranza (correos al cliente) ────────────
   for (const t of COBRANZA_TEMPLATES) {

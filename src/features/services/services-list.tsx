@@ -10,7 +10,54 @@ import { AREAS, AREA_LABELS, type Area } from "@/types/enums";
 import type { Service } from "@/db/schema";
 import { ServiceDialog } from "./service-dialog";
 
-function ServiceCard({ service }: { service: Service }) {
+function CardContent({ service }: { service: Service }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex w-full items-start justify-between gap-2">
+        <span className="font-medium">{service.name}</span>
+        <StatusBadge value={service.status} size="xs" />
+      </div>
+      {service.description && (
+        <span className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+          {service.description}
+        </span>
+      )}
+      <span className="mt-3 text-sm font-medium">
+        {formatMoneyRange(
+          service.priceMinAmount,
+          service.priceMaxAmount,
+          service.priceCurrency ?? "UF",
+        )}
+        {service.unit && (
+          <span className="text-muted-foreground font-normal">
+            {" · "}
+            {service.unit}
+          </span>
+        )}
+      </span>
+      {service.estimatedTime && (
+        <span className="text-muted-foreground text-xs">
+          {service.estimatedTime}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ServiceCard({
+  service,
+  canEdit,
+}: {
+  service: Service;
+  canEdit: boolean;
+}) {
+  if (!canEdit) {
+    return (
+      <article className="glass flex flex-col rounded-xl p-4">
+        <CardContent service={service} />
+      </article>
+    );
+  }
   return (
     <ServiceDialog
       service={service}
@@ -19,40 +66,20 @@ function ServiceCard({ service }: { service: Service }) {
           type="button"
           className="glass hover-lift flex flex-col rounded-xl p-4 text-left"
         >
-          <div className="flex w-full items-start justify-between gap-2">
-            <span className="font-medium">{service.name}</span>
-            <StatusBadge value={service.status} size="xs" />
-          </div>
-          {service.description && (
-            <span className="text-muted-foreground mt-1 line-clamp-2 text-sm">
-              {service.description}
-            </span>
-          )}
-          <span className="mt-3 text-sm font-medium">
-            {formatMoneyRange(
-              service.priceMinAmount,
-              service.priceMaxAmount,
-              service.priceCurrency ?? "UF",
-            )}
-            {service.unit && (
-              <span className="text-muted-foreground font-normal">
-                {" · "}
-                {service.unit}
-              </span>
-            )}
-          </span>
-          {service.estimatedTime && (
-            <span className="text-muted-foreground text-xs">
-              {service.estimatedTime}
-            </span>
-          )}
+          <CardContent service={service} />
         </button>
       }
     />
   );
 }
 
-export function ServicesList({ services }: { services: Service[] }) {
+export function ServicesList({
+  services,
+  canEdit,
+}: {
+  services: Service[];
+  canEdit: boolean;
+}) {
   const [area, setArea] = useState<Area | "all">("all");
 
   const presentAreas = AREAS.filter((a) => services.some((s) => s.area === a));
@@ -102,7 +129,11 @@ export function ServicesList({ services }: { services: Service[] }) {
                       {items
                         .filter((s) => s.subarea === sub)
                         .map((s) => (
-                          <ServiceCard key={s.id} service={s} />
+                          <ServiceCard
+                            key={s.id}
+                            service={s}
+                            canEdit={canEdit}
+                          />
                         ))}
                     </div>
                   </div>
@@ -110,7 +141,11 @@ export function ServicesList({ services }: { services: Service[] }) {
                 {noSub.length > 0 && (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {noSub.map((s) => (
-                      <ServiceCard key={s.id} service={s} />
+                      <ServiceCard
+                        key={s.id}
+                        service={s}
+                        canEdit={canEdit}
+                      />
                     ))}
                   </div>
                 )}
