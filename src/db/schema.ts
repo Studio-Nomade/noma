@@ -257,6 +257,28 @@ export const teamMembers = pgTable("team_members", {
   ...timestamps,
 });
 
+// ── employees (maestro laboral; no reemplaza una nómina) ─────
+export const employees = pgTable(
+  "employees",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    rut: text("rut").notNull().unique(),
+    roleTitle: text("role_title").notNull(),
+    area: areaEnum("area"),
+    status: text("status").default("ACTIVO").notNull(),
+    baseSalaryAmount: numeric("base_salary_amount", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+    baseSalaryCurrency: currencyEnum("base_salary_currency")
+      .default("CLP")
+      .notNull(),
+    ...timestamps,
+  },
+  (t) => [index("employees_status_idx").on(t.status, t.name)],
+);
+
 // ── comunicación interna ────────────────────────────────────
 export const announcements = pgTable(
   "announcements",

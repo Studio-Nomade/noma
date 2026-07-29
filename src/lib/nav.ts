@@ -23,6 +23,7 @@ import {
   Contact,
   Shapes,
   Users,
+  UserRoundPlus,
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +32,7 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  requiresPeople?: boolean;
 }
 
 export interface NavGroup {
@@ -95,6 +97,18 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/surveys", label: "Encuestas", icon: ClipboardList },
       { href: "/training", label: "Capacitaciones", icon: BookOpenCheck },
       { href: "/onboarding", label: "Onboarding", icon: GraduationCap },
+      {
+        href: "/personas/honorarios",
+        label: "Honorarios",
+        icon: ReceiptText,
+        requiresPeople: true,
+      },
+      {
+        href: "/personas/empleados",
+        label: "Empleados",
+        icon: UserRoundPlus,
+        requiresPeople: true,
+      },
     ],
   },
   {

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, and, inArray, sql, asc, count } from "drizzle-orm";
+import { eq, and, inArray, sql, asc, count, ilike } from "drizzle-orm";
 import { db } from "@/db";
 import {
   importBatches,
@@ -13,6 +13,7 @@ import {
   finContacts,
   classificationRules,
   clients,
+  ledgerAccounts,
 } from "@/db/schema";
 import { requireFinance } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
@@ -318,6 +319,17 @@ export async function confirmImport(formData: FormData): Promise<void> {
         .from(classificationRules)
         .where(eq(classificationRules.isActive, true))
         .orderBy(asc(classificationRules.priority));
+      const [honorariaAccount] = await tx
+        .select({ id: ledgerAccounts.id })
+        .from(ledgerAccounts)
+        .where(
+          and(
+            eq(ledgerAccounts.type, "GASTO"),
+            ilike(ledgerAccounts.name, "%honorario%"),
+          ),
+        )
+        .orderBy(asc(ledgerAccounts.code))
+        .limit(1);
       const today = new Date();
       const clientRows = await tx
         .select({ id: clients.id, rut: clients.rut })
@@ -394,7 +406,11 @@ export async function confirmImport(formData: FormData): Promise<void> {
           status,
           recordStatus: "ACTIVO" as const,
           periodoSii: periodoSii(document.fechaEmision),
-          ledgerAccountId: cls.ledgerAccountId,
+          ledgerAccountId:
+            cls.ledgerAccountId ??
+            (document.type === "BOLETA_HONORARIOS"
+              ? (honorariaAccount?.id ?? null)
+              : null),
           costCenterId: cls.costCenterId,
           businessLineId: cls.businessLineId,
           importBatchId: batch.id,
