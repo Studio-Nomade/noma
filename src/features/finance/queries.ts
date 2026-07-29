@@ -21,6 +21,7 @@ import {
   costCenters,
   businessLines,
   classificationRules,
+  reconciliationRules,
 } from "@/db/schema";
 import type {
   DocumentDirection,
@@ -122,7 +123,8 @@ export async function getOpenDocumentsFor(
         inArray(finDocuments.status, OPEN_DOC),
       ),
     )
-    .orderBy(desc(finDocuments.fechaEmision));
+    .orderBy(desc(finDocuments.fechaEmision))
+    .limit(200);
   return rows.map((d) => ({
     ...d,
     saldo: toNum(d.total) - toNum(d.montoConciliado),
@@ -138,6 +140,7 @@ export interface Suggestion {
   docId: string;
   docFolio: string;
   docContacto: string;
+  docRut: string | null;
   docSaldo: number;
   score: number;
 }
@@ -203,6 +206,7 @@ export async function getSuggestions(
         docId: best.id,
         docFolio: best.folio,
         docContacto: best.contactName ?? "—",
+        docRut: best.contactRut,
         docSaldo: best.saldo,
         score: bestScore,
       });
@@ -339,6 +343,13 @@ export async function getClassificationRules() {
     )
     .leftJoin(costCenters, eq(classificationRules.costCenterId, costCenters.id))
     .orderBy(asc(classificationRules.priority));
+}
+
+export async function getReconciliationRules() {
+  return db
+    .select()
+    .from(reconciliationRules)
+    .orderBy(reconciliationRules.createdAt);
 }
 
 /** Opciones para clasificar: cuentas contables, centros de costo, líneas. */
