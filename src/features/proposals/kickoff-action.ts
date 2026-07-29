@@ -10,6 +10,10 @@ import { handleActionError, type ActionResult } from "@/lib/actions";
 import { BRAND } from "@/lib/brand/brand";
 import { formatMoney } from "@/lib/currency/format";
 import { sendGmail } from "@/features/email/gmail";
+import {
+  appendTextSignature,
+  resolveEmailSender,
+} from "@/features/email/signatures";
 import { getProposal } from "./queries";
 import { buildProposalPdfData } from "./build-pdf-data";
 import { renderProposalPdf } from "./proposal-pdf";
@@ -42,10 +46,7 @@ Banco: ${b.banco}
 ${b.tipoCuenta} N°: ${b.numeroCuenta}
 Email: ${b.email}
 
-Una vez confirmado el pago coordinamos el kick off. ¡Gracias por la confianza!
-
-Saludos,
-Studio Nomade`;
+Una vez confirmado el pago coordinamos el kick off. ¡Gracias por la confianza!`;
 }
 
 export async function sendKickoff(
@@ -65,6 +66,8 @@ export async function sendKickoff(
     const bundle = await buildProposalPdfData(proposalId);
     if (!bundle) return { ok: false, error: "Propuesta no encontrada." };
     const sla = await getSlaByProposal(proposalId);
+    const sender = await resolveEmailSender("commercial");
+    if (!sender.ok) return { ok: false, error: sender.reason };
 
     const attachments: { filename: string; content: Buffer; mime?: string }[] = [];
     // Propuesta
@@ -86,12 +89,13 @@ export async function sendKickoff(
     }
 
     await sendGmail({
-      userId: user.id,
-      from: user.email,
+      userId: sender.userId,
+      from: sender.from,
+      fromName: sender.fromName,
       to: input.to,
       cc: input.cc,
       subject: `Inicio de proyecto · ${bundle.projectName}`,
-      body: input.body,
+      body: appendTextSignature(input.body, sender.signatureText),
       attachments,
     });
 

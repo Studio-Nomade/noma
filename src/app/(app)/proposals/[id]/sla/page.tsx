@@ -24,7 +24,8 @@ export default async function SlaPage({
   const [user, row] = await Promise.all([requireUser(), getProposal(id)]);
   if (!row) notFound();
   const { proposal, clientName, projectName } = row;
-  const isFinance = roleFor(user.email).isFinance;
+  const access = roleFor(user.email);
+  const isFinance = access.canFinance;
   const approved = proposal.status === "Aprobada";
 
   const [sla, invoice, contacts, kickoffBody] = await Promise.all([
@@ -63,7 +64,29 @@ export default async function SlaPage({
       ) : (
         <div className="space-y-6">
           <div className="glass rounded-xl p-6">
-            <SlaEditor proposalId={id} sla={sla} />
+            {access.canLegal ? (
+              <SlaEditor proposalId={id} sla={sla} />
+            ) : sla ? (
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  SLA {sla.status} · edición reservada para Legal y Compliance.
+                </p>
+                {(sla.sections ?? []).map((section) => (
+                  <section key={section.label}>
+                    <h2 className="font-heading text-sm font-medium">
+                      {section.label}
+                    </h2>
+                    <p className="text-muted-foreground mt-1 whitespace-pre-wrap text-sm">
+                      {section.body}
+                    </p>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Legal y Compliance debe generar el SLA.
+              </p>
+            )}
           </div>
 
           {/* Finanzas: facturación + inicio oficial */}

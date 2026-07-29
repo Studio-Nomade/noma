@@ -1,23 +1,34 @@
 import Link from "next/link";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Inbox } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { db } from "@/db";
-import { ledgerAccounts, businessLines, costCenters } from "@/db/schema";
+import {
+  ledgerAccounts,
+  businessLines,
+  costCenters,
+  services,
+} from "@/db/schema";
 import { getUnclassifiedDocuments } from "@/features/finance/queries";
-
-const TYPE_LABELS: Record<string, string> = {
-  INGRESO: "Ingreso",
-  COSTO: "Costo",
-  GASTO: "Gasto",
-  ACTIVO: "Activo",
-  PASIVO: "Pasivo",
-  PATRIMONIO: "Patrimonio",
-};
+import { AccountsTree } from "@/features/finance/plan-accounts/accounts-tree";
 
 export default async function PlanCuentasPage() {
   const [accounts, lineas, centros, sinClasificar] = await Promise.all([
-    db.select().from(ledgerAccounts).orderBy(asc(ledgerAccounts.code)),
+    db
+      .select({
+        id: ledgerAccounts.id,
+        code: ledgerAccounts.code,
+        name: ledgerAccounts.name,
+        type: ledgerAccounts.type,
+        kind: ledgerAccounts.kind,
+        description: ledgerAccounts.description,
+        parentId: ledgerAccounts.parentId,
+        serviceId: ledgerAccounts.serviceId,
+        serviceName: services.name,
+      })
+      .from(ledgerAccounts)
+      .leftJoin(services, eq(ledgerAccounts.serviceId, services.id))
+      .orderBy(asc(ledgerAccounts.code)),
     db.select().from(businessLines).orderBy(asc(businessLines.code)),
     db.select().from(costCenters).orderBy(asc(costCenters.code)),
     getUnclassifiedDocuments(),
@@ -48,30 +59,7 @@ export default async function PlanCuentasPage() {
           <h2 className="font-heading mb-3 text-base font-medium">
             Plan de cuentas
           </h2>
-          <div className="space-y-0.5">
-            {accounts.map((a) => {
-              const depth = (a.code.match(/\./g) ?? []).length;
-              return (
-                <div
-                  key={a.id}
-                  className="flex items-center justify-between py-1 text-sm"
-                  style={{ paddingLeft: `${depth * 16}px` }}
-                >
-                  <span
-                    className={depth === 0 ? "font-medium" : "text-foreground"}
-                  >
-                    <span className="text-muted-foreground mr-2 tabular-nums">
-                      {a.code}
-                    </span>
-                    {a.name}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {TYPE_LABELS[a.type] ?? a.type}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <AccountsTree accounts={accounts} />
         </div>
 
         <div className="space-y-6">

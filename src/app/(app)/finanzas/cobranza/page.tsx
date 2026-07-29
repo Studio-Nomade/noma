@@ -11,6 +11,7 @@ import {
   getCobranzaTemplates,
   getCobranzaMessages,
   getSugeridos,
+  getPendingPaymentReports,
 } from "@/features/finance/cobranza/queries";
 import { cobranzaFromEmail } from "@/features/finance/cobranza/sender";
 import { CobranzaComposer } from "@/features/finance/cobranza/cobranza-composer";
@@ -35,13 +36,15 @@ export default async function CobranzaPage({
   const pageSize = [20, 50, 100, 200].includes(Number(sp.pageSize))
     ? Number(sp.pageSize)
     : 20;
-  const [clients, templates, sugeridos, messagePage, cfg] = await Promise.all([
-    getComposerContext(),
-    getCobranzaTemplates(),
-    getSugeridos(),
-    getCobranzaMessages({ page, pageSize }),
-    db.select().from(studioConfig).limit(1),
-  ]);
+  const [clients, templates, sugeridos, messagePage, cfg, paymentReports] =
+    await Promise.all([
+      getComposerContext(),
+      getCobranzaTemplates(),
+      getSugeridos(),
+      getCobranzaMessages({ page, pageSize }),
+      db.select().from(studioConfig).limit(1),
+      getPendingPaymentReports(),
+    ]);
   const mensajes = messagePage.rows;
 
   const studioName = cfg[0]?.studioName ?? "Studio Nomade";
@@ -70,6 +73,38 @@ export default async function CobranzaPage({
           </Link>
         }
       />
+
+      {paymentReports.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-heading mb-3 text-base font-medium">
+            Pagos informados por clientes
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {paymentReports.map((report) => (
+              <article key={report.id} className="glass rounded-xl p-4">
+                <div className="flex justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{report.clientName}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {report.invoiceFolio
+                        ? `Factura ${report.invoiceFolio}`
+                        : `Nota de Venta ${report.salesOrderFolio ?? "—"}`}
+                    </p>
+                  </div>
+                  <StatusBadge value="Pendiente de validar" size="xs" />
+                </div>
+                <p className="mt-3 text-lg font-semibold">
+                  {formatMoney(report.amount, "CLP")}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Pago: {formatDate(report.paidAt)}
+                  {report.reference ? ` · ${report.reference}` : ""}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Sugeridos: proyectos en momento de cobrar */}
       {sugeridos.length > 0 && (

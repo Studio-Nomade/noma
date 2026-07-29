@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, isNull, ne, count } from "drizzle-orm";
+import { eq, and, isNull, ne, count, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   bankAccounts,
@@ -9,6 +9,7 @@ import {
   classificationRules,
   finDocuments,
   finContacts,
+  reconciliationRules,
 } from "@/db/schema";
 import { requireFinance } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
@@ -18,6 +19,8 @@ import type {
 } from "@/types/enums";
 import { loadActiveRules, classify } from "./import/classify";
 import { toNum } from "./helpers";
+import { getSuggestions } from "./queries";
+import { reconcileMany } from "./reconcile-actions";
 
 function revalidate() {
   revalidatePath("/finanzas/configuracion");
@@ -166,6 +169,7 @@ export async function applyRulesToUnclassified(): Promise<void> {
       ),
     );
 
+  let applied = 0;
   for (const d of docs) {
     const cls = classify(rules, {
       rut: d.rut ?? "",
@@ -181,7 +185,17 @@ export async function applyRulesToUnclassified(): Promise<void> {
           businessLineId: cls.businessLineId,
         })
         .where(eq(finDocuments.id, d.id));
+      applied += 1;
     }
+  }
+  if (applied > 0) {
+    await db
+      .update(classificationRules)
+      .set({
+        executionCount: sql`${classificationRules.executionCount} + ${applied}`,
+        lastRunAt: new Date(),
+      })
+      .where(eq(classificationRules.isActive, true));
   }
 
   await logActivity({
@@ -191,5 +205,93 @@ export async function applyRulesToUnclassified(): Promise<void> {
   });
   revalidatePath("/finanzas/plan-cuentas/sin-clasificar");
   revalidatePath("/finanzas/reportes");
+  revalidate();
+}
+
+// ── Reglas de conciliación ──────────────────────────────────
+
+export async function toggleReconciliationRule(
+  formData: FormData,
+): Promise<void> {
+  await requireFinance();
+  const id = String(formData.get("id") ?? "");
+  const isActive = formData.get("isActive") === "true";
+  await db
+    .update(reconciliationRules)
+    .set({ isActive: !isActive, updatedAt: new Date() })
+    .where(eq(reconciliationRules.id, id));
+  revalidate();
+}
+
+function normalized(value: string | null | undefined) {
+  return (value ?? "")
+    .toLocaleLowerCase("es-CL")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+function ruleMatches(
+  type: string,
+  suggestion: Awaited<ReturnType<typeof getSuggestions>>[number],
+) {
+  const glosa = normalized(suggestion.glosa);
+  if (type === "MONTO") return true; // getSuggestions ya exige monto exacto.
+  if (type === "FOLIO") return glosa.includes(normalized(suggestion.docFolio));
+  if (type === "RUT") {
+    const rut = (suggestion.docRut ?? "").replace(/\D/g, "");
+    return rut.length >= 6 && glosa.replace(/\D/g, "").includes(rut.slice(0, -1));
+  }
+  if (type === "DESCRIPCION") {
+    const significant = normalized(suggestion.docContacto)
+      .split(/\s+/)
+      .filter((part) => part.length >= 4);
+    return significant.some((part) => glosa.includes(part));
+  }
+  return false;
+}
+
+export async function runAutomaticReconciliation(
+  formData: FormData,
+): Promise<void> {
+  const user = await requireFinance();
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!accountId) throw new Error("Selecciona una cuenta bancaria.");
+  const [rules, suggestions] = await Promise.all([
+    db
+      .select()
+      .from(reconciliationRules)
+      .where(eq(reconciliationRules.isActive, true))
+      .orderBy(reconciliationRules.createdAt),
+    getSuggestions(accountId, 200),
+  ]);
+  const counters = new Map<string, number>();
+  for (const suggestion of suggestions) {
+    const matched = rules.find((rule) =>
+      ruleMatches(rule.matchType, suggestion),
+    );
+    if (!matched) continue;
+    await reconcileMany(
+      [suggestion.txnId],
+      [suggestion.docId],
+      user.id,
+      "automatic",
+    );
+    counters.set(matched.id, (counters.get(matched.id) ?? 0) + 1);
+  }
+  for (const [ruleId, executions] of counters) {
+    await db
+      .update(reconciliationRules)
+      .set({
+        executionCount: sql`${reconciliationRules.executionCount} + ${executions}`,
+        lastRunAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(reconciliationRules.id, ruleId));
+  }
+  await logActivity({
+    entityType: "reconciliation_rule",
+    action: `automatic_run:${suggestions.length}:${[...counters.values()].reduce((a, b) => a + b, 0)}`,
+    actorId: user.id,
+  });
   revalidate();
 }

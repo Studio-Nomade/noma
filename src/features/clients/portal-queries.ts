@@ -1,7 +1,12 @@
 import "server-only";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { clients, projects } from "@/db/schema";
+import {
+  clients,
+  paymentReports,
+  projects,
+  salesOrders,
+} from "@/db/schema";
 import { getClientAccount, type ClientAccount } from "./invoices-queries";
 import type { Area } from "@/types/enums";
 
@@ -23,9 +28,20 @@ export type PortalProject = {
 };
 
 export type PortalData = {
+  clientId: string;
   clientName: string;
   account: ClientAccount;
   projects: PortalProject[];
+  salesOrders: {
+    id: string;
+    folio: string;
+    status: string;
+    emissionDate: string;
+    totalAmount: string;
+    currency: "UF" | "CLP" | "USD";
+  }[];
+  reportedDocumentIds: string[];
+  reportedSalesOrderIds: string[];
 };
 
 export async function getPortalData(token: string): Promise<PortalData | null> {
@@ -39,7 +55,7 @@ export async function getPortalData(token: string): Promise<PortalData | null> {
     .limit(1);
   if (!client) return null;
 
-  const [account, rows] = await Promise.all([
+  const [account, rows, orders, reports] = await Promise.all([
     getClientAccount(client.id),
     db
       .select({
@@ -53,7 +69,38 @@ export async function getPortalData(token: string): Promise<PortalData | null> {
       .from(projects)
       .where(eq(projects.clientId, client.id))
       .orderBy(desc(projects.updatedAt)),
+    db
+      .select({
+        id: salesOrders.id,
+        folio: salesOrders.folio,
+        status: salesOrders.status,
+        emissionDate: salesOrders.emissionDate,
+        totalAmount: salesOrders.totalAmount,
+        currency: salesOrders.currency,
+      })
+      .from(salesOrders)
+      .where(eq(salesOrders.clientId, client.id))
+      .orderBy(desc(salesOrders.emissionDate)),
+    db
+      .select({
+        documentId: paymentReports.documentId,
+        salesOrderId: paymentReports.salesOrderId,
+      })
+      .from(paymentReports)
+      .where(eq(paymentReports.clientId, client.id)),
   ]);
 
-  return { clientName: client.companyName, account, projects: rows };
+  return {
+    clientId: client.id,
+    clientName: client.companyName,
+    account,
+    projects: rows,
+    salesOrders: orders,
+    reportedDocumentIds: reports.flatMap((row) =>
+      row.documentId ? [row.documentId] : [],
+    ),
+    reportedSalesOrderIds: reports.flatMap((row) =>
+      row.salesOrderId ? [row.salesOrderId] : [],
+    ),
+  };
 }

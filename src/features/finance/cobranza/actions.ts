@@ -10,6 +10,7 @@ import { handleActionError, type ActionResult } from "@/lib/actions";
 import { sendGmail } from "@/features/email/gmail";
 import type { CobranzaMoment } from "@/types/enums";
 import { resolveCobranzaSender } from "./sender";
+import { appendTextSignature } from "@/features/email/signatures";
 
 function parseEmails(raw: string): string[] {
   return raw
@@ -61,10 +62,11 @@ export async function sendCobranza(input: {
         await sendGmail({
           userId: sender.userId,
           from: sender.from,
+          fromName: sender.fromName,
           to,
           cc,
           subject: input.subject,
-          body: input.body,
+          body: appendTextSignature(input.body, sender.signatureText),
         });
         status = "ENVIADO";
         sentAt = new Date();
@@ -138,10 +140,11 @@ export async function resendCobranza(formData: FormData): Promise<void> {
     await sendGmail({
       userId: sender.userId,
       from: sender.from,
+      fromName: sender.fromName,
       to: parseEmails(msg.toEmail),
       cc: msg.ccEmails ?? [],
       subject: msg.subject,
-      body: msg.body,
+      body: appendTextSignature(msg.body, sender.signatureText),
     });
     await db
       .update(cobranzaMessages)

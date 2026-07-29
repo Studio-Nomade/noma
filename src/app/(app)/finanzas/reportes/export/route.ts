@@ -1,24 +1,50 @@
 import ExcelJS from "exceljs";
 import { requireFinance } from "@/lib/auth";
 import {
-  getResultadoOperacional,
   getFlujoCajaReal,
   getFlujoCajaProyectado,
   getPorContacto,
   getResultadoPorLinea,
 } from "@/features/finance/queries";
+import {
+  getMonthlyProfitAndLoss,
+  type ProfitLossGrouping,
+} from "@/features/finance/profit-loss";
 
 export const runtime = "nodejs";
 
 const MONEY = "#,##0";
 
-export async function GET() {
+export async function GET(request: Request) {
   // Gateado por rol; lanza si no es Finanzas.
   await requireFinance();
+  const params = new URL(request.url).searchParams;
+  const now = new Date();
+  const defaultTo = now.toISOString().slice(0, 7);
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1),
+  );
+  const defaultFrom = start.toISOString().slice(0, 7);
+  const from = /^\d{4}-\d{2}$/.test(params.get("desde") ?? "")
+    ? params.get("desde")!
+    : defaultFrom;
+  const to = /^\d{4}-\d{2}$/.test(params.get("hasta") ?? "")
+    ? params.get("hasta")!
+    : defaultTo;
+  const rawGrouping = params.get("agrupar");
+  const grouping: ProfitLossGrouping =
+    rawGrouping === "client" || rawGrouping === "line"
+      ? rawGrouping
+      : "account";
 
   const [resultado, flujoReal, proyectado, ventas, compras, porLinea] =
     await Promise.all([
-      getResultadoOperacional(),
+      getMonthlyProfitAndLoss({
+        from,
+        to,
+        grouping,
+        includeUnbilled: params.get("porFacturar") === "1",
+      }),
       getFlujoCajaReal(12),
       getFlujoCajaProyectado(),
       getPorContacto("VENTA", 100),
@@ -31,18 +57,50 @@ export async function GET() {
   wb.created = new Date();
 
   // Resultado operacional
-  const s1 = wb.addWorksheet("Resultado operacional");
+  const s1 = wb.addWorksheet("Estado de Resultados");
   s1.columns = [
-    { header: "Código", key: "code", width: 12 },
-    { header: "Cuenta", key: "name", width: 40 },
-    { header: "Tipo", key: "type", width: 14 },
-    { header: "Neto", key: "neto", width: 16, style: { numFmt: MONEY } },
+    { header: "Categoría", key: "section", width: 25 },
+    { header: "Detalle", key: "label", width: 42 },
+    ...resultado.months.map((month) => ({
+      header: month,
+      key: month,
+      width: 16,
+      style: { numFmt: MONEY },
+    })),
+    { header: "Total", key: "total", width: 16, style: { numFmt: MONEY } },
+    {
+      header: `Proforma ${resultado.currentMonth}`,
+      key: "proforma",
+      width: 20,
+      style: { numFmt: MONEY },
+    },
   ];
-  resultado.rows.forEach((r) => s1.addRow(r));
-  s1.addRow({});
-  s1.addRow({ name: "Ingresos", neto: resultado.ingresos });
-  s1.addRow({ name: "Egresos", neto: resultado.egresos });
-  s1.addRow({ name: "Resultado", neto: resultado.resultado });
+  resultado.rows.forEach((row) =>
+    s1.addRow({
+      section: row.section,
+      label: row.label,
+      ...row.months,
+      total: row.total,
+      proforma: row.proforma,
+    }),
+  );
+  (
+    [
+      ["Total ingresos", resultado.totals.income],
+      ["Total costos", resultado.totals.cost],
+      ["Margen bruto", resultado.totals.grossMargin],
+      ["Total gastos", resultado.totals.expense],
+      ["Otros egresos sin clasificar", resultado.totals.unclassified],
+      ["Resultado operacional", resultado.totals.operatingResult],
+    ] as const
+  ).forEach(([label, values]) =>
+    s1.addRow({
+      section: label,
+      ...values.months,
+      total: values.total,
+      proforma: values.proforma,
+    }),
+  );
 
   // Flujo real
   const s2 = wb.addWorksheet("Flujo real");

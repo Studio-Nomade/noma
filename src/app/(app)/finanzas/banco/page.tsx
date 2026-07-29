@@ -67,6 +67,14 @@ export default async function BancoPage({
         title="Banco"
         description="Movimientos bancarios y conciliación contra documentos"
       />
+      <div className="mb-5 flex justify-end">
+        <Link
+          href="/finanzas/banco/conciliar-lote"
+          className="border-border rounded-md border px-3 py-2 text-sm"
+        >
+          Conciliación múltiple
+        </Link>
+      </div>
 
       {/* Selector de cuenta */}
       {accounts.length > 1 && (

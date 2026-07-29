@@ -28,6 +28,7 @@ export const clientSchema = z.object({
   ]),
   financialStatus: z.enum(FINANCIAL_STATUSES),
   billingNotes: optionalText,
+  paymentTermDays: z.number().int().min(0).max(365),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;

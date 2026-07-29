@@ -21,6 +21,9 @@ import {
   costCenters,
   businessLines,
   classificationRules,
+  reconciliationRules,
+  salesOrderBillingItems,
+  salesOrders,
 } from "@/db/schema";
 import type {
   DocumentDirection,
@@ -122,7 +125,8 @@ export async function getOpenDocumentsFor(
         inArray(finDocuments.status, OPEN_DOC),
       ),
     )
-    .orderBy(desc(finDocuments.fechaEmision));
+    .orderBy(desc(finDocuments.fechaEmision))
+    .limit(200);
   return rows.map((d) => ({
     ...d,
     saldo: toNum(d.total) - toNum(d.montoConciliado),
@@ -138,6 +142,7 @@ export interface Suggestion {
   docId: string;
   docFolio: string;
   docContacto: string;
+  docRut: string | null;
   docSaldo: number;
   score: number;
 }
@@ -203,6 +208,7 @@ export async function getSuggestions(
         docId: best.id,
         docFolio: best.folio,
         docContacto: best.contactName ?? "—",
+        docRut: best.contactRut,
         docSaldo: best.saldo,
         score: bestScore,
       });
@@ -217,7 +223,13 @@ export async function getSuggestions(
 
 export async function getDocuments(
   direction: DocumentDirection,
-  opts: { estado?: string; page?: number; pageSize?: number } = {},
+  opts: {
+    estado?: string;
+    page?: number;
+    pageSize?: number;
+    types?: (typeof finDocuments.type.enumValues)[number][];
+    statuses?: (typeof finDocuments.status.enumValues)[number][];
+  } = {},
 ) {
   const conds = [
     eq(finDocuments.direction, direction),
@@ -230,6 +242,12 @@ export async function getDocuments(
         opts.estado as (typeof finDocuments.status.enumValues)[number],
       ),
     );
+  }
+  if (opts.types?.length) {
+    conds.push(inArray(finDocuments.type, opts.types));
+  }
+  if (opts.statuses?.length && (!opts.estado || opts.estado === "TODOS")) {
+    conds.push(inArray(finDocuments.status, opts.statuses));
   }
   const page = opts.page ?? 1;
   const pageSize = opts.pageSize ?? 20;
@@ -327,6 +345,13 @@ export async function getClassificationRules() {
     )
     .leftJoin(costCenters, eq(classificationRules.costCenterId, costCenters.id))
     .orderBy(asc(classificationRules.priority));
+}
+
+export async function getReconciliationRules() {
+  return db
+    .select()
+    .from(reconciliationRules)
+    .orderBy(reconciliationRules.createdAt);
 }
 
 /** Opciones para clasificar: cuentas contables, centros de costo, líneas. */
@@ -453,22 +478,44 @@ export async function getFlujoCajaReal(months = 12) {
     .map(([periodo, v]) => ({ periodo, ...v, neto: v.ingresos - v.egresos }));
 }
 
-/** Flujo de caja proyectado (por vencimiento de documentos abiertos). */
+/**
+ * Flujo de caja proyectado: vencimientos de documentos abiertos + cuotas
+ * pendientes de Notas de Venta. Las cuotas ya facturadas se excluyen para no
+ * duplicar el documento emitido.
+ */
 export async function getFlujoCajaProyectado() {
-  const rows = await db
-    .select({
-      direction: finDocuments.direction,
-      total: finDocuments.total,
-      montoConciliado: finDocuments.montoConciliado,
-      fechaVencimiento: finDocuments.fechaVencimiento,
-    })
-    .from(finDocuments)
-    .where(
-      and(
-        eq(finDocuments.recordStatus, "ACTIVO"),
-        inArray(finDocuments.status, OPEN_DOC),
+  const [rows, billingItems] = await Promise.all([
+    db
+      .select({
+        direction: finDocuments.direction,
+        total: finDocuments.total,
+        montoConciliado: finDocuments.montoConciliado,
+        fechaVencimiento: finDocuments.fechaVencimiento,
+      })
+      .from(finDocuments)
+      .where(
+        and(
+          eq(finDocuments.recordStatus, "ACTIVO"),
+          inArray(finDocuments.status, OPEN_DOC),
+        ),
       ),
-    );
+    db
+      .select({
+        amount: salesOrderBillingItems.calculatedAmount,
+        date: salesOrderBillingItems.tentativeDate,
+      })
+      .from(salesOrderBillingItems)
+      .innerJoin(
+        salesOrders,
+        eq(salesOrderBillingItems.salesOrderId, salesOrders.id),
+      )
+      .where(
+        and(
+          eq(salesOrderBillingItems.status, "PENDIENTE"),
+          ne(salesOrders.status, "BORRADOR"),
+        ),
+      ),
+  ]);
 
   const map = new Map<string, { porCobrar: number; porPagar: number }>();
   for (const d of rows) {
@@ -478,6 +525,13 @@ export async function getFlujoCajaProyectado() {
     const e = map.get(key) ?? { porCobrar: 0, porPagar: 0 };
     if (d.direction === "VENTA") e.porCobrar += saldo;
     else e.porPagar += saldo;
+    map.set(key, e);
+  }
+  for (const item of billingItems) {
+    if (!item.date) continue;
+    const key = item.date.slice(0, 7);
+    const e = map.get(key) ?? { porCobrar: 0, porPagar: 0 };
+    e.porCobrar += toNum(item.amount);
     map.set(key, e);
   }
   return Array.from(map.entries())

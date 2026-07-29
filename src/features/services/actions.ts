@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { services } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireCatalogEditor } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
+import { ensureServiceLedgerAccount } from "@/features/finance/plan-accounts/service-link";
 import { serviceSchema, type ServiceFormValues } from "./schema";
 import type { ServiceStatus } from "@/types/enums";
 
@@ -30,12 +32,19 @@ export async function createService(
   values: ServiceFormValues,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const user = await requireUser();
+    const user = await requireCatalogEditor();
     const data = normalize(values);
     const [row] = await db
       .insert(services)
       .values({ ...data, createdBy: user.id })
       .returning({ id: services.id });
+    await ensureServiceLedgerAccount(row.id);
+    await logActivity({
+      entityType: "service",
+      entityId: row.id,
+      action: "service_ledger_account_linked",
+      actorId: user.id,
+    });
     revalidatePath("/services");
     return { ok: true, data: { id: row.id } };
   } catch (err) {
@@ -48,12 +57,19 @@ export async function updateService(
   values: ServiceFormValues,
 ): Promise<ActionResult> {
   try {
-    await requireUser();
+    const user = await requireCatalogEditor();
     const data = normalize(values);
     await db
       .update(services)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(services.id, id));
+    await ensureServiceLedgerAccount(id);
+    await logActivity({
+      entityType: "service",
+      entityId: id,
+      action: "service_ledger_account_linked",
+      actorId: user.id,
+    });
     revalidatePath("/services");
     return { ok: true, data: undefined };
   } catch (err) {
@@ -66,7 +82,7 @@ export async function setServiceStatus(
   status: ServiceStatus,
 ): Promise<ActionResult> {
   try {
-    await requireUser();
+    await requireCatalogEditor();
     await db
       .update(services)
       .set({ status, updatedAt: new Date() })

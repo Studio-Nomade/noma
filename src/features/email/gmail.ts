@@ -23,6 +23,7 @@ type Attachment = { filename: string; content: Buffer; mime?: string };
 export async function sendGmail(opts: {
   userId: string;
   from: string;
+  fromName?: string;
   to: string[];
   cc?: string[];
   subject: string;
@@ -33,7 +34,7 @@ export async function sendGmail(opts: {
   const accessToken = await getGoogleAccessToken(opts.userId);
   const boundary = `noma_${Date.now()}`;
   const headers = [
-    `From: ${opts.from}`,
+    `From: ${opts.fromName ? `${opts.fromName} <${opts.from}>` : opts.from}`,
     `To: ${opts.to.join(", ")}`,
     opts.cc && opts.cc.length ? `Cc: ${opts.cc.join(", ")}` : "",
     `Subject: ${encodeSubject(opts.subject)}`,

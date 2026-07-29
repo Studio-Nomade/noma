@@ -49,6 +49,10 @@ import {
   BANK_TXN_TYPES,
   BANK_TXN_STATUSES,
   LEDGER_ACCOUNT_TYPES,
+  LEDGER_ACCOUNT_KINDS,
+  SALES_ORDER_STATUSES,
+  BILLING_ITEM_TYPES,
+  BILLING_ITEM_STATUSES,
   IMPORT_TYPES,
   IMPORT_STATUSES,
   RECONCILIATION_STATUSES,
@@ -152,6 +156,22 @@ export const ledgerAccountTypeEnum = pgEnum(
   "ledger_account_type",
   LEDGER_ACCOUNT_TYPES,
 );
+export const ledgerAccountKindEnum = pgEnum(
+  "ledger_account_kind",
+  LEDGER_ACCOUNT_KINDS,
+);
+export const salesOrderStatusEnum = pgEnum(
+  "sales_order_status",
+  SALES_ORDER_STATUSES,
+);
+export const billingItemTypeEnum = pgEnum(
+  "billing_item_type",
+  BILLING_ITEM_TYPES,
+);
+export const billingItemStatusEnum = pgEnum(
+  "billing_item_status",
+  BILLING_ITEM_STATUSES,
+);
 export const importTypeEnum = pgEnum("import_type", IMPORT_TYPES);
 export const importStatusEnum = pgEnum("import_status", IMPORT_STATUSES);
 export const reconciliationStatusEnum = pgEnum(
@@ -198,6 +218,7 @@ export const clients = pgTable("clients", {
   region: text("region"),
   billingEmail: text("billing_email"),
   billingNotes: text("billing_notes"),
+  paymentTermDays: integer("payment_term_days").default(30).notNull(),
   financialStatus:
     financialStatusEnum("financial_status").default("Sin información"),
   chipaxId: text("chipax_id"), // ID externo en Chipax
@@ -235,6 +256,28 @@ export const teamMembers = pgTable("team_members", {
   emailSignature: text("email_signature"),
   ...timestamps,
 });
+
+// ── employees (maestro laboral; no reemplaza una nómina) ─────
+export const employees = pgTable(
+  "employees",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    rut: text("rut").notNull().unique(),
+    roleTitle: text("role_title").notNull(),
+    area: areaEnum("area"),
+    status: text("status").default("ACTIVO").notNull(),
+    baseSalaryAmount: numeric("base_salary_amount", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+    baseSalaryCurrency: currencyEnum("base_salary_currency")
+      .default("CLP")
+      .notNull(),
+    ...timestamps,
+  },
+  (t) => [index("employees_status_idx").on(t.status, t.name)],
+);
 
 // ── comunicación interna ────────────────────────────────────
 export const announcements = pgTable(
@@ -638,6 +681,11 @@ export const services = pgTable("services", {
   // trazabilidad del insumo de origen (Excel/PDF)
   sourceFile: text("source_file"),
   sourceYear: text("source_year"),
+  ledgerAccountId: uuid("ledger_account_id")
+    .unique()
+    .references((): AnyPgColumn => ledgerAccounts.id, {
+      onDelete: "set null",
+    }),
   ...timestamps,
 });
 
@@ -846,6 +894,19 @@ export const emailTemplates = pgTable("email_templates", {
   ...timestamps,
 });
 
+export const emailSignatures = pgTable("email_signatures", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  area: areaEnum("area"),
+  role: text("role").notNull(),
+  senderName: text("sender_name").notNull(),
+  senderEmail: text("sender_email").notNull(),
+  signatureHtml: text("signature_html").notNull(),
+  signatureText: text("signature_text").notNull(),
+  status: text("status").default("Activo").notNull(),
+  ...timestamps,
+});
+
 // ── user_integrations (token de Google para enviar como el usuario) ──
 export const userIntegrations = pgTable("user_integrations", {
   userId: uuid("user_id").primaryKey(), // auth.users.id
@@ -979,6 +1040,106 @@ export const slas = pgTable("slas", {
   ...timestamps,
 });
 
+// ── sales_orders (nota de venta; congela la cotización aceptada) ──
+export const salesOrders = pgTable(
+  "sales_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    folio: text("folio").notNull().unique(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "restrict" }),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "restrict" })
+      .unique(),
+    status: salesOrderStatusEnum("status").default("BORRADOR").notNull(),
+    emissionDate: date("emission_date").notNull(),
+    dueDate: date("due_date"),
+    subtotalAmount: numeric("subtotal_amount", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+    ivaAmount: numeric("iva_amount", { precision: 16, scale: 2 }).notNull(),
+    totalAmount: numeric("total_amount", { precision: 16, scale: 2 }).notNull(),
+    currency: currencyEnum("currency").default("CLP").notNull(),
+    notes: text("notes"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("sales_orders_client_idx").on(t.clientId),
+    index("sales_orders_project_idx").on(t.projectId),
+  ],
+);
+
+export const salesOrderLines = pgTable(
+  "sales_order_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    salesOrderId: uuid("sales_order_id")
+      .notNull()
+      .references(() => salesOrders.id, { onDelete: "cascade" }),
+    position: integer("position").default(0).notNull(),
+    businessLine: areaEnum("business_line").notNull(),
+    serviceId: uuid("service_id").references(() => services.id, {
+      onDelete: "set null",
+    }),
+    description: text("description").notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+    priceAmount: numeric("price_amount", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+    currency: currencyEnum("currency").default("UF").notNull(),
+    discountAmount: numeric("discount_amount", {
+      precision: 16,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    totalAmount: numeric("total_amount", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+    ...timestamps,
+  },
+  (t) => [index("sales_order_lines_order_idx").on(t.salesOrderId)],
+);
+
+export const salesOrderBillingItems = pgTable(
+  "sales_order_billing_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    salesOrderId: uuid("sales_order_id")
+      .notNull()
+      .references(() => salesOrders.id, { onDelete: "cascade" }),
+    order: integer("order").default(0).notNull(),
+    label: text("label").notNull(),
+    type: billingItemTypeEnum("type").default("PORCENTAJE").notNull(),
+    value: numeric("value", { precision: 16, scale: 2 }).notNull(),
+    calculatedAmount: numeric("calculated_amount", {
+      precision: 16,
+      scale: 2,
+    }).notNull(),
+    tentativeDate: date("tentative_date"),
+    deliverable: text("deliverable"),
+    status: billingItemStatusEnum("status").default("PENDIENTE").notNull(),
+    invoiceId: uuid("invoice_id").references(
+      (): AnyPgColumn => invoices.id,
+      { onDelete: "set null" },
+    ),
+    ...timestamps,
+  },
+  (t) => [
+    index("sales_order_billing_items_order_idx").on(t.salesOrderId),
+    index("sales_order_billing_items_invoice_idx").on(t.invoiceId),
+  ],
+);
+
 // ── invoices (preparación Nubox; sin emisión automática) ─────
 export const invoices = pgTable(
   "invoices",
@@ -993,6 +1154,14 @@ export const invoices = pgTable(
     proposalId: uuid("proposal_id").references(() => proposals.id, {
       onDelete: "set null",
     }),
+    salesOrderId: uuid("sales_order_id").references(() => salesOrders.id, {
+      onDelete: "set null",
+    }),
+    billingItemId: uuid("billing_item_id")
+      .unique()
+      .references(() => salesOrderBillingItems.id, {
+        onDelete: "set null",
+      }),
     status: invoiceStatusEnum("status").default("No facturado").notNull(),
     // ID externo del documento en Nubox (al crear el borrador/emisión).
     nuboxId: text("nubox_id"),
@@ -1014,12 +1183,14 @@ export const invoices = pgTable(
     documentCreatedAt: timestamp("document_created_at", { withTimezone: true }),
     issuedAt: date("issued_at"),
     dueAt: date("due_at"),
+    estimatedPaymentDate: date("estimated_payment_date"),
     paidAt: date("paid_at"),
     ...timestamps,
   },
   (t) => [
     index("invoices_client_idx").on(t.clientId),
     index("invoices_project_idx").on(t.projectId),
+    index("invoices_sales_order_idx").on(t.salesOrderId),
   ],
 );
 
@@ -1144,9 +1315,16 @@ export const ledgerAccounts = pgTable("ledger_accounts", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   type: ledgerAccountTypeEnum("type").notNull(),
+  kind: ledgerAccountKindEnum("kind").default("CUENTA").notNull(),
+  description: text("description"),
   parentId: uuid("parent_id").references((): AnyPgColumn => ledgerAccounts.id, {
     onDelete: "set null",
   }),
+  serviceId: uuid("service_id")
+    .unique()
+    .references(() => services.id, {
+      onDelete: "set null",
+    }),
   // Cruce opcional con las áreas del estudio (servicios ↔ plan de cuentas).
   area: areaEnum("area"),
   status: recordStatusEnum("status").default("ACTIVO").notNull(),
@@ -1195,10 +1373,23 @@ export const classificationRules = pgTable(
     ),
     priority: integer("priority").default(100).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
+    executionCount: integer("execution_count").default(0).notNull(),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [index("classification_rules_active_idx").on(t.isActive, t.priority)],
 );
+
+// ── reconciliation_rules (automatizaciones de conciliación) ──
+export const reconciliationRules = pgTable("reconciliation_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  matchType: text("match_type").notNull(), // RUT | MONTO | FOLIO | DESCRIPCION
+  isActive: boolean("is_active").default(true).notNull(),
+  executionCount: integer("execution_count").default(0).notNull(),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  ...timestamps,
+});
 
 // ── bank_accounts ────────────────────────────────────────────
 export const bankAccounts = pgTable("bank_accounts", {
@@ -1434,6 +1625,34 @@ export const cobranzaMessages = pgTable(
   (t) => [
     index("cobranza_messages_client_idx").on(t.clientId),
     index("cobranza_messages_created_idx").on(t.createdAt),
+  ],
+);
+
+// ── payment_reports (cliente informa un pago desde su portal) ──
+// Punto de extensión para una futura pasarela: hoy registra la declaración del
+// cliente y la deja pendiente de validación por Finanzas.
+export const paymentReports = pgTable(
+  "payment_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => finDocuments.id, {
+      onDelete: "set null",
+    }),
+    salesOrderId: uuid("sales_order_id").references(() => salesOrders.id, {
+      onDelete: "set null",
+    }),
+    amount: numeric("amount", { precision: 16, scale: 2 }).notNull(),
+    paidAt: date("paid_at").notNull(),
+    reference: text("reference"),
+    status: text("status").default("PENDIENTE").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("payment_reports_client_idx").on(t.clientId),
+    index("payment_reports_status_idx").on(t.status, t.createdAt),
   ],
 );
 

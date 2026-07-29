@@ -25,8 +25,10 @@ La app se aloja en **Vercel** (SSR/Server Actions). Cada rama de GitHub genera u
 | `MINDICADOR_API_URL`               | `https://mindicador.cl/api`                            | All      |
 | `GOOGLE_CLIENT_ID`                 | OAuth client de Google Cloud                           | All      |
 | `GOOGLE_CLIENT_SECRET`             | OAuth secret de Google Cloud                           | All      |
-| `NOMA_ADMIN_EMAILS`                | correos admin (coma)                                   | All      |
-| `NOMA_FINANCE_EMAILS`              | correos de Finanzas (coma)                             | All      |
+| `NOMA_SUPERADMIN_EMAILS`           | Dirección con acceso total (coma)                      | All      |
+| `NOMA_COMERCIAL_EMAILS`            | Comercial/Finanzas y edición de catálogo (coma)        | All      |
+| `NOMA_LEGAL_EMAILS`                | Legal, Compliance y SLA (coma)                         | All      |
+| `NOMA_PEOPLE_EMAILS`               | Personas y Onboarding (coma)                           | All      |
 
 **Obligatorias para las integraciones de Google.** `GOOGLE_CLIENT_ID` /
 `GOOGLE_CLIENT_SECRET` son las que permiten actuar **como el usuario**: envío de

@@ -340,6 +340,10 @@ export const INVOICE_STATUSES = [
   "Pagado",
   "Vencido",
   "Anulado",
+  "Por asignar NV",
+  "Por cobrar",
+  "Pagada",
+  "Reclamada",
 ] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
@@ -475,6 +479,32 @@ export const LEDGER_ACCOUNT_TYPES = [
   "PATRIMONIO",
 ] as const;
 export type LedgerAccountType = (typeof LEDGER_ACCOUNT_TYPES)[number];
+
+export const LEDGER_ACCOUNT_KINDS = [
+  "CUENTA",
+  "SERVICIO",
+  "PRODUCTO",
+] as const;
+export type LedgerAccountKind = (typeof LEDGER_ACCOUNT_KINDS)[number];
+
+// Nota de venta y esquema de facturación
+export const SALES_ORDER_STATUSES = [
+  "BORRADOR",
+  "ENVIADA",
+  "FACTURADA_PARCIAL",
+  "FACTURADA",
+] as const;
+export type SalesOrderStatus = (typeof SALES_ORDER_STATUSES)[number];
+
+export const BILLING_ITEM_TYPES = ["PORCENTAJE", "MONTO"] as const;
+export type BillingItemType = (typeof BILLING_ITEM_TYPES)[number];
+
+export const BILLING_ITEM_STATUSES = [
+  "PENDIENTE",
+  "FACTURADO",
+  "PAGADO",
+] as const;
+export type BillingItemStatus = (typeof BILLING_ITEM_STATUSES)[number];
 
 // Tipo de importación (fuente del archivo)
 export const IMPORT_TYPES = [
