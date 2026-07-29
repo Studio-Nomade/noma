@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/currency/format";
 import type { ClientAccount } from "./invoices-queries";
+import { PortalPaymentForm } from "./portal-payment-form";
 
 /** Etiqueta de estado según saldo y vencimiento (lenguaje del estado de cuenta). */
 function estadoDe(inv: ClientAccount["invoices"][number]) {
@@ -46,7 +47,15 @@ function Kpi({
   );
 }
 
-export function ClientAccountCard({ account }: { account: ClientAccount }) {
+export function ClientAccountCard({
+  account,
+  token,
+  reportedDocumentIds = [],
+}: {
+  account: ClientAccount;
+  token?: string;
+  reportedDocumentIds?: string[];
+}) {
   const [tab, setTab] = useState<"pendientes" | "todas">("pendientes");
   const [q, setQ] = useState("");
 
@@ -146,7 +155,9 @@ export function ClientAccountCard({ account }: { account: ClientAccount }) {
               <th className="px-3 py-2 text-right font-medium">Monto total</th>
               <th className="px-3 py-2 text-right font-medium">Saldo</th>
               <th className="px-3 py-2 font-medium">Estado</th>
-              <th className="px-3 py-2 text-right font-medium">Archivos</th>
+              <th className="px-3 py-2 text-right font-medium">
+                Archivos / pago
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -205,6 +216,15 @@ export function ClientAccountCard({ account }: { account: ClientAccount }) {
                             {label}
                           </button>
                         ),
+                      )}
+                      {token && inv.saldo > 0 && (
+                        <PortalPaymentForm
+                          token={token}
+                          kind="invoice"
+                          entityId={inv.id}
+                          amount={inv.saldo}
+                          reported={reportedDocumentIds.includes(inv.id)}
+                        />
                       )}
                     </div>
                   </td>

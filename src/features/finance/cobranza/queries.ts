@@ -7,6 +7,9 @@ import {
   invoices,
   cobranzaTemplates,
   cobranzaMessages,
+  paymentReports,
+  finDocuments,
+  salesOrders,
 } from "@/db/schema";
 import type { CobranzaMoment } from "@/types/enums";
 import { toNum } from "../helpers";
@@ -41,6 +44,26 @@ export async function getCobranzaMessages({ page = 1, pageSize = 20 } = {}) {
     db.select({ value: count() }).from(cobranzaMessages),
   ]);
   return { rows, total: totalRows[0]?.value ?? 0 };
+}
+
+export async function getPendingPaymentReports() {
+  return db
+    .select({
+      id: paymentReports.id,
+      amount: paymentReports.amount,
+      paidAt: paymentReports.paidAt,
+      reference: paymentReports.reference,
+      createdAt: paymentReports.createdAt,
+      clientName: clients.companyName,
+      invoiceFolio: finDocuments.folio,
+      salesOrderFolio: salesOrders.folio,
+    })
+    .from(paymentReports)
+    .innerJoin(clients, eq(paymentReports.clientId, clients.id))
+    .leftJoin(finDocuments, eq(paymentReports.documentId, finDocuments.id))
+    .leftJoin(salesOrders, eq(paymentReports.salesOrderId, salesOrders.id))
+    .where(eq(paymentReports.status, "PENDIENTE"))
+    .orderBy(desc(paymentReports.createdAt));
 }
 
 export type ComposerInvoice = {

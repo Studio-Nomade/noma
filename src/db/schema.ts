@@ -1606,6 +1606,34 @@ export const cobranzaMessages = pgTable(
   ],
 );
 
+// ── payment_reports (cliente informa un pago desde su portal) ──
+// Punto de extensión para una futura pasarela: hoy registra la declaración del
+// cliente y la deja pendiente de validación por Finanzas.
+export const paymentReports = pgTable(
+  "payment_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => finDocuments.id, {
+      onDelete: "set null",
+    }),
+    salesOrderId: uuid("sales_order_id").references(() => salesOrders.id, {
+      onDelete: "set null",
+    }),
+    amount: numeric("amount", { precision: 16, scale: 2 }).notNull(),
+    paidAt: date("paid_at").notNull(),
+    reference: text("reference"),
+    status: text("status").default("PENDIENTE").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("payment_reports_client_idx").on(t.clientId),
+    index("payment_reports_status_idx").on(t.status, t.createdAt),
+  ],
+);
+
 // ── Tipos inferidos ──────────────────────────────────────────
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;

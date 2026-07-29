@@ -12,6 +12,7 @@ import {
   briefs,
   proposals,
   clientContacts,
+  slas,
 } from "@/db/schema";
 import { toNum } from "@/features/finance/helpers";
 import type { Currency } from "@/types/enums";
@@ -22,6 +23,34 @@ export type ProjectFinance = {
   paid: number;
   collectionCount: number;
 };
+
+/** Documentos financieros de una oportunidad. Solo consumir con gating. */
+export async function getProjectFinanceDetails(projectId: string) {
+  const [invoiceRows, collectionRows] = await Promise.all([
+    db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.projectId, projectId))
+      .orderBy(desc(invoices.createdAt)),
+    db
+      .select()
+      .from(cobranzaMessages)
+      .where(eq(cobranzaMessages.projectId, projectId))
+      .orderBy(desc(cobranzaMessages.createdAt)),
+  ]);
+  return { invoices: invoiceRows, collections: collectionRows };
+}
+
+/** Estado contractual del proyecto. Solo consumir con gating legal. */
+export async function getProjectSla(projectId: string) {
+  const [row] = await db
+    .select()
+    .from(slas)
+    .where(eq(slas.projectId, projectId))
+    .orderBy(desc(slas.createdAt))
+    .limit(1);
+  return row ?? null;
+}
 
 /** Resumen financiero comercial de una oportunidad. Solo consumir con gating. */
 export async function getProjectFinance(

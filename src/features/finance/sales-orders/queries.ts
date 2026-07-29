@@ -74,3 +74,23 @@ export async function getSalesOrdersForProject(projectId: string) {
     .where(eq(salesOrders.projectId, projectId))
     .orderBy(desc(salesOrders.createdAt));
 }
+
+export async function getSalesOrderBillingItemsForProject(projectId: string) {
+  return db
+    .select({
+      orderId: salesOrders.id,
+      orderFolio: salesOrders.folio,
+      orderCurrency: salesOrders.currency,
+      item: salesOrderBillingItems,
+    })
+    .from(salesOrderBillingItems)
+    .innerJoin(
+      salesOrders,
+      eq(salesOrderBillingItems.salesOrderId, salesOrders.id),
+    )
+    .where(eq(salesOrders.projectId, projectId))
+    .orderBy(
+      desc(salesOrders.createdAt),
+      asc(salesOrderBillingItems.order),
+    );
+}

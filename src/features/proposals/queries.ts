@@ -43,6 +43,14 @@ export async function listProposals() {
   );
 }
 
+export async function getProjectProposals(projectId: string) {
+  return db
+    .select()
+    .from(proposals)
+    .where(eq(proposals.projectId, projectId))
+    .orderBy(desc(proposals.updatedAt));
+}
+
 export type ProposalListItem = Awaited<
   ReturnType<typeof listProposals>
 >[number];
