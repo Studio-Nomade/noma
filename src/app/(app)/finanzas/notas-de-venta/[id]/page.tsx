@@ -12,6 +12,7 @@ import {
 } from "@/features/finance/sales-orders/queries";
 import { BillingPlanEditor } from "@/features/finance/sales-orders/billing-plan-editor";
 import { SalesOrderSendForm } from "@/features/finance/sales-orders/send-form";
+import { BillingInvoiceButton } from "@/features/finance/invoices-dte/billing-invoice-button";
 
 export default async function SalesOrderDetailPage({
   params,
@@ -121,6 +122,32 @@ export default async function SalesOrderDetailPage({
             <p className="text-muted-foreground mb-4 text-sm">
               Define anticipos, hitos, entregables y fechas tentativas.
             </p>
+            <div className="mb-5 space-y-2">
+              {billingItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm"
+                >
+                  <span>
+                    {item.label} ·{" "}
+                    {formatMoney(item.calculatedAmount, order.currency)}
+                  </span>
+                  {item.invoiceId ? (
+                    <Link
+                      href={`/finanzas/ingresos/${item.invoiceId}`}
+                      className="text-xs font-medium underline-offset-4 hover:underline"
+                    >
+                      Ver factura
+                    </Link>
+                  ) : (
+                    <BillingInvoiceButton
+                      salesOrderId={id}
+                      billingItemId={item.id}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
             <BillingPlanEditor
               salesOrderId={id}
               initial={billingItems.map((item) => ({

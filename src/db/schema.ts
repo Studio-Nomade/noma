@@ -218,6 +218,7 @@ export const clients = pgTable("clients", {
   region: text("region"),
   billingEmail: text("billing_email"),
   billingNotes: text("billing_notes"),
+  paymentTermDays: integer("payment_term_days").default(30).notNull(),
   financialStatus:
     financialStatusEnum("financial_status").default("Sin información"),
   chipaxId: text("chipax_id"), // ID externo en Chipax
@@ -1131,6 +1132,14 @@ export const invoices = pgTable(
     proposalId: uuid("proposal_id").references(() => proposals.id, {
       onDelete: "set null",
     }),
+    salesOrderId: uuid("sales_order_id").references(() => salesOrders.id, {
+      onDelete: "set null",
+    }),
+    billingItemId: uuid("billing_item_id")
+      .unique()
+      .references(() => salesOrderBillingItems.id, {
+        onDelete: "set null",
+      }),
     status: invoiceStatusEnum("status").default("No facturado").notNull(),
     // ID externo del documento en Nubox (al crear el borrador/emisión).
     nuboxId: text("nubox_id"),
@@ -1152,12 +1161,14 @@ export const invoices = pgTable(
     documentCreatedAt: timestamp("document_created_at", { withTimezone: true }),
     issuedAt: date("issued_at"),
     dueAt: date("due_at"),
+    estimatedPaymentDate: date("estimated_payment_date"),
     paidAt: date("paid_at"),
     ...timestamps,
   },
   (t) => [
     index("invoices_client_idx").on(t.clientId),
     index("invoices_project_idx").on(t.projectId),
+    index("invoices_sales_order_idx").on(t.salesOrderId),
   ],
 );
 

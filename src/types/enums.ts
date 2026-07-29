@@ -340,6 +340,10 @@ export const INVOICE_STATUSES = [
   "Pagado",
   "Vencido",
   "Anulado",
+  "Por asignar NV",
+  "Por cobrar",
+  "Pagada",
+  "Reclamada",
 ] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 

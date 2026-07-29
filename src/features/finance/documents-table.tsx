@@ -37,6 +37,17 @@ type DocumentSortKey =
 
 const NUMERIC_KEYS = new Set<DocumentSortKey>(["neto", "total"]);
 
+function agingLabel(value: string | null) {
+  if (!value) return null;
+  const target = new Date(`${value}T12:00:00`).getTime();
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const days = Math.round((target - today.getTime()) / 86_400_000);
+  if (days === 0) return "vence hoy";
+  if (days > 0) return `en ${days} días`;
+  return `hace ${Math.abs(days)} días`;
+}
+
 export function DocumentsTable({
   rows,
   contactLabel,
@@ -198,7 +209,14 @@ export function DocumentsTable({
                     {formatDate(document.fechaEmision)}
                   </td>
                   <td className="px-4 py-3">
-                    {formatDate(document.fechaVencimiento)}
+                    <span className="block">
+                      {formatDate(document.fechaVencimiento)}
+                    </span>
+                    {agingLabel(document.fechaVencimiento) && (
+                      <span className="text-muted-foreground text-xs">
+                        {agingLabel(document.fechaVencimiento)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {formatMoney(toNum(document.neto), "CLP")}
