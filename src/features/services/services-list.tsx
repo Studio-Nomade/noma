@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoneyRange } from "@/lib/currency/format";
 import { AREAS, AREA_LABELS, type Area } from "@/types/enums";
 import type { Service } from "@/db/schema";
+import type { Rates } from "@/lib/currency/convert";
 import { ServiceDialog } from "./service-dialog";
 
 function CardContent({ service }: { service: Service }) {
@@ -47,9 +48,11 @@ function CardContent({ service }: { service: Service }) {
 function ServiceCard({
   service,
   canEdit,
+  rates,
 }: {
   service: Service;
   canEdit: boolean;
+  rates: Rates;
 }) {
   if (!canEdit) {
     return (
@@ -61,6 +64,7 @@ function ServiceCard({
   return (
     <ServiceDialog
       service={service}
+      rates={rates}
       trigger={
         <button
           type="button"
@@ -76,9 +80,11 @@ function ServiceCard({
 export function ServicesList({
   services,
   canEdit,
+  rates,
 }: {
   services: Service[];
   canEdit: boolean;
+  rates: Rates;
 }) {
   const [area, setArea] = useState<Area | "all">("all");
 
@@ -133,6 +139,7 @@ export function ServicesList({
                             key={s.id}
                             service={s}
                             canEdit={canEdit}
+                            rates={rates}
                           />
                         ))}
                     </div>
@@ -145,6 +152,7 @@ export function ServicesList({
                         key={s.id}
                         service={s}
                         canEdit={canEdit}
+                        rates={rates}
                       />
                     ))}
                   </div>

@@ -514,10 +514,15 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
                   <ul className="mt-auto grid grid-cols-2 gap-x-[7%] gap-y-[5%] text-[1.15cqw] leading-[1.45]">
                     {service.deliverables.slice(0, 10).map((item) => (
                       <li
-                        key={item}
+                        key={`${item.title}-${item.description}`}
                         className="border-t border-white/25 pt-[3%]"
                       >
-                        — {item}
+                        <strong>{item.title}</strong>
+                        {item.description && (
+                          <span className="mt-1 block text-white/70">
+                            {item.description}
+                          </span>
+                        )}
                       </li>
                     ))}
                   </ul>

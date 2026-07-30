@@ -59,7 +59,7 @@ export function normalizeServices(
       subarea: row.subarea,
       description: row.description,
       methodology: parseStructuredContent(row.methodology, "stages"),
-      deliverables: lines(row.deliverables),
+      deliverables: parseStructuredContent(row.deliverables, "deliverables"),
       exclusions: lines(row.requirements),
       unitAmount: base,
       baseTotal,

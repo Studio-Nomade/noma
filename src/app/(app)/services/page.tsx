@@ -7,15 +7,21 @@ import { ServiceDialog } from "@/features/services/service-dialog";
 import { ServicesList } from "@/features/services/services-list";
 import { requireUser } from "@/lib/auth";
 import { roleFor } from "@/lib/roles";
+import { getLatestRates } from "@/lib/currency/rates";
 
 export const metadata = { title: "Servicios" };
 
 export default async function ServicesPage() {
-  const [services, user] = await Promise.all([listServices(), requireUser()]);
+  const [services, user, rates] = await Promise.all([
+    listServices(),
+    requireUser(),
+    getLatestRates(),
+  ]);
   const canEdit = roleFor(user.email).canEditCatalog;
 
   const newButton = canEdit ? (
     <ServiceDialog
+      rates={{ ufClp: rates.ufClp, usdClp: rates.usdClp }}
       trigger={
         <Button>
           <Plus className="size-4" />
@@ -41,7 +47,11 @@ export default async function ServicesPage() {
           action={newButton}
         />
       ) : (
-        <ServicesList services={services} canEdit={canEdit} />
+        <ServicesList
+          services={services}
+          canEdit={canEdit}
+          rates={{ ufClp: rates.ufClp, usdClp: rates.usdClp }}
+        />
       )}
     </>
   );

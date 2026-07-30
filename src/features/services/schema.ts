@@ -12,6 +12,7 @@ const optionalMoney = z
 export const serviceSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio"),
   area: z.enum(AREAS),
+  subarea: optionalText,
   description: optionalText,
   methodology: optionalText,
   deliverables: optionalText,

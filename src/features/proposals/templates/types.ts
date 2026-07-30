@@ -11,7 +11,7 @@ export type ProposalTemplateService = {
   subarea: string | null;
   description: string | null;
   methodology: StructuredContentItem[];
-  deliverables: string[];
+  deliverables: StructuredContentItem[];
   exclusions: string[];
   unitAmount: number;
   baseTotal: number;

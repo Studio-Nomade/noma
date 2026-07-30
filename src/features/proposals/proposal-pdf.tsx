@@ -682,7 +682,7 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                   >
                     {service.deliverables.slice(0, 10).map((item) => (
                       <View
-                        key={item}
+                        key={`${item.title}-${item.description}`}
                         style={{
                           width: "50%",
                           borderTopWidth: 0.5,
@@ -691,7 +691,25 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                           paddingRight: 14,
                         }}
                       >
-                        <Text style={{ fontSize: 10 }}>— {item}</Text>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontFamily: "Helvetica-Bold",
+                          }}
+                        >
+                          {item.title}
+                        </Text>
+                        {item.description && (
+                          <Text
+                            style={{
+                              marginTop: 3,
+                              fontSize: 8,
+                              color: "#bdbdbd",
+                            }}
+                          >
+                            {item.description}
+                          </Text>
+                        )}
                       </View>
                     ))}
                   </View>

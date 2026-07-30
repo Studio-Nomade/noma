@@ -17,6 +17,7 @@ function normalize(values: ServiceFormValues) {
   return {
     name: d.name,
     area: d.area,
+    subarea: emptyToNull(d.subarea),
     description: emptyToNull(d.description),
     methodology: emptyToNull(d.methodology),
     deliverables: emptyToNull(d.deliverables),
