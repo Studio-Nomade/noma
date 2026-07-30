@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "bot_conversations_open_channel_phone_unique" ON "bot_conversations" USING btree ("bot_channel_id","phone") WHERE "bot_conversations"."status" = 'open';

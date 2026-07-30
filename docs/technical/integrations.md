@@ -79,9 +79,18 @@ puede generar un `bot_channel` y acreditar remitentes en E.164 mediante
 `bot_authorized_senders`; un número activo pertenece a un único canal. El navegador recibe
 solo la configuración operativa saneada, nunca secretos de Meta.
 
-La base de datos deja preparadas la cola durable de eventos, conversaciones, mensajes y
-solicitudes. El transporte por webhook, el procesamiento y las respuestas salientes se
-habilitan en los siguientes hitos del módulo.
+Meta debe apuntar el webhook a `/api/webhooks/whatsapp`. El `GET` resuelve el challenge con
+`WHATSAPP_VERIFY_TOKEN`; cada `POST` valida `X-Hub-Signature-256` con
+`WHATSAPP_APP_SECRET` sobre el cuerpo crudo antes de aceptar el evento. Los mensajes de texto
+válidos se deduplican por su identificador de Meta, se guardan en la cola durable y el webhook
+responde de inmediato.
+
+El trabajo posterior corre fuera del ACK: un procesador bloquea y reclama eventos pendientes,
+resuelve el teléfono contra los remitentes acreditados y persiste conversación y mensajes. En
+esta etapa responde un acuse simple mediante la Cloud API; si faltan credenciales salientes,
+registra la degradación sin perder el evento. Los remitentes desconocidos reciben una guía y
+no generan conversación. El drenado idempotente queda disponible para el agente y el cron de
+los hitos siguientes.
 
 ## IA centralizada
 

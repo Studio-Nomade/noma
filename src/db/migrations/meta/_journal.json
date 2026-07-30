@@ -246,6 +246,13 @@
       "when": 1785371429857,
       "tag": "0034_magenta_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785405218085,
+      "tag": "0035_fancy_sister_grimm",
+      "breakpoints": true
     }
   ]
 }

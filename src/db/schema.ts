@@ -985,6 +985,9 @@ export const botConversations = pgTable(
   (t) => [
     index("bot_conversations_channel_idx").on(t.botChannelId),
     index("bot_conversations_phone_status_idx").on(t.phone, t.status),
+    uniqueIndex("bot_conversations_open_channel_phone_unique")
+      .on(t.botChannelId, t.phone)
+      .where(sql`${t.status} = 'open'`),
   ],
 );
 
