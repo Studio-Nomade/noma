@@ -62,7 +62,9 @@ export async function reconcileMany(
     const txns = await tx
       .select()
       .from(bankTransactions)
-      .where(inArray(bankTransactions.id, txnIds));
+      .where(inArray(bankTransactions.id, txnIds))
+      .orderBy(bankTransactions.id)
+      .for("update");
     if (txns.length !== txnIds.length) {
       throw new Error("Uno o más movimientos no fueron encontrados.");
     }
@@ -73,7 +75,9 @@ export async function reconcileMany(
     const docs = await tx
       .select()
       .from(finDocuments)
-      .where(inArray(finDocuments.id, docIds));
+      .where(inArray(finDocuments.id, docIds))
+      .orderBy(finDocuments.id)
+      .for("update");
 
     const [rec] = await tx
       .insert(reconciliations)
@@ -174,7 +178,9 @@ export async function revertReconciliation(formData: FormData): Promise<void> {
       .select()
       .from(reconciliations)
       .where(eq(reconciliations.id, reconciliationId))
-      .limit(1);
+      .orderBy(reconciliations.id)
+      .limit(1)
+      .for("update");
     if (!rec || rec.status === "REVERTIDA") return;
 
     const docLinks = await tx
@@ -186,12 +192,35 @@ export async function revertReconciliation(formData: FormData): Promise<void> {
       .from(reconciliationTransactions)
       .where(eq(reconciliationTransactions.reconciliationId, rec.id));
 
-    for (const link of docLinks) {
-      const [doc] = await tx
-        .select()
-        .from(finDocuments)
-        .where(eq(finDocuments.id, link.documentId))
-        .limit(1);
+    // Mantiene el mismo orden global de locks que reconcileMany: primero
+    // movimientos, luego documentos; dentro de cada tabla, UUID ascendente.
+    const txnIds = txnLinks
+      .map((link) => link.bankTransactionId)
+      .toSorted();
+    const docIds = docLinks.map((link) => link.documentId).toSorted();
+    const lockedTxns = txnIds.length
+      ? await tx
+          .select()
+          .from(bankTransactions)
+          .where(inArray(bankTransactions.id, txnIds))
+          .orderBy(bankTransactions.id)
+          .for("update")
+      : [];
+    const lockedDocs = docIds.length
+      ? await tx
+          .select()
+          .from(finDocuments)
+          .where(inArray(finDocuments.id, docIds))
+          .orderBy(finDocuments.id)
+          .for("update")
+      : [];
+    const txnById = new Map(lockedTxns.map((txn) => [txn.id, txn]));
+    const docById = new Map(lockedDocs.map((doc) => [doc.id, doc]));
+
+    for (const link of docLinks.toSorted((a, b) =>
+      a.documentId.localeCompare(b.documentId),
+    )) {
+      const doc = docById.get(link.documentId);
       if (!doc) continue;
       const nuevo = Math.max(
         0,
@@ -206,12 +235,10 @@ export async function revertReconciliation(formData: FormData): Promise<void> {
         .where(eq(finDocuments.id, doc.id));
     }
 
-    for (const link of txnLinks) {
-      const [txn] = await tx
-        .select()
-        .from(bankTransactions)
-        .where(eq(bankTransactions.id, link.bankTransactionId))
-        .limit(1);
+    for (const link of txnLinks.toSorted((a, b) =>
+      a.bankTransactionId.localeCompare(b.bankTransactionId),
+    )) {
+      const txn = txnById.get(link.bankTransactionId);
       if (!txn) continue;
       const nuevo = Math.max(
         0,
