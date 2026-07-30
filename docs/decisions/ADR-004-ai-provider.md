@@ -1,6 +1,6 @@
 # ADR-004 — Proveedores de IA centralizados
 
-**Estado:** Reemplazado parcialmente · **Fecha:** 2026-07-26
+**Estado:** Aceptado · **Fecha:** 2026-07-30
 
 ## Contexto
 
@@ -21,10 +21,13 @@ generar/editar propuestas a mano.
   timeline, client_requirements, exclusions, team, commercial_conditions).
 - Las llamadas a la IA son **server-side** (server action / route); la API key nunca llega al
   cliente.
-- En V1 el botón "Generar con IA" existe pero está **inerte** (stub) hasta activar la fase.
+- El botón "Generar con IA" de propuestas permanece **inerte** (stub).
+- El agente de WhatsApp usa OpenAI Responses API mediante el mismo `LLMProvider`, con
+  herramientas ejecutadas server-side y modelo configurable por `OPENAI_MODEL`.
 
 ## Consecuencias
 
-- Migrar de "manual" a "IA viva" no requiere refactor: se implementa el provider detrás del
-  contrato estable y se conecta el flujo.
-- Pendiente al activar: definir presupuesto/quién asume el costo de API y límites de uso.
+- El contrato se amplía sin exponer la API key al cliente y conserva la degradación cuando OpenAI
+  no está configurado.
+- Pendiente: activar la generación de propuestas y definir presupuesto, límites de uso y
+  observabilidad antes de escalar el agente.

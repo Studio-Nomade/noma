@@ -4,6 +4,7 @@ import type { BillingCadence, ProposalTemplateService } from "./types";
 import { formatMoney } from "@/lib/currency/format";
 import { lineAmount } from "../totals";
 import { getTeamPhoto } from "./assets";
+import { parseStructuredContent } from "../structured-content";
 
 export function lines(value: string | null | undefined): string[] {
   return (value ?? "")
@@ -30,7 +31,14 @@ export function normalizeServices(
     const quantity = row.quantity ?? 1;
     const surcharge = PRIORITY_SURCHARGE[row.priority] ?? 0;
     // Monto efectivo de la línea: base × cantidad × (1 + recargo de prioridad).
-    const amount = lineAmount({ amount: base, currency, quantity, priority: row.priority });
+    const amount = lineAmount({
+      amount: base,
+      currency,
+      quantity,
+      priority: row.priority,
+    });
+    const baseTotal = base * quantity;
+    const surchargeAmount = baseTotal * surcharge;
     const cadence = normalizeCadence(row.unit);
     const cadenceSuffix =
       cadence === "monthly"
@@ -40,7 +48,9 @@ export function normalizeServices(
           : "";
     // El recargo por prioridad se muestra explícito en el deck (decisión de negocio).
     const priorityNote =
-      surcharge > 0 ? ` · ${row.priority} +${Math.round(surcharge * 100)}%` : "";
+      surcharge > 0
+        ? ` · ${row.priority} +${Math.round(surcharge * 100)}%`
+        : "";
     const qtyNote = quantity > 1 ? ` · ×${quantity}` : "";
     return {
       id: row.id,
@@ -48,8 +58,15 @@ export function normalizeServices(
       name: row.name,
       subarea: row.subarea,
       description: row.description,
-      deliverables: lines(row.deliverables),
-      exclusions: lines(row.requirements),
+      methodology: parseStructuredContent(row.methodology, "stages"),
+      deliverables: parseStructuredContent(row.deliverables, "deliverables"),
+      exclusions: parseStructuredContent(
+        row.serviceExclusions,
+        "deliverables",
+      ),
+      unitAmount: base,
+      baseTotal,
+      surchargeAmount,
       amount,
       currency,
       cadence,

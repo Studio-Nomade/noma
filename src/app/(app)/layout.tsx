@@ -19,6 +19,7 @@ export default async function AppLayout({
         email={user.email}
         isFinance={isFinance}
         isPeople={role.canPeople}
+        isPeopleManager={role.canManagePeople}
         name={member?.name ?? null}
         photoUrl={member?.photoUrl ?? null}
       >

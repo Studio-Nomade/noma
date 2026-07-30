@@ -3,8 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -16,6 +26,7 @@ import { AvatarCircle } from "@/components/shared/avatar-circle";
 import type { ProposalTeamRow, TeamSelectRow } from "./queries";
 import {
   addProposalTeamMember,
+  addManualProposalTeamMember,
   removeProposalTeamMember,
   updateProposalTeamRole,
 } from "./actions";
@@ -34,6 +45,7 @@ export function TeamSelector({
   const [roles, setRoles] = useState<Record<string, string>>(
     Object.fromEntries(team.map((t) => [t.id, t.roleInProject ?? ""])),
   );
+  const [manualOpen, setManualOpen] = useState(false);
 
   const inTeam = new Set(team.map((t) => t.memberId));
   const available = members.filter((m) => !inTeam.has(m.id));
@@ -65,24 +77,86 @@ export function TeamSelector({
     });
   }
 
+  function addManual(formData: FormData) {
+    formData.set("proposalId", proposalId);
+    startTransition(async () => {
+      const res = await addManualProposalTeamMember(formData);
+      if (res.ok) {
+        setManualOpen(false);
+        toast.success("Integrante agregado");
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-heading text-sm font-medium">
           Equipo del proyecto ({team.length})
         </h2>
-        <Select value="" onValueChange={add} disabled={available.length === 0}>
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="+ Agregar integrante" />
-          </SelectTrigger>
-          <SelectContent>
-            {available.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Select
+            value=""
+            onValueChange={add}
+            disabled={available.length === 0}
+          >
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="+ Agregar integrante" />
+            </SelectTrigger>
+            <SelectContent>
+              {available.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+            <DialogTrigger
+              render={
+                <Button type="button" variant="outline" size="sm">
+                  <Plus className="size-4" />
+                  Integrante externo
+                </Button>
+              }
+            />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Agregar integrante manualmente</DialogTitle>
+              </DialogHeader>
+              <form action={addManual} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="manual-name">Nombre</Label>
+                  <Input id="manual-name" name="name" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="manual-role">Rol en el proyecto</Label>
+                  <Input id="manual-role" name="roleTitle" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="manual-photo">Foto</Label>
+                  <Input
+                    id="manual-photo"
+                    name="photo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    JPG, PNG o WEBP · máximo 5 MB.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={pending}>
+                    {pending ? "Agregando…" : "Agregar al equipo"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {team.length === 0 ? (

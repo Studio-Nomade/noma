@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatMoney } from "@/lib/currency/format";
+import { equivalences, type Rates } from "@/lib/currency/convert";
 import {
   AREA_LABELS,
   SERVICE_PRIORITIES,
@@ -23,13 +24,21 @@ import {
   type ServicePriority,
 } from "@/types/enums";
 import type { Service } from "@/db/schema";
+import type { ServicePackageWithItems } from "@/features/services/queries";
+import {
+  SERVICE_TIER_META,
+  type ServiceTier,
+} from "@/features/services/tiers";
 import type { ProposalServiceRow } from "./queries";
 import { lineAmount } from "./totals";
 import {
   addProposalService,
+  addServicePackageToProposal,
   removeProposalService,
   updateProposalServicePriority,
+  updateProposalServicePrice,
   updateProposalServiceQuantity,
+  updateProposalServiceVariant,
 } from "./actions";
 
 function groupByArea<T extends { area: Area }>(items: T[]): [Area, T[]][] {
@@ -46,16 +55,23 @@ export function ServiceSelector({
   proposalId,
   selected,
   catalog,
+  rates,
+  packages,
+  variants,
 }: {
   proposalId: string;
   selected: ProposalServiceRow[];
   catalog: Service[];
+  rates: Rates;
+  packages: ServicePackageWithItems[];
+  variants: { serviceId: string; tier: string; enabled: boolean }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const catalogAreas = [...new Set(catalog.map((service) => service.area))];
   const [activeArea, setActiveArea] = useState<Area>(catalogAreas[0] ?? "B&D");
+  const [packageId, setPackageId] = useState("");
 
   const selectedIds = new Set(selected.map((s) => s.serviceId));
   const filtered = catalog.filter((s) => {
@@ -84,6 +100,17 @@ export function ServiceSelector({
       else toast.error(res.error);
     });
   }
+  function addPackage() {
+    if (!packageId) return;
+    startTransition(async () => {
+      const res = await addServicePackageToProposal(proposalId, packageId);
+      if (res.ok) {
+        setPackageId("");
+        router.refresh();
+        toast.success("Paquete agregado a la propuesta");
+      } else toast.error(res.error);
+    });
+  }
   function setPriority(rowId: string, priority: ServicePriority) {
     startTransition(async () => {
       const res = await updateProposalServicePriority(
@@ -101,6 +128,29 @@ export function ServiceSelector({
         rowId,
         proposalId,
         quantity,
+      );
+      if (res.ok) router.refresh();
+      else toast.error(res.error);
+    });
+  }
+  function setPrice(rowId: string, amount: number, currency: Currency) {
+    startTransition(async () => {
+      const res = await updateProposalServicePrice(
+        rowId,
+        proposalId,
+        amount,
+        currency,
+      );
+      if (res.ok) router.refresh();
+      else toast.error(res.error);
+    });
+  }
+  function setVariant(rowId: string, tier: ServiceTier) {
+    startTransition(async () => {
+      const res = await updateProposalServiceVariant(
+        rowId,
+        proposalId,
+        tier,
       );
       if (res.ok) router.refresh();
       else toast.error(res.error);
@@ -126,9 +176,18 @@ export function ServiceSelector({
                   {area} · {AREA_LABELS[area]}
                 </p>
               )}
+              <div className="text-muted-foreground hidden grid-cols-[minmax(0,1fr)_9rem_5rem_10rem_2rem] gap-3 border-b pb-2 text-[11px] font-medium tracking-wide uppercase md:grid">
+                <span>Servicio</span>
+                <span className="text-right">Valor unitario</span>
+                <span className="text-center">Cantidad</span>
+                <span className="text-right">Valor total</span>
+                <span />
+              </div>
               <ul className="divide-border divide-y">
                 {items.map((s) => {
-                  const baseAmount = Number(s.customPriceAmount ?? s.priceAmount);
+                  const baseAmount = Number(
+                    s.customPriceAmount ?? s.priceAmount,
+                  );
                   const currency = (s.customPriceCurrency ??
                     s.priceCurrency ??
                     "UF") as Currency;
@@ -140,7 +199,7 @@ export function ServiceSelector({
                   });
                   return (
                     <li key={s.id} className="py-3">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_5rem_10rem_2rem] md:items-start">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">
                             {s.name}
@@ -150,25 +209,82 @@ export function ServiceSelector({
                               {s.subarea}
                             </p>
                           )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <span className="text-sm font-medium whitespace-nowrap">
-                            {formatMoney(lineTotal, currency)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => remove(s.id)}
-                            disabled={pending}
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label="Quitar"
+                          <Select
+                            value={s.variantTier}
+                            onValueChange={(value) =>
+                              setVariant(s.id, value as ServiceTier)
+                            }
                           >
-                            <X className="size-4" />
-                          </button>
+                            <SelectTrigger
+                              size="sm"
+                              className="mt-2 w-44 text-xs"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {variants
+                                .filter(
+                                  (variant) =>
+                                    variant.serviceId === s.serviceId &&
+                                    variant.enabled,
+                                )
+                                .map((variant) => (
+                                  <SelectItem
+                                    key={variant.tier}
+                                    value={variant.tier}
+                                  >
+                                    {
+                                      SERVICE_TIER_META[
+                                        variant.tier as ServiceTier
+                                      ].label
+                                    }
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {/* Cantidad */}
-                        <div className="glass-hairline flex items-center rounded-lg">
+                        <div className="space-y-1 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              defaultValue={baseAmount}
+                              aria-label={`Valor unitario de ${s.name}`}
+                              className="h-8 w-24 text-right text-sm"
+                              onBlur={(event) =>
+                                setPrice(
+                                  s.id,
+                                  Number(event.target.value),
+                                  currency,
+                                )
+                              }
+                            />
+                            <Select
+                              value={currency}
+                              onValueChange={(value) =>
+                                setPrice(s.id, baseAmount, value as Currency)
+                              }
+                            >
+                              <SelectTrigger size="sm" className="w-[4.5rem]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(["UF", "CLP", "USD"] as Currency[]).map(
+                                  (item) => (
+                                    <SelectItem key={item} value={item}>
+                                      {item}
+                                    </SelectItem>
+                                  ),
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <p className="text-muted-foreground text-[10px] leading-tight">
+                            {equivalences(baseAmount, currency, rates)}
+                          </p>
+                        </div>
+                        <div className="glass-hairline flex h-8 items-center justify-center rounded-lg">
                           <button
                             type="button"
                             aria-label="Menos"
@@ -191,6 +307,32 @@ export function ServiceSelector({
                             <Plus className="size-3.5" />
                           </button>
                         </div>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold whitespace-nowrap">
+                            {formatMoney(lineTotal, currency)}
+                          </span>
+                          <p className="text-muted-foreground mt-1 text-[10px] leading-tight">
+                            {equivalences(lineTotal, currency, rates)}
+                          </p>
+                          {s.priority !== "Normal" && (
+                            <p className="text-destructive mt-1 text-[10px] font-medium uppercase">
+                              Incluye recargo · {s.priority}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => remove(s.id)}
+                            disabled={pending}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Quitar"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         {/* Prioridad */}
                         <Select
                           value={s.priority}
@@ -209,11 +351,6 @@ export function ServiceSelector({
                             ))}
                           </SelectContent>
                         </Select>
-                        {s.quantity > 1 && (
-                          <span className="text-muted-foreground text-xs">
-                            {formatMoney(baseAmount, currency)} c/u
-                          </span>
-                        )}
                       </div>
                     </li>
                   );
@@ -227,6 +364,36 @@ export function ServiceSelector({
       {/* Catálogo, agrupado por área */}
       <div>
         <h3 className="font-heading mb-2 text-sm font-medium">Catálogo</h3>
+        {packages.length > 0 && (
+          <div className="bg-muted/30 border-border mb-4 flex flex-col gap-2 rounded-xl border p-3 sm:flex-row">
+            <Select
+              value={packageId}
+              onValueChange={(value) => setPackageId(value ?? "")}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Agregar un paquete prearmado" />
+              </SelectTrigger>
+              <SelectContent>
+                {packages
+                  .filter((item) => item.status === "Activo")
+                  .map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name} · {item.items.length} servicios
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!packageId || pending}
+              onClick={addPackage}
+            >
+              <Plus className="size-4" />
+              Agregar paquete
+            </Button>
+          </div>
+        )}
         <div className="relative mb-3">
           <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input

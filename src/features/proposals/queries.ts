@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   proposals,
@@ -7,6 +7,7 @@ import {
   proposalNotes,
   teamMembers,
   services,
+  serviceVariants,
   projects,
   clients,
 } from "@/db/schema";
@@ -78,6 +79,7 @@ export async function getProposalServices(proposalId: string) {
     .select({
       id: proposalServices.id,
       serviceId: proposalServices.serviceId,
+      variantTier: proposalServices.variantTier,
       position: proposalServices.position,
       quantity: proposalServices.quantity,
       priority: proposalServices.priority,
@@ -86,16 +88,27 @@ export async function getProposalServices(proposalId: string) {
       name: services.name,
       subarea: services.subarea,
       area: services.area,
-      priceAmount: services.priceMinAmount,
-      priceCurrency: services.priceCurrency,
+      priceAmount: sql<string | null>`coalesce(${serviceVariants.priceMinAmount}, ${services.priceMinAmount})`,
+      priceCurrency: sql<
+        typeof services.$inferSelect.priceCurrency
+      >`coalesce(${serviceVariants.priceCurrency}, ${services.priceCurrency})`,
       priceType: services.priceType,
       unit: services.unit,
-      description: services.description,
-      deliverables: services.deliverables,
+      description: sql<string | null>`coalesce(${serviceVariants.description}, ${services.description})`,
+      methodology: sql<string | null>`coalesce(${serviceVariants.methodology}, ${services.methodology})`,
+      deliverables: sql<string | null>`coalesce(${serviceVariants.deliverables}, ${services.deliverables})`,
+      serviceExclusions: sql<string | null>`coalesce(${serviceVariants.exclusions}, ${services.exclusions})`,
       requirements: services.requirements,
     })
     .from(proposalServices)
     .innerJoin(services, eq(proposalServices.serviceId, services.id))
+    .leftJoin(
+      serviceVariants,
+      and(
+        eq(serviceVariants.serviceId, proposalServices.serviceId),
+        eq(serviceVariants.tier, proposalServices.variantTier),
+      ),
+    )
     .where(eq(proposalServices.proposalId, proposalId))
     .orderBy(asc(proposalServices.position));
 }
@@ -221,4 +234,24 @@ export async function listServicesForAreas(areas: string[]) {
       ),
     )
     .orderBy(asc(services.area), asc(services.subarea), asc(services.name));
+}
+
+export async function listServiceVariantsForAreas(areas: string[]) {
+  const list = areas.length ? areas : ["B&D"];
+  return db
+    .select({
+      serviceId: serviceVariants.serviceId,
+      tier: serviceVariants.tier,
+      enabled: serviceVariants.enabled,
+    })
+    .from(serviceVariants)
+    .innerJoin(services, eq(serviceVariants.serviceId, services.id))
+    .where(
+      and(
+        inArray(services.area, list as never[]),
+        eq(services.status, "Activo"),
+        eq(serviceVariants.enabled, true),
+      ),
+    )
+    .orderBy(asc(serviceVariants.createdAt));
 }

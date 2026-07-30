@@ -152,9 +152,11 @@ export async function getAsanaTask(
 export async function createAsanaTask(input: {
   name: string;
   notes?: string;
+  projectGid?: string;
 }): Promise<AsanaResult> {
   const token = asanaToken();
-  const projectGid = process.env.ASANA_PROJECT_GID;
+  const projectGid =
+    input.projectGid?.trim() || process.env.ASANA_PROJECT_GID?.trim();
   if (!token || !projectGid) {
     return {
       connected: false,
@@ -204,9 +206,15 @@ export async function createAsanaTask(input: {
       reason: "Asana devolvió una respuesta inválida.",
     };
   }
+  if (!json.data?.gid) {
+    return {
+      connected: false,
+      reason: "Asana devolvió una tarea sin identificador.",
+    };
+  }
   return {
     connected: true,
-    gid: json.data?.gid ?? "",
+    gid: json.data.gid,
     url: json.data?.permalink_url ?? null,
   };
 }

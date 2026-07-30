@@ -42,6 +42,7 @@ export type UserRole = {
   canEditCatalog: boolean;
   canLegal: boolean;
   canPeople: boolean;
+  canManagePeople: boolean;
   isReadOnly: boolean;
   /** Alias de compatibilidad; usar `canFinance` en código nuevo. */
   isFinance: boolean;
@@ -67,6 +68,8 @@ export function roleFor(email?: string | null): UserRole {
   const canFinance = isSuperAdmin || isCommercialFinance;
   const canLegal = isSuperAdmin || isLegalCompliance;
   const canPeople = isSuperAdmin || isPeople;
+  const canManagePeople =
+    isSuperAdmin || normalized === "people@studionomade.cl";
 
   return {
     email: normalized,
@@ -79,6 +82,7 @@ export function roleFor(email?: string | null): UserRole {
     canEditCatalog: canFinance,
     canLegal,
     canPeople,
+    canManagePeople,
     isReadOnly: tier === "lectura",
     isFinance: canFinance,
     isAdmin: isSuperAdmin,

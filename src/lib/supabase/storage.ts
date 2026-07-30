@@ -15,6 +15,8 @@ import { StorageClient } from "@supabase/storage-js";
 
 // Facturas: bucket PRIVADO. Se sirven por enlaces firmados de corta duración.
 export const INVOICES_BUCKET = "invoices";
+// Expedientes laborales: bucket privado, siempre servido con URL firmada.
+export const PEOPLE_BUCKET = "people";
 // Marca (logo animado, iconos): bucket PÚBLICO — los clientes de correo cargan
 // la imagen sin auth, así que un enlace firmado (que expira) no sirve.
 export const BRAND_BUCKET = "brand";
@@ -100,6 +102,9 @@ export async function ensureBuckets(): Promise<void> {
   const names = new Set((buckets ?? []).map((b) => b.name));
   if (!names.has(INVOICES_BUCKET)) {
     await s.createBucket(INVOICES_BUCKET, { public: false });
+  }
+  if (!names.has(PEOPLE_BUCKET)) {
+    await s.createBucket(PEOPLE_BUCKET, { public: false });
   }
   if (!names.has(BRAND_BUCKET)) {
     await s.createBucket(BRAND_BUCKET, { public: true });

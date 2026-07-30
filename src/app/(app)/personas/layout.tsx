@@ -8,6 +8,7 @@ export default async function PeopleFinanceLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  if (!roleFor(user.email).canPeople) notFound();
+  const role = roleFor(user.email);
+  if (!role.canPeople && !role.canFinance) notFound();
   return <>{children}</>;
 }

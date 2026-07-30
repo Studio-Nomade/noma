@@ -1,0 +1,1 @@
+ALTER TABLE "proposal_services" ADD COLUMN "variant_tier" text DEFAULT 'START' NOT NULL;
