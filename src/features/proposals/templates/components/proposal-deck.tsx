@@ -529,6 +529,36 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
                 </SlideFrame>,
               );
             }
+            if (service.exclusions.length > 0) {
+              serviceSlides.push(
+                <SlideFrame
+                  key={`${service.id}-exclusions`}
+                  dark
+                  accent={proposalAreaAccent[service.area]}
+                  area={service.area}
+                >
+                  <p className="mb-[4%] text-[1cqw] tracking-[.18em] uppercase">
+                    {service.name}
+                  </p>
+                  <DisplayTitle text="NO INCLUYE">NO INCLUYE.</DisplayTitle>
+                  <ul className="mt-auto grid grid-cols-2 gap-x-[7%] gap-y-[5%] text-[1.15cqw] leading-[1.45]">
+                    {service.exclusions.slice(0, 10).map((item) => (
+                      <li
+                        key={`${item.title}-${item.description}`}
+                        className="border-t border-white/25 pt-[3%]"
+                      >
+                        <strong>{item.title}</strong>
+                        {item.description && (
+                          <span className="mt-1 block text-white/70">
+                            {item.description}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </SlideFrame>,
+              );
+            }
             return serviceSlides;
           }),
         );

@@ -11,6 +11,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  check,
   primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -762,6 +763,7 @@ export const serviceSubareas = pgTable(
   (t) => [
     uniqueIndex("service_subareas_area_name_unique").on(t.area, t.name),
     index("service_subareas_area_idx").on(t.area, t.name),
+    check("service_subareas_name_not_blank", sql`btrim(${t.name}) <> ''`),
   ],
 );
 
@@ -793,6 +795,22 @@ export const serviceVariants = pgTable(
       t.tier,
     ),
     index("service_variants_service_idx").on(t.serviceId),
+    check(
+      "service_variants_tier_check",
+      sql`${t.tier} in ('START', 'GROWTH', 'PERFORMANCE', 'ENTERPRISE')`,
+    ),
+    check(
+      "service_variants_price_min_nonnegative",
+      sql`${t.priceMinAmount} is null or ${t.priceMinAmount} >= 0`,
+    ),
+    check(
+      "service_variants_price_max_nonnegative",
+      sql`${t.priceMaxAmount} is null or ${t.priceMaxAmount} >= 0`,
+    ),
+    check(
+      "service_variants_price_range_check",
+      sql`${t.priceMinAmount} is null or ${t.priceMaxAmount} is null or ${t.priceMaxAmount} >= ${t.priceMinAmount}`,
+    ),
   ],
 );
 
@@ -827,9 +845,20 @@ export const servicePackageItems = pgTable(
     uniqueIndex("service_package_items_unique").on(
       t.packageId,
       t.serviceId,
-      t.variantTier,
     ),
     index("service_package_items_package_idx").on(t.packageId, t.position),
+    check(
+      "service_package_items_tier_check",
+      sql`${t.variantTier} in ('START', 'GROWTH', 'PERFORMANCE', 'ENTERPRISE')`,
+    ),
+    check(
+      "service_package_items_quantity_check",
+      sql`${t.quantity} between 1 and 99`,
+    ),
+    check(
+      "service_package_items_position_check",
+      sql`${t.position} >= 0`,
+    ),
   ],
 );
 
@@ -959,6 +988,14 @@ export const proposalServices = pgTable(
   },
   (t) => [
     uniqueIndex("proposal_services_unique").on(t.proposalId, t.serviceId),
+    check(
+      "proposal_services_variant_tier_check",
+      sql`${t.variantTier} in ('START', 'GROWTH', 'PERFORMANCE', 'ENTERPRISE')`,
+    ),
+    check(
+      "proposal_services_quantity_check",
+      sql`${t.quantity} between 1 and 999`,
+    ),
   ],
 );
 

@@ -716,6 +716,59 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                 </DeckPage>,
               );
             }
+            if (service.exclusions.length > 0) {
+              serviceSlides.push(
+                <DeckPage
+                  key={`${service.id}-exclusions`}
+                  dark
+                  accent={proposalAreaAccent[service.area]}
+                  area={service.area}
+                >
+                  <Text style={s.eyebrow}>{service.name}</Text>
+                  <Text style={[s.display, { fontSize: 52 }]}>NO INCLUYE.</Text>
+                  <View
+                    style={{
+                      marginTop: "auto",
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {service.exclusions.slice(0, 10).map((item) => (
+                      <View
+                        key={`${item.title}-${item.description}`}
+                        style={{
+                          width: "50%",
+                          borderTopWidth: 0.5,
+                          borderTopColor: "#777",
+                          paddingVertical: 8,
+                          paddingRight: 14,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontFamily: "Helvetica-Bold",
+                          }}
+                        >
+                          {item.title}
+                        </Text>
+                        {item.description && (
+                          <Text
+                            style={{
+                              marginTop: 3,
+                              fontSize: 8,
+                              color: "#bdbdbd",
+                            }}
+                          >
+                            {item.description}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                </DeckPage>,
+              );
+            }
             return serviceSlides;
           }),
         );

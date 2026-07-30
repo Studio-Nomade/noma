@@ -60,7 +60,10 @@ export function normalizeServices(
       description: row.description,
       methodology: parseStructuredContent(row.methodology, "stages"),
       deliverables: parseStructuredContent(row.deliverables, "deliverables"),
-      exclusions: lines(row.requirements),
+      exclusions: parseStructuredContent(
+        row.serviceExclusions,
+        "deliverables",
+      ),
       unitAmount: base,
       baseTotal,
       surchargeAmount,

@@ -27,14 +27,26 @@ export const serviceVariantSchema = z.object({
 
 export const serviceSchema = z
   .object({
-  name: z.string().trim().min(1, "El nombre es obligatorio"),
-  area: z.enum(AREAS),
-  subarea: optionalText,
-  requirements: optionalText,
-  status: z.enum(SERVICE_STATUSES),
+    name: z.string().trim().min(1, "El nombre es obligatorio"),
+    area: z.enum(AREAS),
+    subarea: optionalText,
+    requirements: optionalText,
+    status: z.enum(SERVICE_STATUSES),
     variants: z.array(serviceVariantSchema).length(SERVICE_TIERS.length),
   })
   .superRefine((values, context) => {
+    const receivedTiers = values.variants.map((variant) => variant.tier);
+    const uniqueTiers = new Set(receivedTiers);
+    if (
+      uniqueTiers.size !== SERVICE_TIERS.length ||
+      SERVICE_TIERS.some((tier) => !uniqueTiers.has(tier))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["variants"],
+        message: "Las variantes deben incluir cada nivel exactamente una vez.",
+      });
+    }
     for (const tier of ["START", "GROWTH"] as const) {
       if (!values.variants.find((variant) => variant.tier === tier)?.enabled) {
         context.addIssue({

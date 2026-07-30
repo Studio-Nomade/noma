@@ -164,6 +164,9 @@ export function ServiceDialog({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ServiceDraft>(() => buildDraft(service));
   const [activeTier, setActiveTier] = useState<ServiceTier>("START");
+  const [customizedTiers, setCustomizedTiers] = useState<Set<ServiceTier>>(
+    () => new Set(),
+  );
   const [saving, setSaving] = useState(false);
   const router = useRouter();
   const isEdit = Boolean(service);
@@ -176,9 +179,11 @@ export function ServiceDialog({
   function resetDraft() {
     setDraft(buildDraft(service));
     setActiveTier("START");
+    setCustomizedTiers(new Set());
   }
 
   function setVariant(patch: Partial<VariantDraft>) {
+    setCustomizedTiers((current) => new Set(current).add(activeTier));
     setDraft((current) => ({
       ...current,
       variants: {
@@ -189,6 +194,15 @@ export function ServiceDialog({
   }
 
   function selectTier(tier: ServiceTier) {
+    if (!isEdit && tier === "GROWTH" && !customizedTiers.has("GROWTH")) {
+      setDraft((current) => ({
+        ...current,
+        variants: {
+          ...current.variants,
+          GROWTH: copyVariant(current.variants.START, "GROWTH"),
+        },
+      }));
+    }
     setActiveTier(tier);
   }
 
@@ -223,6 +237,7 @@ export function ServiceDialog({
         ),
       },
     }));
+    setCustomizedTiers((current) => new Set(current).add(activeTier));
     toast.success(
       `Contenido copiado desde ${SERVICE_TIER_META[previousTier].shortLabel}`,
     );
@@ -248,7 +263,10 @@ export function ServiceDialog({
       requirements: draft.requirements,
       status: draft.status,
       variants: SERVICE_TIERS.map((tier) => {
-        const item = draft.variants[tier];
+        const item =
+          !isEdit && tier === "GROWTH" && !customizedTiers.has("GROWTH")
+            ? copyVariant(draft.variants.START, "GROWTH")
+            : draft.variants[tier];
         return {
           ...item,
           methodology: serializeStructuredContent(item.methodology),

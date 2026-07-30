@@ -12,7 +12,7 @@ export type ProposalTemplateService = {
   description: string | null;
   methodology: StructuredContentItem[];
   deliverables: StructuredContentItem[];
-  exclusions: string[];
+  exclusions: StructuredContentItem[];
   unitAmount: number;
   baseTotal: number;
   surchargeAmount: number;

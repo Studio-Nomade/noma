@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
@@ -9,9 +9,11 @@ import { db } from "@/db";
 import {
   proposalServices,
   proposals,
+  activityLog,
   servicePackageItems,
   servicePackages,
   serviceSubareas,
+  serviceVariants,
   services,
 } from "@/db/schema";
 import { requireCatalogEditor } from "@/lib/auth";
@@ -28,6 +30,13 @@ import {
 function emptyToNull(value?: string) {
   return value?.trim() ? value.trim() : null;
 }
+
+function failValidation(message: string): never {
+  z.boolean().refine(Boolean, { message }).parse(false);
+  throw new Error("Validación no aplicada.");
+}
+
+const entityIdSchema = z.string().uuid("Identificador inválido.");
 
 export async function createServiceSubarea(
   values: SubareaFormValues,
@@ -62,14 +71,29 @@ export async function updateServiceSubarea(
 ): Promise<ActionResult> {
   try {
     const user = await requireCatalogEditor();
+    const subareaId = entityIdSchema.parse(id);
     const data = subareaSchema.parse(values);
     await db.transaction(async (tx) => {
       const [current] = await tx
         .select()
         .from(serviceSubareas)
-        .where(eq(serviceSubareas.id, id))
+        .where(eq(serviceSubareas.id, subareaId))
         .limit(1);
       if (!current) throw new Error("Subárea no encontrada.");
+      const assigned = await tx
+        .select({ id: services.id })
+        .from(services)
+        .where(
+          and(
+            eq(services.area, current.area),
+            eq(services.subarea, current.name),
+          ),
+        );
+      if (current.area !== data.area && assigned.length > 0) {
+        failValidation(
+          "No puedes cambiar de área una subárea con servicios. Reasígnalos primero.",
+        );
+      }
       await tx
         .update(serviceSubareas)
         .set({
@@ -77,20 +101,22 @@ export async function updateServiceSubarea(
           description: emptyToNull(data.description),
           updatedAt: new Date(),
         })
-        .where(eq(serviceSubareas.id, id));
-      await tx
-        .update(services)
-        .set({ subarea: data.name, updatedAt: new Date() })
-        .where(
-          and(
-            eq(services.area, current.area),
-            eq(services.subarea, current.name),
-          ),
-        );
+        .where(eq(serviceSubareas.id, subareaId));
+      if (current.area === data.area) {
+        await tx
+          .update(services)
+          .set({ subarea: data.name, updatedAt: new Date() })
+          .where(
+            and(
+              eq(services.area, current.area),
+              eq(services.subarea, current.name),
+            ),
+          );
+      }
     });
     await logActivity({
       entityType: "service_subarea",
-      entityId: id,
+      entityId: subareaId,
       action: "service_subarea_updated",
       actorId: user.id,
     });
@@ -183,6 +209,36 @@ function normalizePackage(values: ServicePackageFormValues) {
   };
 }
 
+async function assertPackageVariants(
+  writer: Pick<typeof db, "select">,
+  items: ServicePackageFormValues["items"],
+) {
+  const serviceIds = [...new Set(items.map((item) => item.serviceId))];
+  const variants = await writer
+    .select({
+      serviceId: serviceVariants.serviceId,
+      tier: serviceVariants.tier,
+    })
+    .from(serviceVariants)
+    .where(
+      and(
+        inArray(serviceVariants.serviceId, serviceIds),
+        eq(serviceVariants.enabled, true),
+      ),
+    );
+  const enabled = new Set(
+    variants.map((variant) => `${variant.serviceId}:${variant.tier}`),
+  );
+  const invalid = items.find(
+    (item) => !enabled.has(`${item.serviceId}:${item.variantTier}`),
+  );
+  if (invalid) {
+    failValidation(
+      "El paquete contiene un servicio o variante inexistente o desactivada.",
+    );
+  }
+}
+
 export async function createServicePackage(
   values: ServicePackageFormValues,
 ): Promise<ActionResult<{ id: string }>> {
@@ -190,6 +246,7 @@ export async function createServicePackage(
     const user = await requireCatalogEditor();
     const data = normalizePackage(values);
     const id = await db.transaction(async (tx) => {
+      await assertPackageVariants(tx, data.items);
       const [created] = await tx
         .insert(servicePackages)
         .values({ ...data.header, createdBy: user.id })
@@ -223,19 +280,21 @@ export async function updateServicePackage(
 ): Promise<ActionResult> {
   try {
     const user = await requireCatalogEditor();
+    const packageId = entityIdSchema.parse(id);
     const data = normalizePackage(values);
     await db.transaction(async (tx) => {
+      await assertPackageVariants(tx, data.items);
       await tx
         .update(servicePackages)
         .set({ ...data.header, updatedAt: new Date() })
-        .where(eq(servicePackages.id, id));
+        .where(eq(servicePackages.id, packageId));
       await tx
         .delete(servicePackageItems)
-        .where(eq(servicePackageItems.packageId, id));
+        .where(eq(servicePackageItems.packageId, packageId));
       await tx.insert(servicePackageItems).values(
         data.items.map((item, position) => ({
           ...item,
-          packageId: id,
+          packageId,
           position,
           createdBy: user.id,
         })),
@@ -243,7 +302,7 @@ export async function updateServicePackage(
     });
     await logActivity({
       entityType: "service_package",
-      entityId: id,
+      entityId: packageId,
       action: "service_package_updated",
       actorId: user.id,
     });
@@ -256,8 +315,15 @@ export async function updateServicePackage(
 
 export async function deleteServicePackage(id: string): Promise<ActionResult> {
   try {
-    await requireCatalogEditor();
-    await db.delete(servicePackages).where(eq(servicePackages.id, id));
+    const user = await requireCatalogEditor();
+    const packageId = entityIdSchema.parse(id);
+    await db.delete(servicePackages).where(eq(servicePackages.id, packageId));
+    await logActivity({
+      entityType: "service_package",
+      entityId: packageId,
+      action: "service_package_deleted",
+      actorId: user.id,
+    });
     revalidatePath("/services");
     return { ok: true, data: undefined };
   } catch (error) {
@@ -285,12 +351,42 @@ export async function suggestServicePackages(): Promise<
   ActionResult<{ suggestions: PackageSuggestion[] }>
 > {
   try {
-    await requireCatalogEditor();
+    const user = await requireCatalogEditor();
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) {
       return {
         ok: false,
         error: "Configura OPENAI_API_KEY para generar paquetes propuestos.",
+      };
+    }
+    const allowed = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`service-package-ai:${user.id}`}))`,
+      );
+      const windowStart = new Date(Date.now() - 10 * 60 * 1000);
+      const [{ count }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(activityLog)
+        .where(
+          and(
+            eq(activityLog.actorId, user.id),
+            eq(activityLog.action, "service_package_ai_requested"),
+            gte(activityLog.createdAt, windowStart),
+          ),
+        );
+      if (count >= 3) return false;
+      await tx.insert(activityLog).values({
+        entityType: "service_package",
+        action: "service_package_ai_requested",
+        actorId: user.id,
+      });
+      return true;
+    });
+    if (!allowed) {
+      return {
+        ok: false,
+        error:
+          "Alcanzaste el máximo de 3 análisis cada 10 minutos. Intenta más tarde.",
       };
     }
 
