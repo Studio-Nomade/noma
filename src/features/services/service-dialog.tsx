@@ -39,6 +39,7 @@ function toDefaults(service?: Service | null): ServiceFormValues {
     name: service?.name ?? "",
     area: service?.area ?? "B&D",
     description: service?.description ?? "",
+    methodology: service?.methodology ?? "",
     deliverables: service?.deliverables ?? "",
     estimatedTime: service?.estimatedTime ?? "",
     priceMinAmount: service?.priceMinAmount ?? "",
@@ -163,10 +164,30 @@ export function ServiceDialog({
           </Field>
 
           <Field
+            label="Metodología / proceso"
+            error={errors.methodology?.message}
+          >
+            <Textarea
+              rows={4}
+              placeholder={
+                "Un paso por línea. Ej:\nLevantamiento: Reunión inicial\nDiseño: Desarrollo de propuestas"
+              }
+              {...register("methodology")}
+            />
+            <p className="text-muted-foreground mt-1 text-xs">
+              Usa una línea por paso. Puedes escribir “Título: descripción”.
+            </p>
+          </Field>
+
+          <Field
             label="Entregables incluidos"
             error={errors.deliverables?.message}
           >
-            <Textarea rows={2} {...register("deliverables")} />
+            <Textarea
+              rows={4}
+              placeholder="Un entregable por línea"
+              {...register("deliverables")}
+            />
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">

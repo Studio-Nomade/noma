@@ -23,6 +23,8 @@ La app se aloja en **Vercel** (SSR/Server Actions). Cada rama de GitHub genera u
 | `DATABASE_URL`                     | connection string **pooler transacción (puerto 6543)** | All      |
 | `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` | `studionomade.cl`                                      | All      |
 | `MINDICADOR_API_URL`               | `https://mindicador.cl/api`                            | All      |
+| `CMF_API_KEY`                      | clave de API CMF (secreto, respaldo de tasas)          | All      |
+| `CMF_API_URL`                      | `https://api.cmfchile.cl/api-sbifv3/recursos_api`      | All      |
 | `GOOGLE_CLIENT_ID`                 | OAuth client de Google Cloud                           | All      |
 | `GOOGLE_CLIENT_SECRET`             | OAuth secret de Google Cloud                           | All      |
 | `NOMA_SUPERADMIN_EMAILS`           | Dirección con acceso total (coma)                      | All      |

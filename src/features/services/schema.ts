@@ -13,6 +13,7 @@ export const serviceSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio"),
   area: z.enum(AREAS),
   description: optionalText,
+  methodology: optionalText,
   deliverables: optionalText,
   estimatedTime: optionalText,
   priceMinAmount: optionalMoney,

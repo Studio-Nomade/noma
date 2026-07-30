@@ -1,7 +1,9 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
 import {
   proposals,
@@ -15,11 +17,19 @@ import { requireUser } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import {
   DISCOUNT_KINDS,
+  CURRENCIES,
   SERVICE_PRIORITIES,
+  type Currency,
   type DiscountKind,
   type ProposalStatus,
   type ServicePriority,
 } from "@/types/enums";
+import {
+  BRAND_BUCKET,
+  ensureBuckets,
+  publicUrl,
+  uploadToStorage,
+} from "@/lib/supabase/storage";
 
 /** Campos de texto editables de la propuesta. */
 const EDITABLE_FIELDS = [
@@ -116,6 +126,7 @@ export async function createProposalVersion(
         exclusions: p.exclusions,
         team: p.team,
         commercialConditions: p.commercialConditions,
+        includeMonthlyFeeCondition: p.includeMonthlyFeeCondition,
         nextAction: p.nextAction,
         // el descuento comercial se arrastra a la nueva versión
         discountLabel: p.discountLabel,
@@ -325,6 +336,65 @@ export async function updateProposalServiceQuantity(
   }
 }
 
+/** Personaliza el valor unitario y moneda de una línea sin alterar el catálogo. */
+export async function updateProposalServicePrice(
+  rowId: string,
+  proposalId: string,
+  amount: number,
+  currency: Currency,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const input = z
+      .object({
+        rowId: z.string().uuid(),
+        proposalId: z.string().uuid(),
+        amount: z.number().finite().nonnegative().max(999_999_999),
+        currency: z.enum(CURRENCIES),
+      })
+      .parse({ rowId, proposalId, amount, currency });
+    await db
+      .update(proposalServices)
+      .set({
+        customPriceAmount: String(input.amount),
+        customPriceCurrency: input.currency,
+      })
+      .where(
+        and(
+          eq(proposalServices.id, input.rowId),
+          eq(proposalServices.proposalId, input.proposalId),
+        ),
+      );
+    revalidatePath(`/proposals/${input.proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateProposalServicePrice");
+  }
+}
+
+export async function updateMonthlyFeeCondition(
+  proposalId: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const input = z
+      .object({ proposalId: z.string().uuid(), enabled: z.boolean() })
+      .parse({ proposalId, enabled });
+    await db
+      .update(proposals)
+      .set({
+        includeMonthlyFeeCondition: input.enabled,
+        updatedAt: new Date(),
+      })
+      .where(eq(proposals.id, input.proposalId));
+    revalidatePath(`/proposals/${input.proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "updateMonthlyFeeCondition");
+  }
+}
+
 /** Guarda el descuento comercial de la cotización (nombre + tipo + valor). */
 export async function updateProposalDiscount(
   proposalId: string,
@@ -380,6 +450,68 @@ export async function addProposalTeamMember(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "addProposalTeamMember");
+  }
+}
+
+const manualTeamSchema = z.object({
+  proposalId: z.string().uuid(),
+  name: z.string().trim().min(2).max(120),
+  roleTitle: z.string().trim().min(2).max(120),
+});
+
+/** Crea un integrante invitado/manual y lo incorpora a esta propuesta. */
+export async function addManualProposalTeamMember(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const input = manualTeamSchema.parse(Object.fromEntries(formData));
+    const file = formData.get("photo");
+    let photoUrl: string | null = null;
+    if (file instanceof File && file.size > 0) {
+      if (file.size > 5 * 1024 * 1024) {
+        return { ok: false, error: "La foto supera el máximo de 5 MB." };
+      }
+      if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(file.type)) {
+        return { ok: false, error: "Usa una foto JPG, PNG o WEBP." };
+      }
+      const extension = file.name.split(".").at(-1)?.toLowerCase() ?? "jpg";
+      const path = `proposal-team/${input.proposalId}/${randomUUID()}.${extension}`;
+      await ensureBuckets();
+      await uploadToStorage(
+        BRAND_BUCKET,
+        path,
+        Buffer.from(await file.arrayBuffer()),
+        file.type,
+      );
+      photoUrl = publicUrl(BRAND_BUCKET, path);
+    }
+    const [member] = await db
+      .insert(teamMembers)
+      .values({
+        name: input.name,
+        roleTitle: input.roleTitle,
+        photoUrl,
+        // Invitado evita que un perfil exclusivo del deck aparezca como
+        // colaborador activo en Personas, briefs u otros selectores globales.
+        status: "Invitado",
+        createdBy: user.id,
+      })
+      .returning({ id: teamMembers.id });
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(proposalTeam)
+      .where(eq(proposalTeam.proposalId, input.proposalId));
+    await db.insert(proposalTeam).values({
+      proposalId: input.proposalId,
+      memberId: member.id,
+      roleInProject: input.roleTitle,
+      position: count,
+    });
+    revalidatePath(`/proposals/${input.proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "addManualProposalTeamMember");
   }
 }
 

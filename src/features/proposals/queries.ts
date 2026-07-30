@@ -91,6 +91,7 @@ export async function getProposalServices(proposalId: string) {
       priceType: services.priceType,
       unit: services.unit,
       description: services.description,
+      methodology: services.methodology,
       deliverables: services.deliverables,
       requirements: services.requirements,
     })

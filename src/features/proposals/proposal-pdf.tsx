@@ -13,6 +13,7 @@ import {
 import { BRAND } from "@/lib/brand/brand";
 import { AREA_LABELS } from "@/types/enums";
 import { formatMoney } from "@/lib/currency/format";
+import { equivalences } from "@/lib/currency/convert";
 import { proposalAreaAccent, proposalTheme } from "./templates/themes";
 import type { ProposalTemplateData } from "./templates/types";
 import { getAreaCover, getHeaderLogo, pdfAssetPath } from "./templates/assets";
@@ -427,6 +428,82 @@ function StructuredListPdfPage({
   );
 }
 
+const EXECUTION_COPY: Record<string, { title: string; body: string }> = {
+  Prioridad: {
+    title: "MODALIDAD PRIORITARIA",
+    body: "Aplicable a proyectos que requieren agilizar su ejecución. Studio Nomade reorganiza parcialmente la planificación y asigna atención preferente, sin comprometer jornadas extraordinarias de manera significativa.",
+  },
+  "Contra Reloj": {
+    title: "MODALIDAD CONTRA RELOJ",
+    body: "Para proyectos con una reducción importante de los tiempos habituales. Considera dedicación preferente, alta disponibilidad del equipo y, cuando sea necesario, ejecución fuera del horario laboral para cumplir una fecha inamovible.",
+  },
+  Crítico: {
+    title: "MODALIDAD CRÍTICA",
+    body: "Para fechas inamovibles o situaciones de alta criticidad operacional. El equipo prioriza completamente el proyecto y puede ejecutar jornadas intensivas nocturnas, fines de semana o festivos.",
+  },
+};
+
+function ExecutionModePdfPage({ priority }: { priority: string }) {
+  const content = EXECUTION_COPY[priority];
+  if (!content) return null;
+  return (
+    <DeckPage dark accent={proposalTheme.orange}>
+      <View style={s.grid}>
+        <Text
+          style={[
+            s.display,
+            s.half,
+            { fontSize: titleSize(content.title, 42) },
+          ]}
+        >
+          {content.title}
+        </Text>
+        <View style={s.half}>
+          <Text style={s.copy}>{content.body}</Text>
+          <Text
+            style={{
+              marginTop: 24,
+              fontSize: 11,
+              lineHeight: 1.45,
+              color: proposalTheme.orange,
+            }}
+          >
+            El recargo modifica la prioridad y velocidad de ejecución, no el
+            alcance contratado.
+          </Text>
+        </View>
+      </View>
+    </DeckPage>
+  );
+}
+
+function MonthlyFeePdfPage() {
+  return (
+    <DeckPage dark accent={proposalTheme.orange}>
+      <View style={s.grid}>
+        <Text style={[s.display, s.half, { fontSize: 37 }]}>
+          CONDICIÓN COMERCIAL PARA CLIENTES CON FEE
+        </Text>
+        <View style={s.half}>
+          <Text style={s.copy}>
+            Si el servicio base está contemplado en el fee mensual vigente, no
+            se cobra nuevamente.
+          </Text>
+          <Text style={[s.copy, { marginTop: 18 }]}>
+            Cuando la solicitud exige una ejecución acelerada, se aplica
+            únicamente el recargo de Prioridad, Contra Reloj o Crítico definido
+            para la propuesta.
+          </Text>
+          <Text style={[s.copy, { marginTop: 18 }]}>
+            El recargo cubre la reorganización operativa y la asignación
+            preferente de recursos, sin modificar el alcance original.
+          </Text>
+        </View>
+      </View>
+    </DeckPage>
+  );
+}
+
 function ProposalPdf({ data }: { data: ProposalTemplateData }) {
   const accent = proposalAreaAccent[data.areas[0]];
   const textSlides = [
@@ -474,27 +551,33 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
         ))}
       <DeckPage accent={accent}>
         <Text style={s.eyebrow}>Servicios seleccionados</Text>
-        <Text style={s.display}>ALCANCE.</Text>
-        <View
-          style={{ marginTop: "auto", flexDirection: "row", flexWrap: "wrap" }}
-        >
-          {data.services.map((service, index) => (
-            <View
-              key={service.id}
-              style={{
-                width: "50%",
-                flexDirection: "row",
-                borderTopWidth: 0.5,
-                borderTopColor: "#777",
-                paddingVertical: 8,
-              }}
-            >
-              <Text style={{ width: 28, color: accent, fontSize: 10 }}>
-                {String(index + 1).padStart(2, "0")}
-              </Text>
-              <Text style={{ fontSize: 11 }}>{service.name}</Text>
-            </View>
-          ))}
+        <View style={[s.grid, { alignItems: "center" }]}>
+          <Text style={[s.display, { width: "34%" }]}>ALCANCE.</Text>
+          <View
+            style={{
+              width: "66%",
+              flexDirection: "row",
+              flexWrap: "wrap",
+            }}
+          >
+            {data.services.map((service, index) => (
+              <View
+                key={service.id}
+                style={{
+                  width: "50%",
+                  flexDirection: "row",
+                  borderTopWidth: 0.5,
+                  borderTopColor: "#777",
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ width: 28, color: accent, fontSize: 10 }}>
+                  {String(index + 1).padStart(2, "0")}
+                </Text>
+                <Text style={{ fontSize: 10 }}>{service.name}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </DeckPage>
       {data.areas.flatMap((area) => {
@@ -530,51 +613,93 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
           ),
         ];
         slides.push(
-          ...areaServices.map((service) => (
-            <DeckPage
-              key={service.id}
-              dark
-              accent={proposalAreaAccent[service.area]}
-              area={service.area}
-            >
-              <View style={s.grid}>
-                <View style={s.half}>
-                  <Text style={s.eyebrow}>{AREA_LABELS[service.area]}</Text>
-                  <Text
-                    style={[
-                      s.display,
-                      { fontSize: titleSize(service.name, 43) },
-                    ]}
-                  >
-                    {service.name}
-                  </Text>
-                  <Text style={{ marginTop: 20, fontSize: 15, color: accent }}>
-                    {service.valueLabel}
-                  </Text>
-                </View>
-                <View style={s.half}>
-                  <Text style={s.copy}>
-                    {service.description ??
-                      "Servicio seleccionado para esta propuesta."}
-                  </Text>
-                  {service.deliverables.length > 0 && (
-                    <View style={{ marginTop: 22 }}>
-                      <Text
-                        style={[s.eyebrow, { fontFamily: "Helvetica-Bold" }]}
-                      >
-                        Incluye
-                      </Text>
-                      {service.deliverables.slice(0, 7).map((item) => (
-                        <Text key={item} style={s.small}>
-                          — {item}
+          ...areaServices.flatMap((service) => {
+            const serviceSlides: React.ReactNode[] = [
+              <DeckPage
+                key={service.id}
+                dark
+                accent={proposalAreaAccent[service.area]}
+                area={service.area}
+              >
+                <View style={s.grid}>
+                  <View style={s.half}>
+                    <Text style={s.eyebrow}>{AREA_LABELS[service.area]}</Text>
+                    <Text
+                      style={[
+                        s.display,
+                        {
+                          fontSize: titleSize(service.name, 43),
+                          color: "#fff",
+                        },
+                      ]}
+                    >
+                      {service.name}
+                    </Text>
+                  </View>
+                  <View style={s.half}>
+                    <Text style={s.copy}>
+                      {service.description ??
+                        "Servicio seleccionado para esta propuesta."}
+                    </Text>
+                    {service.methodology.length > 0 && (
+                      <View style={{ marginTop: 22 }}>
+                        <Text
+                          style={[s.eyebrow, { fontFamily: "Helvetica-Bold" }]}
+                        >
+                          Proceso / metodología
                         </Text>
-                      ))}
-                    </View>
-                  )}
+                        {service.methodology.slice(0, 6).map((item) => (
+                          <Text
+                            key={`${item.title}-${item.description}`}
+                            style={s.small}
+                          >
+                            — {item.title}
+                            {item.description ? `: ${item.description}` : ""}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </DeckPage>
-          )),
+              </DeckPage>,
+            ];
+            if (service.deliverables.length > 0) {
+              serviceSlides.push(
+                <DeckPage
+                  key={`${service.id}-deliverables`}
+                  dark
+                  accent={proposalAreaAccent[service.area]}
+                  area={service.area}
+                >
+                  <Text style={s.eyebrow}>{service.name}</Text>
+                  <Text style={[s.display, { fontSize: 52 }]}>INCLUYE.</Text>
+                  <View
+                    style={{
+                      marginTop: "auto",
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {service.deliverables.slice(0, 10).map((item) => (
+                      <View
+                        key={item}
+                        style={{
+                          width: "50%",
+                          borderTopWidth: 0.5,
+                          borderTopColor: "#777",
+                          paddingVertical: 8,
+                          paddingRight: 14,
+                        }}
+                      >
+                        <Text style={{ fontSize: 10 }}>— {item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </DeckPage>,
+              );
+            }
+            return serviceSlides;
+          }),
         );
         return slides;
       })}
@@ -592,6 +717,12 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
           accent={accent}
         />
       )}
+      {[...new Set(data.services.map((service) => service.priority))]
+        .filter((priority) => priority !== "Normal")
+        .map((priority) => (
+          <ExecutionModePdfPage key={priority} priority={priority} />
+        ))}
+      {data.sections.includeMonthlyFeeCondition && <MonthlyFeePdfPage />}
       {data.gantt && (
         <DeckPage dark accent={accent}>
           <Text style={[s.display, { fontSize: 48 }]}>GANTT DESARROLLO</Text>
@@ -767,49 +898,94 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
             <Text style={[s.eyebrow, { marginBottom: 8 }]}>
               Servicios considerados
             </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                borderTopWidth: 0.5,
+                borderBottomWidth: 0.5,
+                borderColor: "#aaa",
+                paddingVertical: 5,
+              }}
+            >
+              <Text style={{ width: "40%", fontSize: 6.5 }}>SERVICIO</Text>
+              <Text style={{ width: "22%", fontSize: 6.5, textAlign: "right" }}>
+                VALOR UNITARIO
+              </Text>
+              <Text
+                style={{ width: "12%", fontSize: 6.5, textAlign: "center" }}
+              >
+                CANT.
+              </Text>
+              <Text style={{ width: "26%", fontSize: 6.5, textAlign: "right" }}>
+                TOTAL
+              </Text>
+            </View>
             {data.services.slice(0, 10).map((service) => {
-              const equivalent =
-                service.currency === "UF"
-                  ? `≈ ${formatMoney(service.amount * data.totals.ufClp, "CLP")}`
-                  : service.currency === "CLP" && data.totals.ufClp > 0
-                    ? `≈ ${formatMoney(service.amount / data.totals.ufClp, "UF")}`
-                    : null;
+              const rates = {
+                ufClp: data.totals.ufClp,
+                usdClp: data.totals.usdClp,
+              };
               return (
                 <View
                   key={service.id}
                   style={{
                     flexDirection: "row",
-                    justifyContent: "space-between",
-                    borderTopWidth: 0.5,
+                    borderBottomWidth: 0.5,
                     borderTopColor: "#aaa",
-                    paddingVertical: 5,
+                    paddingVertical: 6,
                   }}
                 >
-                  <View style={{ width: "66%" }}>
+                  <View style={{ width: "40%" }}>
                     <Text style={{ fontSize: 8.5, fontWeight: 600 }}>
                       {service.name}
                     </Text>
+                    {service.surcharge > 0 && (
+                      <Text
+                        style={{
+                          marginTop: 3,
+                          fontSize: 6.5,
+                          color: proposalTheme.orange,
+                        }}
+                      >
+                        {service.priority.toUpperCase()} (+
+                        {service.surcharge * 100}%):{" "}
+                        {formatMoney(service.surchargeAmount, service.currency)}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ width: "22%", alignItems: "flex-end" }}>
+                    <Text style={{ fontSize: 8.5, fontWeight: 600 }}>
+                      {formatMoney(service.unitAmount, service.currency)}
+                    </Text>
                     <Text
-                      style={{ marginTop: 2, fontSize: 6.5, color: "#777" }}
+                      style={{ marginTop: 2, fontSize: 5.5, color: "#777" }}
                     >
-                      {service.cadence === "monthly"
-                        ? "Mensual"
-                        : service.cadence === "quarterly"
-                          ? "Trimestral"
-                          : "Valor único"}
+                      {equivalences(
+                        service.unitAmount,
+                        service.currency,
+                        rates,
+                      )}
                     </Text>
                   </View>
-                  <View style={{ width: "34%", alignItems: "flex-end" }}>
+                  <Text
+                    style={{
+                      width: "12%",
+                      fontSize: 8.5,
+                      fontWeight: 600,
+                      textAlign: "center",
+                    }}
+                  >
+                    {service.quantity}
+                  </Text>
+                  <View style={{ width: "26%", alignItems: "flex-end" }}>
                     <Text style={{ fontSize: 8.5, fontWeight: 600 }}>
                       {formatMoney(service.amount, service.currency)}
                     </Text>
-                    {equivalent && (
-                      <Text
-                        style={{ marginTop: 2, fontSize: 6.5, color: "#777" }}
-                      >
-                        {equivalent}
-                      </Text>
-                    )}
+                    <Text
+                      style={{ marginTop: 2, fontSize: 5.5, color: "#777" }}
+                    >
+                      {equivalences(service.amount, service.currency, rates)}
+                    </Text>
                   </View>
                 </View>
               );
@@ -820,32 +996,28 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
               <PdfRow
                 label="Neto equivalente"
                 value={formatMoney(
-                  data.totals.netClp / data.totals.ufClp,
+                  data.totals.baseNetClp / data.totals.ufClp,
                   "UF",
                 )}
               />
             )}
-            {data.totals.oneTimeUf > 0 && (
+            {data.totals.surchargeClp > 0 && data.totals.ufClp > 0 && (
               <PdfRow
-                label="Subtotal único UF"
-                value={`${data.totals.oneTimeUf.toLocaleString("es-CL")} UF + IVA`}
-              />
-            )}
-            {data.totals.monthlyUf > 0 && (
-              <PdfRow
-                label="Valor mensual"
-                value={`${data.totals.monthlyUf.toLocaleString("es-CL")} UF + IVA`}
-              />
-            )}
-            {data.totals.quarterlyUf > 0 && (
-              <PdfRow
-                label="Valor trimestral"
-                value={`${data.totals.quarterlyUf.toLocaleString("es-CL")} UF + IVA`}
+                label="Recargo total"
+                value={formatMoney(
+                  data.totals.surchargeClp / data.totals.ufClp,
+                  "UF",
+                )}
               />
             )}
             <PdfRow
-              label="Neto referencial"
-              value={formatMoney(data.totals.netClp, "CLP")}
+              label="Subtotal neto"
+              value={formatMoney(
+                data.totals.ufClp > 0
+                  ? data.totals.netClp / data.totals.ufClp
+                  : 0,
+                "UF",
+              )}
             />
             {data.totals.discountClp > 0 && (
               <PdfRow
@@ -858,13 +1030,34 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
               value={formatMoney(data.totals.ivaClp, "CLP")}
             />
             <PdfRow
-              label="Total referencial"
-              value={formatMoney(data.totals.totalClp, "CLP")}
+              label="Total proyecto"
+              value={formatMoney(
+                data.totals.ufClp > 0
+                  ? data.totals.totalClp / data.totals.ufClp
+                  : 0,
+                "UF",
+              )}
             />
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 8,
+                fontFamily: "Helvetica-Bold",
+                textAlign: "right",
+              }}
+            >
+              {formatMoney(data.totals.totalClp, "CLP")} ·{" "}
+              {formatMoney(
+                data.totals.usdClp > 0
+                  ? data.totals.totalClp / data.totals.usdClp
+                  : 0,
+                "USD",
+              )}
+            </Text>
             <Text style={{ marginTop: 12, fontSize: 7 }}>
-              UF usada: {formatMoney(data.totals.ufClp, "CLP")}. Cada servicio
-              conserva su moneda original; la equivalencia se calcula con la UF
-              vigente. Valores netos, IVA se suma al total.
+              UF usada: {formatMoney(data.totals.ufClp, "CLP")} · USD observado:{" "}
+              {formatMoney(data.totals.usdClp, "CLP")}. Valores netos, IVA se
+              suma al total.
             </Text>
           </View>
         </View>

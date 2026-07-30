@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Eye, Download, Send, FileCheck, Lock } from "lucide-react";
 import { formatMoney } from "@/lib/currency/format";
+import { equivalences } from "@/lib/currency/convert";
 import { getLatestRates } from "@/lib/currency/rates";
 import { AREA_LABELS } from "@/types/enums";
 import { AREA_THEME } from "@/lib/brand/brand";
@@ -75,6 +76,7 @@ export default async function ProposalDetailPage({
   ]);
 
   const ufClp = Number(rates.ufClp) || 0;
+  const usdClp = Number(rates.usdClp) || 0;
   const items: LineItem[] = selected.map((s) => ({
     amount: Number(s.customPriceAmount ?? s.priceAmount) || null,
     currency: (s.customPriceCurrency ??
@@ -86,9 +88,10 @@ export default async function ProposalDetailPage({
   const discount = {
     label: proposal.discountLabel,
     kind: proposal.discountKind,
-    value: proposal.discountValue != null ? Number(proposal.discountValue) : null,
+    value:
+      proposal.discountValue != null ? Number(proposal.discountValue) : null,
   };
-  const totals = computeTotals(items, ufClp, discount);
+  const totals = computeTotals(items, ufClp, discount, usdClp);
 
   const sendVars = {
     cliente: clientName ?? "",
@@ -218,6 +221,7 @@ export default async function ProposalDetailPage({
                   proposalId={id}
                   selected={selected}
                   catalog={catalog}
+                  rates={{ ufClp, usdClp }}
                 />
               </div>
 
@@ -228,6 +232,10 @@ export default async function ProposalDetailPage({
               <div className="glass rounded-xl p-6">
                 <ProposalContentForm
                   proposalId={id}
+                  includeMonthlyFeeCondition={
+                    proposal.includeMonthlyFeeCondition
+                  }
+                  serviceNames={selected.map((service) => service.name)}
                   initial={{
                     title: proposal.title,
                     context: proposal.context,
@@ -272,6 +280,12 @@ export default async function ProposalDetailPage({
                 />
               )}
               <Row label="Neto" value={formatMoney(totals.netClp, "CLP")} />
+              {totals.surchargeClp > 0 && (
+                <Row
+                  label="Recargos"
+                  value={formatMoney(totals.surchargeClp, "CLP")}
+                />
+              )}
               <DiscountEditor
                 proposalId={id}
                 initial={discount}
@@ -282,14 +296,23 @@ export default async function ProposalDetailPage({
               <div className="border-border mt-2 border-t pt-2">
                 <Row
                   label="Total"
-                  value={formatMoney(totals.totalClp, "CLP")}
+                  value={formatMoney(
+                    ufClp > 0 ? totals.totalClp / ufClp : 0,
+                    "UF",
+                  )}
                   strong
                 />
+                <p className="text-muted-foreground mt-1 text-right text-xs">
+                  {equivalences(ufClp > 0 ? totals.totalClp / ufClp : 0, "UF", {
+                    ufClp,
+                    usdClp,
+                  })}
+                </p>
               </div>
             </dl>
             <p className="text-muted-foreground mt-3 text-xs">
               {ufClp > 0
-                ? `UF ${ufClp.toLocaleString("es-CL")} · ${rates.stale ? "tasa desactualizada" : "tasa del día"}`
+                ? `UF ${ufClp.toLocaleString("es-CL")} · USD ${usdClp.toLocaleString("es-CL")} · ${rates.stale ? "tasas desactualizadas" : "tasas del día"}`
                 : "Sin tasa UF — corre npm run rates:sync"}
             </p>
 

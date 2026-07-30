@@ -723,6 +723,8 @@ export const services = pgTable("services", {
   subarea: text("subarea"),
   category: text("category"),
   description: text("description"),
+  // Lista estructurada de pasos/tareas del servicio (noma-list:v1).
+  methodology: text("methodology"),
   deliverables: text("deliverables"),
   estimatedTime: text("estimated_time"),
   complexityLevel: complexityLevelEnum("complexity_level"),
@@ -824,6 +826,10 @@ export const proposals = pgTable("proposals", {
   exclusions: text("exclusions"),
   team: text("team"),
   commercialConditions: text("commercial_conditions"),
+  // Agrega una lámina específica para clientes con fee mensual.
+  includeMonthlyFeeCondition: boolean("include_monthly_fee_condition")
+    .default(false)
+    .notNull(),
   estimatedValueAmount: numeric("estimated_value_amount", {
     precision: 14,
     scale: 2,

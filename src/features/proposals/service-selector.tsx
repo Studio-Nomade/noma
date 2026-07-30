@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatMoney } from "@/lib/currency/format";
+import { equivalences, type Rates } from "@/lib/currency/convert";
 import {
   AREA_LABELS,
   SERVICE_PRIORITIES,
@@ -29,6 +30,7 @@ import {
   addProposalService,
   removeProposalService,
   updateProposalServicePriority,
+  updateProposalServicePrice,
   updateProposalServiceQuantity,
 } from "./actions";
 
@@ -46,10 +48,12 @@ export function ServiceSelector({
   proposalId,
   selected,
   catalog,
+  rates,
 }: {
   proposalId: string;
   selected: ProposalServiceRow[];
   catalog: Service[];
+  rates: Rates;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -106,6 +110,18 @@ export function ServiceSelector({
       else toast.error(res.error);
     });
   }
+  function setPrice(rowId: string, amount: number, currency: Currency) {
+    startTransition(async () => {
+      const res = await updateProposalServicePrice(
+        rowId,
+        proposalId,
+        amount,
+        currency,
+      );
+      if (res.ok) router.refresh();
+      else toast.error(res.error);
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -126,9 +142,18 @@ export function ServiceSelector({
                   {area} · {AREA_LABELS[area]}
                 </p>
               )}
+              <div className="text-muted-foreground hidden grid-cols-[minmax(0,1fr)_9rem_5rem_10rem_2rem] gap-3 border-b pb-2 text-[11px] font-medium tracking-wide uppercase md:grid">
+                <span>Servicio</span>
+                <span className="text-right">Valor unitario</span>
+                <span className="text-center">Cantidad</span>
+                <span className="text-right">Valor total</span>
+                <span />
+              </div>
               <ul className="divide-border divide-y">
                 {items.map((s) => {
-                  const baseAmount = Number(s.customPriceAmount ?? s.priceAmount);
+                  const baseAmount = Number(
+                    s.customPriceAmount ?? s.priceAmount,
+                  );
                   const currency = (s.customPriceCurrency ??
                     s.priceCurrency ??
                     "UF") as Currency;
@@ -140,7 +165,7 @@ export function ServiceSelector({
                   });
                   return (
                     <li key={s.id} className="py-3">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_5rem_10rem_2rem] md:items-start">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">
                             {s.name}
@@ -151,24 +176,48 @@ export function ServiceSelector({
                             </p>
                           )}
                         </div>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <span className="text-sm font-medium whitespace-nowrap">
-                            {formatMoney(lineTotal, currency)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => remove(s.id)}
-                            disabled={pending}
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label="Quitar"
-                          >
-                            <X className="size-4" />
-                          </button>
+                        <div className="space-y-1 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              defaultValue={baseAmount}
+                              aria-label={`Valor unitario de ${s.name}`}
+                              className="h-8 w-24 text-right text-sm"
+                              onBlur={(event) =>
+                                setPrice(
+                                  s.id,
+                                  Number(event.target.value),
+                                  currency,
+                                )
+                              }
+                            />
+                            <Select
+                              value={currency}
+                              onValueChange={(value) =>
+                                setPrice(s.id, baseAmount, value as Currency)
+                              }
+                            >
+                              <SelectTrigger size="sm" className="w-[4.5rem]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(["UF", "CLP", "USD"] as Currency[]).map(
+                                  (item) => (
+                                    <SelectItem key={item} value={item}>
+                                      {item}
+                                    </SelectItem>
+                                  ),
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <p className="text-muted-foreground text-[10px] leading-tight">
+                            {equivalences(baseAmount, currency, rates)}
+                          </p>
                         </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {/* Cantidad */}
-                        <div className="glass-hairline flex items-center rounded-lg">
+                        <div className="glass-hairline flex h-8 items-center justify-center rounded-lg">
                           <button
                             type="button"
                             aria-label="Menos"
@@ -191,6 +240,32 @@ export function ServiceSelector({
                             <Plus className="size-3.5" />
                           </button>
                         </div>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold whitespace-nowrap">
+                            {formatMoney(lineTotal, currency)}
+                          </span>
+                          <p className="text-muted-foreground mt-1 text-[10px] leading-tight">
+                            {equivalences(lineTotal, currency, rates)}
+                          </p>
+                          {s.priority !== "Normal" && (
+                            <p className="text-destructive mt-1 text-[10px] font-medium uppercase">
+                              Incluye recargo · {s.priority}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => remove(s.id)}
+                            disabled={pending}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Quitar"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         {/* Prioridad */}
                         <Select
                           value={s.priority}
@@ -209,11 +284,6 @@ export function ServiceSelector({
                             ))}
                           </SelectContent>
                         </Select>
-                        {s.quantity > 1 && (
-                          <span className="text-muted-foreground text-xs">
-                            {formatMoney(baseAmount, currency)} c/u
-                          </span>
-                        )}
                       </div>
                     </li>
                   );
