@@ -105,6 +105,8 @@ const COLOR_BY_VALUE: Record<string, StatusColor> = {
   pending: "amber",
   in_asana: "violet",
   closed: "slate",
+  approved: "emerald",
+  rejected: "red",
   Finalizado: "slate",
 };
 

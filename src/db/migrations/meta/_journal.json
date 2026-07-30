@@ -281,6 +281,13 @@
       "when": 1785416261274,
       "tag": "0039_flat_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785422041721,
+      "tag": "0040_clever_black_panther",
+      "breakpoints": true
     }
   ]
 }

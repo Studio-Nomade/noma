@@ -34,6 +34,7 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   requiresPeople?: boolean;
+  requiresPeopleManager?: boolean;
 }
 
 export interface NavGroup {
@@ -50,6 +51,7 @@ export interface NavGroup {
  */
 export const NAV_PRIMARY_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/mi-portal", label: "Mi portal", icon: Contact },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -126,6 +128,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Personas",
     icon: Contact,
     children: [
+      {
+        href: "/personas",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        requiresPeopleManager: true,
+      },
       {
         href: "/personas/colaboradores",
         label: "Colaboradores",

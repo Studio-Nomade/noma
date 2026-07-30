@@ -76,7 +76,7 @@ export async function requireFinance(redirectOnDenied = false): Promise<User> {
 }
 
 async function requireCapability(
-  capability: "canEditCatalog" | "canLegal" | "canPeople",
+  capability: "canEditCatalog" | "canLegal" | "canPeople" | "canManagePeople",
   label: string,
 ) {
   const user = await requireUser();
@@ -96,4 +96,8 @@ export function requireLegal() {
 
 export function requirePeople() {
   return requireCapability("canPeople", "Personas");
+}
+
+export function requirePeopleManager() {
+  return requireCapability("canManagePeople", "Gestión de Personas");
 }

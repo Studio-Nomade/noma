@@ -3,10 +3,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { listEmployees } from "@/features/people/employees";
+import { requireUser } from "@/lib/auth";
+import { roleFor } from "@/lib/roles";
 
 export const metadata = { title: "Colaboradores" };
 
 export default async function CollaboratorsPage() {
+  const user = await requireUser();
+  if (!roleFor(user.email).canPeople) notFound();
   const employees = await listEmployees();
 
   return (
@@ -51,3 +55,4 @@ export default async function CollaboratorsPage() {
     </>
   );
 }
+import { notFound } from "next/navigation";

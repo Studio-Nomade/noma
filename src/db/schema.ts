@@ -263,6 +263,9 @@ export const employees = pgTable(
   "employees",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    teamMemberId: uuid("team_member_id")
+      .unique()
+      .references(() => teamMembers.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     rut: text("rut").notNull().unique(),
     roleTitle: text("role_title").notNull(),
@@ -275,9 +278,61 @@ export const employees = pgTable(
     baseSalaryCurrency: currencyEnum("base_salary_currency")
       .default("CLP")
       .notNull(),
+    startDate: date("start_date"),
     ...timestamps,
   },
   (t) => [index("employees_status_idx").on(t.status, t.name)],
+);
+
+export const employeeDocuments = pgTable(
+  "employee_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    title: text("title").notNull(),
+    period: date("period"),
+    storagePath: text("storage_path").notNull(),
+    mimeType: text("mime_type").notNull(),
+    visibility: text("visibility").default("employee").notNull(),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [
+    index("employee_documents_employee_idx").on(
+      t.employeeId,
+      t.category,
+      t.period,
+    ),
+  ],
+);
+
+export const employeeTimeOff = pgTable(
+  "employee_time_off",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    type: text("type").default("vacation").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    days: numeric("days", { precision: 6, scale: 2 }).notNull(),
+    status: text("status").default("pending").notNull(),
+    reason: text("reason"),
+    reviewedBy: uuid("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("employee_time_off_employee_idx").on(
+      t.employeeId,
+      t.status,
+      t.startDate,
+    ),
+  ],
 );
 
 // ── comunicación interna ────────────────────────────────────

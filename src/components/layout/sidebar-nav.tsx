@@ -28,11 +28,13 @@ export function SidebarNav({
   onNavigate,
   isFinance = false,
   isPeople = false,
+  isPeopleManager = false,
   collapsed = false,
 }: {
   onNavigate?: () => void;
   isFinance?: boolean;
   isPeople?: boolean;
+  isPeopleManager?: boolean;
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
@@ -40,7 +42,11 @@ export function SidebarNav({
     (group) => !group.requiresFinance || isFinance,
   ).map((group) => ({
     ...group,
-    children: group.children.filter((item) => !item.requiresPeople || isPeople),
+    children: group.children.filter(
+      (item) =>
+        (!item.requiresPeople || isPeople) &&
+        (!item.requiresPeopleManager || isPeopleManager),
+    ),
   }));
   const activeGroup = visibleGroups.find(
     (group) =>

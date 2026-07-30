@@ -26,6 +26,7 @@ export function EmployeeForm() {
       <Field name="name" label="Nombre completo" required />
       <Field name="rut" label="RUT" placeholder="12.345.678-9" required />
       <Field name="roleTitle" label="Cargo" required />
+      <Field name="startDate" label="Fecha de ingreso" type="date" />
       <label className="text-sm">
         <span className="text-muted-foreground mb-1 block text-xs">Área</span>
         <select

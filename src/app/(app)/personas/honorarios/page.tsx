@@ -2,13 +2,11 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
 import { getHonorariaBook } from "@/features/people/honoraria";
-import { PeopleTabs } from "@/features/people/people-tabs";
 
 export default async function HonorariaPage() {
   const rows = await getHonorariaBook();
   return (
     <>
-      <PeopleTabs current="honoraria" />
       <PageHeader
         title="Libro de Honorarios"
         description="Boletas de terceros, retenciones, pagos y clasificación contable"
@@ -35,7 +33,9 @@ export default async function HonorariaPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="block">{row.contactName ?? "Sin nombre"}</span>
+                  <span className="block">
+                    {row.contactName ?? "Sin nombre"}
+                  </span>
                   <span className="text-muted-foreground text-xs">
                     {row.contactRut ?? "Sin RUT"}
                   </span>

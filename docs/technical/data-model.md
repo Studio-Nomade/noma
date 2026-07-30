@@ -96,6 +96,21 @@ lo que hace idempotentes los reintentos del agente.
 `access_references jsonb` (referencias a gestor de contraseñas — **nunca** secretos en claro),
 `repos jsonb`, `notes`.
 
+### employees / employee_documents / employee_time_off
+
+`employees` es la ficha laboral y puede vincularse 1:1 con `team_members` para
+resolver la identidad de “Mi portal”. El vínculo es explícito: nunca se infiere
+por nombre.
+
+`employee_documents` mantiene metadatos de contratos, anexos, liquidaciones,
+comprobantes, cotizaciones, licencias y certificados. El archivo vive en el
+bucket privado `people`; la aplicación entrega exclusivamente enlaces firmados
+de corta duración después de comprobar la sesión y la ficha vinculada.
+
+`employee_time_off` registra vacaciones, permisos y licencias con rango, días
+hábiles, estado y responsable de revisión. Personas gestiona las solicitudes y
+cada colaborador solo consulta las propias.
+
 ### user_connections (OAuth per-user)
 
 PK compuesta (`user_id`, `provider`) para conexiones personales de Asana y Slack.
@@ -129,6 +144,8 @@ Client 1 ──── N Project 1 ──── 1 Brief
 resource_links ── polimórfico ──> Client | Project | Proposal
 Service (biblioteca global)        StudioConfig (singleton)
 team_members ── user_id ──> auth.users
+team_members 1 ──── 0..1 employees 1 ──── N employee_documents
+                                  1 ──── N employee_time_off
 ```
 
 ## Reglas de negocio

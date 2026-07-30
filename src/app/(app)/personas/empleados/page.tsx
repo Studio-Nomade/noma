@@ -3,13 +3,12 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
 import { listEmployees } from "@/features/people/employees";
 import { EmployeeForm } from "@/features/people/employee-form";
-import { PeopleTabs } from "@/features/people/people-tabs";
+import { EmployeeDocumentUpload } from "@/features/people/people-manager-actions";
 
 export default async function EmployeesPage() {
   const employees = await listEmployees();
   return (
     <>
-      <PeopleTabs current="employees" />
       <PageHeader
         title="Empleados"
         description="Maestro laboral base para futuras liquidaciones y remuneraciones"
@@ -62,6 +61,9 @@ export default async function EmployeesPage() {
         </table>
       </div>
       <EmployeeForm />
+      <div className="mt-6">
+        <EmployeeDocumentUpload employees={employees} financeOnly />
+      </div>
       <p className="text-muted-foreground mt-3 text-xs">
         Esta base no calcula nómina, cotizaciones ni liquidaciones. Es el punto
         de extensión para un módulo laboral futuro.
