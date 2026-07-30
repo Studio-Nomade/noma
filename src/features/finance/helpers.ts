@@ -24,6 +24,14 @@ export function periodoSii(value: Date | string): string {
   return d.toISOString().slice(0, 7);
 }
 
+/** Bordes [inicio, siguiente mes) para un período YYYY-MM. */
+export function monthBounds(period: string) {
+  const start = `${period}-01`;
+  const next = new Date(`${start}T12:00:00Z`);
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  return { start, nextStart: next.toISOString().slice(0, 10) };
+}
+
 /** Fecha en formato ISO corto (YYYY-MM-DD) para columnas `date`. */
 export function toDateOnly(value: Date | string): string {
   const d = typeof value === "string" ? new Date(value) : value;

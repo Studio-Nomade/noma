@@ -1,4 +1,4 @@
-import { and, eq, gte, ilike, lte } from "drizzle-orm";
+import { and, eq, gte, ilike, lt } from "drizzle-orm";
 import { db } from "@/db";
 import {
   activityLog,
@@ -9,18 +9,10 @@ import {
   salesOrderBillingItems,
   salesOrders,
 } from "@/db/schema";
-import { toNum } from "./helpers";
-
-function monthBounds(period: string) {
-  const start = `${period}-01`;
-  const next = new Date(`${start}T12:00:00Z`);
-  next.setUTCMonth(next.getUTCMonth() + 1);
-  next.setUTCDate(0);
-  return { start, end: next.toISOString().slice(0, 10) };
-}
+import { monthBounds, toNum } from "./helpers";
 
 export async function getMonthlyCloseCockpit(period: string) {
-  const { start, end } = monthBounds(period);
+  const { start, nextStart } = monthBounds(period);
   const [
     transactions,
     automaticRows,
@@ -41,7 +33,7 @@ export async function getMonthlyCloseCockpit(period: string) {
           and(
             eq(bankTransactions.recordStatus, "ACTIVO"),
             gte(bankTransactions.fecha, start),
-            lte(bankTransactions.fecha, end),
+            lt(bankTransactions.fecha, nextStart),
           ),
         ),
       db
@@ -66,7 +58,7 @@ export async function getMonthlyCloseCockpit(period: string) {
             eq(reconciliations.status, "ACTIVA"),
             eq(reconciliations.note, "Conciliación automática"),
             gte(bankTransactions.fecha, start),
-            lte(bankTransactions.fecha, end),
+            lt(bankTransactions.fecha, nextStart),
           ),
         ),
       db
@@ -83,7 +75,7 @@ export async function getMonthlyCloseCockpit(period: string) {
           and(
             eq(finDocuments.recordStatus, "ACTIVO"),
             gte(finDocuments.fechaEmision, start),
-            lte(finDocuments.fechaEmision, end),
+            lt(finDocuments.fechaEmision, nextStart),
           ),
         ),
       db
@@ -100,7 +92,7 @@ export async function getMonthlyCloseCockpit(period: string) {
           and(
             eq(salesOrderBillingItems.status, "PENDIENTE"),
             gte(salesOrderBillingItems.tentativeDate, start),
-            lte(salesOrderBillingItems.tentativeDate, end),
+            lt(salesOrderBillingItems.tentativeDate, nextStart),
           ),
         ),
       db
@@ -111,7 +103,7 @@ export async function getMonthlyCloseCockpit(period: string) {
             eq(activityLog.entityType, "finance_config"),
             ilike(activityLog.action, "automatic_run:%"),
             gte(activityLog.createdAt, new Date(`${start}T00:00:00Z`)),
-            lte(activityLog.createdAt, new Date(`${end}T23:59:59Z`)),
+            lt(activityLog.createdAt, new Date(`${nextStart}T00:00:00Z`)),
           ),
         ),
     ]);
