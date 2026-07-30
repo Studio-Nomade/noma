@@ -87,10 +87,12 @@ responde de inmediato.
 
 El trabajo posterior corre fuera del ACK: un procesador bloquea y reclama eventos pendientes,
 resuelve el teléfono contra los remitentes acreditados y persiste conversación y mensajes. En
-esta etapa responde un acuse simple mediante la Cloud API; si faltan credenciales salientes,
-registra la degradación sin perder el evento. Los remitentes desconocidos reciben una guía y
-no generan conversación. El drenado idempotente queda disponible para el agente y el cron de
-los hitos siguientes.
+los canales acreditados, un agente OpenAI ordena la solicitud, recupera know-how autorizado,
+clasifica preliminarmente su alcance y pide la confirmación del cliente antes de cualquier
+acción operacional. El modelo se configura con `OPENAI_MODEL` y usa `gpt-5.6-sol` por defecto;
+si falta `OPENAI_API_KEY` responde con una degradación amable y conserva el evento para
+reintento. Los remitentes desconocidos reciben una guía y no generan conversación. El drenado
+idempotente queda disponible para el cron de los hitos siguientes.
 
 ## IA centralizada
 

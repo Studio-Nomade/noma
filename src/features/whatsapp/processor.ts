@@ -9,6 +9,7 @@ import {
   botMessages,
   whatsappInboundEvents,
 } from "@/db/schema";
+import { runAgentTurn } from "@/features/bot/agent";
 import { sendText } from "./client";
 import {
   inboundEventPayloadSchema,
@@ -17,6 +18,8 @@ import {
 
 const UNKNOWN_SENDER_MESSAGE =
   "Este número no está habilitado para enviar solicitudes. Contacta a tu equipo de Studio Nomade para acreditarlo.";
+const AGENT_FALLBACK_MESSAGE =
+  "Gracias por escribirnos. No pude ordenar tu solicitud en este momento, pero el mensaje quedó registrado para que el equipo pueda retomarlo.";
 
 export async function processPending({ limit = 10 }: { limit?: number } = {}) {
   const events = await claimPending(Math.max(1, Math.min(limit, 50)));
@@ -84,6 +87,7 @@ async function processEvent(
       channelId: botChannels.id,
       projectId: botChannels.projectId,
       clientId: botChannels.clientId,
+      contextPack: botChannels.contextPack,
     })
     .from(botAuthorizedSenders)
     .innerJoin(
@@ -124,12 +128,72 @@ async function processEvent(
     })
     .onConflictDoNothing();
 
-  const responseText = `Recibí tu mensaje: “${payload.text}”. En el siguiente paso lo ordenaremos contigo antes de enviarlo al equipo.`;
-  const delivery = await sendText(phone, responseText);
+  if (!isWithinCustomerCareWindow(inboundAt)) {
+    await db.insert(botMessages).values({
+      conversationId: conversation.id,
+      role: "assistant",
+      content: AGENT_FALLBACK_MESSAGE,
+      meta: {
+        delivery: "blocked_24h",
+        reason: "El mensaje se procesó fuera de la ventana de atención de 24h.",
+      },
+    });
+    await markDone(
+      eventId,
+      "Respuesta bloqueada: fuera de la ventana de atención de 24h.",
+    );
+    return;
+  }
+
+  let agentTurn: Awaited<ReturnType<typeof runAgentTurn>>;
+  try {
+    agentTurn = await runAgentTurn({
+      botChannel: {
+        id: resolved.channelId,
+        projectId: resolved.projectId,
+        clientId: resolved.clientId,
+        contextPack: resolved.contextPack,
+      },
+      conversationId: conversation.id,
+      userText: payload.text,
+    });
+  } catch (error) {
+    const delivery = await sendText(phone, AGENT_FALLBACK_MESSAGE);
+    await db.insert(botMessages).values({
+      conversationId: conversation.id,
+      role: "assistant",
+      content: AGENT_FALLBACK_MESSAGE,
+      meta: {
+        agent: "fallback",
+        delivery: delivery.connected ? "sent" : "degraded",
+        ...(delivery.connected
+          ? { waMessageId: delivery.id }
+          : { reason: delivery.reason }),
+      },
+    });
+    const reason =
+      error instanceof Error ? error.message : "Error desconocido del agente";
+    throw new Error(`El agente no pudo responder: ${reason}`);
+  }
+
+  for (const toolEvent of agentTurn.toolEvents) {
+    await db.insert(botMessages).values({
+      conversationId: conversation.id,
+      role: "tool",
+      content: JSON.stringify(toolEvent.result),
+      meta: {
+        tool: toolEvent.name,
+        arguments: toolEvent.arguments,
+        result: toolEvent.result,
+      },
+    });
+  }
+
+  const delivery = await sendText(phone, agentTurn.text);
   await db.insert(botMessages).values({
     conversationId: conversation.id,
     role: "assistant",
-    content: responseText,
+    content: agentTurn.text,
     meta: delivery.connected
       ? { delivery: "sent", waMessageId: delivery.id }
       : { delivery: "degraded", reason: delivery.reason },
@@ -210,4 +274,9 @@ function toInboundDate(timestamp: string | null) {
   const seconds = Number(timestamp);
   const value = new Date(seconds * 1000);
   return Number.isNaN(value.getTime()) ? new Date() : value;
+}
+
+function isWithinCustomerCareWindow(lastInboundAt: Date) {
+  const elapsed = Date.now() - lastInboundAt.getTime();
+  return elapsed >= -5 * 60 * 1_000 && elapsed <= 24 * 60 * 60 * 1_000;
 }
