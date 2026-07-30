@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/whatsapp-drain",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/retainers-open",
+      "schedule": "5 3 1 * *"
+    }
+  ]
+}

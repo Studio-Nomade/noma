@@ -10,8 +10,12 @@ export type ProposalTemplateService = {
   name: string;
   subarea: string | null;
   description: string | null;
-  deliverables: string[];
-  exclusions: string[];
+  methodology: StructuredContentItem[];
+  deliverables: StructuredContentItem[];
+  exclusions: StructuredContentItem[];
+  unitAmount: number;
+  baseTotal: number;
+  surchargeAmount: number;
   amount: number; // monto efectivo de la línea (base × cantidad × recargo)
   currency: Currency;
   cadence: BillingCadence;
@@ -42,6 +46,7 @@ export type ProposalTemplateData = {
     deliverables?: StructuredContentItem[];
     exclusions?: string;
     commercialConditions?: string;
+    includeMonthlyFeeCondition?: boolean;
     nextSteps?: string;
   };
   gantt: GanttData | null;
@@ -50,11 +55,15 @@ export type ProposalTemplateData = {
     monthlyUf: number;
     quarterlyUf: number;
     directClp: number;
+    directUsd: number;
+    baseNetClp: number;
+    surchargeClp: number;
     netClp: number;
     discountClp: number;
     discountLabel: string | null;
     ivaClp: number;
     totalClp: number;
     ufClp: number;
+    usdClp: number;
   };
 };

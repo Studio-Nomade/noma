@@ -1,16 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoneyRange } from "@/lib/currency/format";
 import { AREAS, AREA_LABELS, type Area } from "@/types/enums";
-import type { Service } from "@/db/schema";
+import type { ServiceSubarea } from "@/db/schema";
+import type { Rates } from "@/lib/currency/convert";
 import { ServiceDialog } from "./service-dialog";
+import type { ServiceWithVariants } from "./queries";
+import { SERVICE_TIER_META, type ServiceTier } from "./tiers";
+import { Input } from "@/components/ui/input";
 
-function CardContent({ service }: { service: Service }) {
+function CardContent({ service }: { service: ServiceWithVariants }) {
+  const enabledTiers: ServiceTier[] = service.variants
+    .filter((variant) => variant.enabled)
+    .map((variant) => variant.tier as ServiceTier);
+  const displayTiers: ServiceTier[] = enabledTiers.length
+    ? enabledTiers
+    : ["START"];
   return (
     <div className="flex h-full flex-col">
       <div className="flex w-full items-start justify-between gap-2">
@@ -40,6 +51,16 @@ function CardContent({ service }: { service: Service }) {
           {service.estimatedTime}
         </span>
       )}
+      <div className="mt-3 flex flex-wrap gap-1">
+        {displayTiers.map((tier) => (
+          <span
+            key={tier}
+            className="bg-accent text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-medium"
+          >
+            {SERVICE_TIER_META[tier].shortLabel}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -47,9 +68,13 @@ function CardContent({ service }: { service: Service }) {
 function ServiceCard({
   service,
   canEdit,
+  rates,
+  subareas,
 }: {
-  service: Service;
+  service: ServiceWithVariants;
   canEdit: boolean;
+  rates: Rates;
+  subareas: ServiceSubarea[];
 }) {
   if (!canEdit) {
     return (
@@ -61,6 +86,8 @@ function ServiceCard({
   return (
     <ServiceDialog
       service={service}
+      rates={rates}
+      subareas={subareas}
       trigger={
         <button
           type="button"
@@ -76,40 +103,112 @@ function ServiceCard({
 export function ServicesList({
   services,
   canEdit,
+  rates,
+  subareas,
 }: {
-  services: Service[];
+  services: ServiceWithVariants[];
   canEdit: boolean;
+  rates: Rates;
+  subareas: ServiceSubarea[];
 }) {
   const [area, setArea] = useState<Area | "all">("all");
+  const [subarea, setSubarea] = useState("all");
+  const [query, setQuery] = useState("");
 
   const presentAreas = AREAS.filter((a) => services.some((s) => s.area === a));
-  const visible = useMemo(
-    () => (area === "all" ? services : services.filter((s) => s.area === area)),
+  const availableSubareas = useMemo(
+    () =>
+      [
+        ...new Set(
+          services
+            .filter((service) => area === "all" || service.area === area)
+            .map((service) => service.subarea)
+            .filter(Boolean),
+        ),
+      ] as string[],
     [area, services],
   );
-  const pagination = usePagination(visible, "noma:services:page-size", area);
+  const visible = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("es");
+    return services.filter((service) => {
+      if (area !== "all" && service.area !== area) return false;
+      if (subarea !== "all" && service.subarea !== subarea) return false;
+      if (!normalizedQuery) return true;
+      return [service.name, service.subarea, service.description]
+        .filter(Boolean)
+        .some((value) =>
+          value!.toLocaleLowerCase("es").includes(normalizedQuery),
+        );
+    });
+  }, [area, query, services, subarea]);
+  const pagination = usePagination(
+    visible,
+    "noma:services:page-size",
+    `${area}:${subarea}:${query}`,
+  );
   const pageServices = pagination.pageItems;
   const groups = presentAreas.filter((a) => area === "all" || a === area);
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap gap-2">
-        <FilterChip active={area === "all"} onClick={() => setArea("all")}>
+      <div className="mb-6 space-y-3">
+        <div className="relative max-w-xl">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nombre, descripción o subárea…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+        <FilterChip active={area === "all"} onClick={() => {
+          setArea("all");
+          setSubarea("all");
+        }}>
           Todos
         </FilterChip>
         {presentAreas.map((a) => (
-          <FilterChip key={a} active={area === a} onClick={() => setArea(a)}>
+          <FilterChip key={a} active={area === a} onClick={() => {
+            setArea(a);
+            setSubarea("all");
+          }}>
             {a}
           </FilterChip>
         ))}
+        </div>
+        {availableSubareas.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <FilterChip
+              active={subarea === "all"}
+              onClick={() => setSubarea("all")}
+            >
+              Todas las subáreas
+            </FilterChip>
+            {availableSubareas.map((item) => (
+              <FilterChip
+                key={item}
+                active={subarea === item}
+                onClick={() => setSubarea(item)}
+              >
+                {item}
+              </FilterChip>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-8">
+        {visible.length === 0 && (
+          <div className="glass text-muted-foreground rounded-xl p-8 text-center text-sm">
+            No encontramos servicios con esos filtros.
+          </div>
+        )}
         {groups.map((a) => {
           const items = pageServices.filter((s) => s.area === a);
           if (items.length === 0) return null;
           // subáreas en orden de aparición; los sin subárea van al final
-          const subareas = [
+          const groupSubareas = [
             ...new Set(items.map((s) => s.subarea).filter(Boolean)),
           ] as string[];
           const noSub = items.filter((s) => !s.subarea);
@@ -120,7 +219,7 @@ export function ServicesList({
                 <span className="text-muted-foreground"> · {items.length}</span>
               </h2>
               <div className="space-y-6">
-                {subareas.map((sub) => (
+                {groupSubareas.map((sub) => (
                   <div key={sub}>
                     <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
                       {sub}
@@ -133,6 +232,8 @@ export function ServicesList({
                             key={s.id}
                             service={s}
                             canEdit={canEdit}
+                            rates={rates}
+                            subareas={subareas}
                           />
                         ))}
                     </div>
@@ -145,6 +246,8 @@ export function ServicesList({
                         key={s.id}
                         service={s}
                         canEdit={canEdit}
+                        rates={rates}
+                        subareas={subareas}
                       />
                     ))}
                   </div>

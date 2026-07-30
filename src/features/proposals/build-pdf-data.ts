@@ -30,6 +30,7 @@ export async function buildProposalPdfData(
     getLatestRates(),
   ]);
   const ufClp = Number(rates.ufClp) || 0;
+  const usdClp = Number(rates.usdClp) || 0;
   const items: LineItem[] = services.map((sv) => ({
     amount: Number(sv.customPriceAmount ?? sv.priceAmount) || null,
     currency: (sv.customPriceCurrency ??
@@ -38,12 +39,17 @@ export async function buildProposalPdfData(
     quantity: sv.quantity,
     priority: sv.priority,
   }));
-  const totals = computeTotals(items, ufClp, {
-    label: proposal.discountLabel,
-    kind: proposal.discountKind,
-    value:
-      proposal.discountValue != null ? Number(proposal.discountValue) : null,
-  });
+  const totals = computeTotals(
+    items,
+    ufClp,
+    {
+      label: proposal.discountLabel,
+      kind: proposal.discountKind,
+      value:
+        proposal.discountValue != null ? Number(proposal.discountValue) : null,
+    },
+    usdClp,
+  );
   const normalizedServices = normalizeServices(services);
   const cadenceUf = (cadence: "one-time" | "monthly" | "quarterly") =>
     normalizedServices
@@ -87,12 +93,16 @@ export async function buildProposalPdfData(
       monthlyUf: cadenceUf("monthly"),
       quarterlyUf: cadenceUf("quarterly"),
       directClp: totals.subtotalClpDirect,
+      directUsd: totals.subtotalUsd,
+      baseNetClp: totals.baseNetClp,
+      surchargeClp: totals.surchargeClp,
       netClp: totals.netClp,
       discountClp: totals.discountClp,
       discountLabel: proposal.discountLabel ?? null,
       ivaClp: totals.iva,
       totalClp: totals.totalClp,
       ufClp,
+      usdClp,
     },
     gantt: computeGantt(proposal.timelineStages),
     team: normalizeTeam(team),
@@ -107,6 +117,7 @@ export async function buildProposalPdfData(
       ),
       exclusions: proposal.exclusions ?? undefined,
       commercialConditions: proposal.commercialConditions ?? undefined,
+      includeMonthlyFeeCondition: proposal.includeMonthlyFeeCondition,
       nextSteps: proposal.nextAction ?? undefined,
     },
   };

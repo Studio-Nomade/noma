@@ -1,6 +1,7 @@
 import { AREA_LABELS } from "@/types/enums";
 import { AvatarCircle } from "@/components/shared/avatar-circle";
 import { formatMoney } from "@/lib/currency/format";
+import { equivalences } from "@/lib/currency/convert";
 import type { ProposalTemplateData } from "../types";
 import { proposalAreaAccent, proposalTheme } from "../themes";
 import { getAreaCover, getHeaderLogo, proposalFixedSlides } from "../assets";
@@ -76,6 +77,70 @@ function DisplayTitle({
     >
       {children}
     </h2>
+  );
+}
+
+const EXECUTION_COPY: Record<string, { title: string; body: string }> = {
+  Prioridad: {
+    title: "Modalidad prioritaria",
+    body: "Aplicable a proyectos que requieren agilizar su ejecución. Studio Nomade reorganiza parcialmente la planificación y asigna atención preferente, sin comprometer jornadas extraordinarias de manera significativa.",
+  },
+  "Contra Reloj": {
+    title: "Modalidad contra reloj",
+    body: "Para proyectos con una reducción importante de los tiempos habituales. Considera dedicación preferente, alta disponibilidad del equipo y, cuando sea necesario, ejecución fuera del horario laboral para cumplir una fecha inamovible.",
+  },
+  Crítico: {
+    title: "Modalidad crítica",
+    body: "Para fechas inamovibles o situaciones de alta criticidad operacional. El equipo prioriza completamente el proyecto y puede ejecutar jornadas intensivas nocturnas, fines de semana o festivos.",
+  },
+};
+
+function ExecutionModeSlide({ priority }: { priority: string }) {
+  const content = EXECUTION_COPY[priority];
+  if (!content) return null;
+  return (
+    <SlideFrame dark accent={proposalTheme.orange}>
+      <div className="grid h-full grid-cols-[.85fr_1.15fr] items-center gap-[8%]">
+        <DisplayTitle text={content.title}>{content.title}</DisplayTitle>
+        <div className="text-[1.25cqw] leading-[1.55]">
+          <p>{content.body}</p>
+          <p
+            className="mt-[8%] font-semibold"
+            style={{ color: proposalTheme.orange }}
+          >
+            El recargo modifica la prioridad y velocidad de ejecución, no el
+            alcance contratado.
+          </p>
+        </div>
+      </div>
+    </SlideFrame>
+  );
+}
+
+function MonthlyFeeSlide() {
+  return (
+    <SlideFrame dark accent={proposalTheme.orange}>
+      <div className="grid h-full grid-cols-[.85fr_1.15fr] items-center gap-[8%]">
+        <DisplayTitle text="Condición comercial para clientes con fee">
+          Condición comercial para clientes con fee
+        </DisplayTitle>
+        <div className="space-y-[5%] text-[1.2cqw] leading-[1.55]">
+          <p>
+            Si el servicio base está contemplado en el fee mensual vigente, no
+            se cobra nuevamente.
+          </p>
+          <p>
+            Cuando la solicitud exige una ejecución acelerada, se aplica
+            únicamente el recargo de Prioridad, Contra Reloj o Crítico definido
+            para la propuesta.
+          </p>
+          <p>
+            El recargo cubre la reorganización operativa y la asignación
+            preferente de recursos, sin modificar el alcance original.
+          </p>
+        </div>
+      </div>
+    </SlideFrame>
   );
 }
 
@@ -347,22 +412,24 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
           <TextSlide key={title} title={title} value={value!} accent={accent} />
         ))}
       <SlideFrame accent={accent}>
-        <p className="mb-[3%] text-[1cqw] tracking-[.18em] uppercase">
+        <p className="text-[1cqw] tracking-[.18em] uppercase">
           Servicios seleccionados
         </p>
-        <DisplayTitle text="ALCANCE">ALCANCE.</DisplayTitle>
-        <div className="mt-auto grid grid-cols-2 gap-x-[6%] gap-y-[2%]">
-          {data.services.map((service, index) => (
-            <div
-              key={service.id}
-              className="flex border-t border-black/20 py-[2%] text-[1.2cqw]"
-            >
-              <span className="mr-4" style={{ color: accent }}>
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span>{service.name}</span>
-            </div>
-          ))}
+        <div className="grid h-full grid-cols-[.72fr_1.28fr] items-center gap-[7%]">
+          <DisplayTitle text="ALCANCE">ALCANCE.</DisplayTitle>
+          <div className="grid grid-cols-2 gap-x-[6%] gap-y-[2%]">
+            {data.services.map((service, index) => (
+              <div
+                key={service.id}
+                className="flex border-t border-black/20 py-[4%] text-[1.1cqw]"
+              >
+                <span className="mr-4" style={{ color: accent }}>
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span>{service.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </SlideFrame>
       {data.areas.flatMap((area) => {
@@ -394,46 +461,106 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
           ),
         ];
         slides.push(
-          ...areaServices.map((service) => (
-            <SlideFrame
-              key={service.id}
-              dark
-              accent={proposalAreaAccent[service.area]}
-              area={service.area}
-            >
-              <div className="grid h-full grid-cols-[1.1fr_.9fr] gap-[7%]">
-                <div className="flex flex-col justify-center">
-                  <p className="mb-[3%] text-[1cqw] tracking-[.18em] uppercase">
-                    {AREA_LABELS[service.area]}
-                  </p>
-                  <DisplayTitle text={service.name}>
+          ...areaServices.flatMap((service) => {
+            const serviceSlides: React.ReactNode[] = [
+              <SlideFrame
+                key={service.id}
+                dark
+                accent={proposalAreaAccent[service.area]}
+                area={service.area}
+              >
+                <div className="grid h-full grid-cols-[1.1fr_.9fr] gap-[7%]">
+                  <div className="flex flex-col justify-center">
+                    <p className="mb-[3%] text-[1cqw] tracking-[.18em] uppercase">
+                      {AREA_LABELS[service.area]}
+                    </p>
+                    <DisplayTitle text={service.name}>
+                      <span className="text-white">{service.name}</span>
+                    </DisplayTitle>
+                  </div>
+                  <div className="flex flex-col justify-center text-[1.05cqw] leading-[1.5]">
+                    <p>{service.description}</p>
+                    {service.methodology.length > 0 && (
+                      <>
+                        <p className="mt-[8%] mb-[2%] font-bold uppercase">
+                          Proceso / metodología
+                        </p>
+                        <ul className="space-y-1">
+                          {service.methodology.slice(0, 6).map((item) => (
+                            <li key={`${item.title}-${item.description}`}>
+                              — <strong>{item.title}</strong>
+                              {item.description ? `: ${item.description}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </SlideFrame>,
+            ];
+            if (service.deliverables.length > 0) {
+              serviceSlides.push(
+                <SlideFrame
+                  key={`${service.id}-deliverables`}
+                  dark
+                  accent={proposalAreaAccent[service.area]}
+                  area={service.area}
+                >
+                  <p className="mb-[4%] text-[1cqw] tracking-[.18em] uppercase">
                     {service.name}
-                  </DisplayTitle>
-                  <p
-                    className="mt-[5%] text-[1.5cqw] font-bold"
-                    style={{ color: accent }}
-                  >
-                    {service.valueLabel}
                   </p>
-                </div>
-                <div className="flex flex-col justify-center text-[1.05cqw] leading-[1.5]">
-                  <p>{service.description}</p>
-                  {service.deliverables.length > 0 && (
-                    <>
-                      <p className="mt-[8%] mb-[2%] font-bold uppercase">
-                        Incluye
-                      </p>
-                      <ul className="space-y-1">
-                        {service.deliverables.slice(0, 7).map((item) => (
-                          <li key={item}>— {item}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </div>
-            </SlideFrame>
-          )),
+                  <DisplayTitle text="INCLUYE">INCLUYE.</DisplayTitle>
+                  <ul className="mt-auto grid grid-cols-2 gap-x-[7%] gap-y-[5%] text-[1.15cqw] leading-[1.45]">
+                    {service.deliverables.slice(0, 10).map((item) => (
+                      <li
+                        key={`${item.title}-${item.description}`}
+                        className="border-t border-white/25 pt-[3%]"
+                      >
+                        <strong>{item.title}</strong>
+                        {item.description && (
+                          <span className="mt-1 block text-white/70">
+                            {item.description}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </SlideFrame>,
+              );
+            }
+            if (service.exclusions.length > 0) {
+              serviceSlides.push(
+                <SlideFrame
+                  key={`${service.id}-exclusions`}
+                  dark
+                  accent={proposalAreaAccent[service.area]}
+                  area={service.area}
+                >
+                  <p className="mb-[4%] text-[1cqw] tracking-[.18em] uppercase">
+                    {service.name}
+                  </p>
+                  <DisplayTitle text="NO INCLUYE">NO INCLUYE.</DisplayTitle>
+                  <ul className="mt-auto grid grid-cols-2 gap-x-[7%] gap-y-[5%] text-[1.15cqw] leading-[1.45]">
+                    {service.exclusions.slice(0, 10).map((item) => (
+                      <li
+                        key={`${item.title}-${item.description}`}
+                        className="border-t border-white/25 pt-[3%]"
+                      >
+                        <strong>{item.title}</strong>
+                        {item.description && (
+                          <span className="mt-1 block text-white/70">
+                            {item.description}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </SlideFrame>,
+              );
+            }
+            return serviceSlides;
+          }),
         );
         return slides;
       })}
@@ -451,6 +578,12 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
           accent={accent}
         />
       )}
+      {[...new Set(data.services.map((service) => service.priority))]
+        .filter((priority) => priority !== "Normal")
+        .map((priority) => (
+          <ExecutionModeSlide key={priority} priority={priority} />
+        ))}
+      {data.sections.includeMonthlyFeeCondition && <MonthlyFeeSlide />}
       {data.gantt && (
         <SlideFrame dark accent={accent}>
           <DisplayTitle text="GANTT DESARROLLO">GANTT DESARROLLO</DisplayTitle>
@@ -546,37 +679,56 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
               Servicios considerados
             </p>
             <div className="border-t border-black/20">
+              <div className="grid grid-cols-[1fr_7rem_3rem_7rem] gap-3 border-b border-black/20 py-[1.2%] text-[.65cqw] font-semibold uppercase">
+                <span>Servicio</span>
+                <span className="text-right">Valor unitario</span>
+                <span className="text-center">Cant.</span>
+                <span className="text-right">Total</span>
+              </div>
               {data.services.slice(0, 10).map((service) => {
-                const equivalent =
-                  service.currency === "UF"
-                    ? `≈ ${formatMoney(service.amount * data.totals.ufClp, "CLP")}`
-                    : service.currency === "CLP" && data.totals.ufClp > 0
-                      ? `≈ ${formatMoney(service.amount / data.totals.ufClp, "UF")}`
-                      : null;
+                const rates = {
+                  ufClp: data.totals.ufClp,
+                  usdClp: data.totals.usdClp,
+                };
                 return (
                   <div
                     key={service.id}
-                    className="grid grid-cols-[1fr_auto] gap-4 border-b border-black/20 py-[1.6%] text-[.88cqw]"
+                    className="grid grid-cols-[1fr_7rem_3rem_7rem] gap-3 border-b border-black/20 py-[1.4%] text-[.78cqw]"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{service.name}</p>
-                      <p className="mt-0.5 text-[.7cqw] opacity-55">
-                        {service.cadence === "monthly"
-                          ? "Mensual"
-                          : service.cadence === "quarterly"
-                            ? "Trimestral"
-                            : "Valor único"}
+                      {service.surcharge > 0 && (
+                        <p className="text-destructive mt-1 text-[.62cqw] font-semibold uppercase">
+                          {service.priority} (+{service.surcharge * 100}%):{" "}
+                          {formatMoney(
+                            service.surchargeAmount,
+                            service.currency,
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        {formatMoney(service.unitAmount, service.currency)}
+                      </p>
+                      <p className="mt-0.5 text-[.58cqw] opacity-55">
+                        {equivalences(
+                          service.unitAmount,
+                          service.currency,
+                          rates,
+                        )}
                       </p>
                     </div>
+                    <p className="text-center font-semibold">
+                      {service.quantity}
+                    </p>
                     <div className="text-right">
                       <p className="font-semibold">
                         {formatMoney(service.amount, service.currency)}
                       </p>
-                      {equivalent && (
-                        <p className="mt-0.5 text-[.7cqw] opacity-55">
-                          {equivalent}
-                        </p>
-                      )}
+                      <p className="mt-0.5 text-[.58cqw] opacity-55">
+                        {equivalences(service.amount, service.currency, rates)}
+                      </p>
                     </div>
                   </div>
                 );
@@ -588,32 +740,28 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
               <InvestmentRow
                 label="Neto equivalente"
                 value={formatMoney(
-                  data.totals.netClp / data.totals.ufClp,
+                  data.totals.baseNetClp / data.totals.ufClp,
                   "UF",
                 )}
               />
             )}
-            {data.totals.oneTimeUf > 0 && (
+            {data.totals.surchargeClp > 0 && data.totals.ufClp > 0 && (
               <InvestmentRow
-                label="Subtotal único UF"
-                value={`${data.totals.oneTimeUf.toLocaleString("es-CL")} UF + IVA`}
-              />
-            )}
-            {data.totals.monthlyUf > 0 && (
-              <InvestmentRow
-                label="Valor mensual"
-                value={`${data.totals.monthlyUf.toLocaleString("es-CL")} UF + IVA`}
-              />
-            )}
-            {data.totals.quarterlyUf > 0 && (
-              <InvestmentRow
-                label="Valor trimestral"
-                value={`${data.totals.quarterlyUf.toLocaleString("es-CL")} UF + IVA`}
+                label="Recargo total"
+                value={formatMoney(
+                  data.totals.surchargeClp / data.totals.ufClp,
+                  "UF",
+                )}
               />
             )}
             <InvestmentRow
-              label="Neto referencial"
-              value={formatMoney(data.totals.netClp, "CLP")}
+              label="Subtotal neto"
+              value={formatMoney(
+                data.totals.ufClp > 0
+                  ? data.totals.netClp / data.totals.ufClp
+                  : 0,
+                "UF",
+              )}
             />
             {data.totals.discountClp > 0 && (
               <InvestmentRow
@@ -627,13 +775,27 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
             />
             <InvestmentRow
               label="Total referencial"
-              value={formatMoney(data.totals.totalClp, "CLP")}
+              value={formatMoney(
+                data.totals.ufClp > 0
+                  ? data.totals.totalClp / data.totals.ufClp
+                  : 0,
+                "UF",
+              )}
               strong
             />
+            <p className="mt-2 text-right text-[.75cqw] font-semibold">
+              {formatMoney(data.totals.totalClp, "CLP")} ·{" "}
+              {formatMoney(
+                data.totals.usdClp > 0
+                  ? data.totals.totalClp / data.totals.usdClp
+                  : 0,
+                "USD",
+              )}
+            </p>
             <p className="mt-4 text-[.8cqw] opacity-60">
-              UF referencial: {formatMoney(data.totals.ufClp, "CLP")}. Cada
-              servicio conserva su moneda original; la equivalencia se calcula
-              con la UF vigente. Valores netos, IVA se suma al total.
+              UF referencial: {formatMoney(data.totals.ufClp, "CLP")} · USD
+              observado: {formatMoney(data.totals.usdClp, "CLP")}. Valores
+              netos; IVA se suma al total.
             </p>
           </div>
         </div>

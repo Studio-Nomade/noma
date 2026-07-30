@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { saveProposalContent } from "./actions";
+import { Checkbox } from "@/components/ui/checkbox";
+import { saveProposalContent, updateMonthlyFeeCondition } from "./actions";
 import {
   parseStructuredContent,
   serializeStructuredContent,
@@ -53,9 +54,13 @@ const FIELDS: {
 export function ProposalContentForm({
   proposalId,
   initial,
+  includeMonthlyFeeCondition,
+  serviceNames,
 }: {
   proposalId: string;
   initial: Partial<Record<FieldKey, string | null>>;
+  includeMonthlyFeeCondition: boolean;
+  serviceNames: string[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState<Record<FieldKey, string>>(() => {
@@ -71,6 +76,7 @@ export function ProposalContentForm({
   const [deliverables, setDeliverables] = useState<StructuredContentItem[]>(
     () => parseStructuredContent(initial.deliverables, "deliverables"),
   );
+  const [monthlyFee, setMonthlyFee] = useState(includeMonthlyFeeCondition);
 
   function set(key: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -90,6 +96,22 @@ export function ProposalContentForm({
       toast.success("Propuesta guardada");
       router.refresh();
     } else {
+      toast.error(res.error);
+    }
+  }
+
+  async function setFeeCondition(enabled: boolean) {
+    setMonthlyFee(enabled);
+    const res = await updateMonthlyFeeCondition(proposalId, enabled);
+    if (res.ok) {
+      toast.success(
+        enabled
+          ? "Se incluirá la condición para fee mensual"
+          : "Condición de fee mensual removida",
+      );
+      router.refresh();
+    } else {
+      setMonthlyFee(!enabled);
       toast.error(res.error);
     }
   }
@@ -128,8 +150,25 @@ export function ProposalContentForm({
         </div>
       ))}
 
+      <div className="border-border flex items-start gap-3 rounded-lg border p-4">
+        <Checkbox
+          id="monthly-fee"
+          checked={monthlyFee}
+          onCheckedChange={(checked) => setFeeCondition(checked === true)}
+        />
+        <div>
+          <Label htmlFor="monthly-fee">
+            Cliente o solicitud con fee mensual
+          </Label>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Agrega al PDF una lámina que explica que se cobra solo el recargo de
+            prioridad cuando el servicio base ya está cubierto por el fee.
+          </p>
+        </div>
+      </div>
+
       <StructuredListEditor
-        label="Etapas de trabajo"
+        label="Etapas generales del proyecto"
         titlePlaceholder="Nombre de la etapa"
         descriptionPlaceholder="Breve descripción de la etapa"
         items={workStages}
@@ -138,9 +177,36 @@ export function ProposalContentForm({
           setDirty(true);
         }}
       />
+      {serviceNames.length > 1 && workStages.length === 0 && (
+        <div className="border-border bg-muted/30 rounded-lg border p-3">
+          <p className="text-sm font-medium">Propuesta con varios servicios</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Puedes crear una base ordenada por hitos a partir de los servicios y
+            editarla libremente.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              setWorkStages(
+                serviceNames.map((name, index) => ({
+                  title: `Hito ${index + 1}`,
+                  description: name,
+                })),
+              );
+              setDirty(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Crear etapas desde servicios
+          </Button>
+        </div>
+      )}
 
       <StructuredListEditor
-        label="Entregables"
+        label="Entregables generales del proyecto"
         titlePlaceholder="Entregable"
         descriptionPlaceholder="Detalle opcional"
         items={deliverables}

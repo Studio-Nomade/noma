@@ -20,6 +20,7 @@ import {
 const GROUPS_KEY = "noma:sidebar:groups";
 
 function isItemActive(pathname: string, href: string) {
+  if (href === "/" || href === "/finanzas") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -27,11 +28,13 @@ export function SidebarNav({
   onNavigate,
   isFinance = false,
   isPeople = false,
+  isPeopleManager = false,
   collapsed = false,
 }: {
   onNavigate?: () => void;
   isFinance?: boolean;
   isPeople?: boolean;
+  isPeopleManager?: boolean;
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
@@ -40,7 +43,9 @@ export function SidebarNav({
   ).map((group) => ({
     ...group,
     children: group.children.filter(
-      (item) => !item.requiresPeople || isPeople,
+      (item) =>
+        (!item.requiresPeople || isPeople) &&
+        (!item.requiresPeopleManager || isPeopleManager),
     ),
   }));
   const activeGroup = visibleGroups.find(

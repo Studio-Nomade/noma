@@ -56,6 +56,7 @@ adicionales.
 | **Google Meet**         | Reuniones                                                                              | Guardar link de reunión             | —                                        |
 | **Slack**               | Canales por cliente/proyecto/área                                                      | Link a canal                        | Alertas y resúmenes                      |
 | **Asana**               | Control de proyectos (réplica por áreas)                                               | Estado de tarea/proyecto vinculado  | Portal cliente                           |
+| **WhatsApp**            | Canal 1:1 para solicitudes de clientes acreditados                                     | Esquema y acreditación por proyecto | Webhook, agente y creación en Asana      |
 | **Canva**               | Presentaciones y piezas editables                                                      | Link a presentación                 | —                                        |
 
 ## `resource_links` (modelo)
@@ -70,6 +71,35 @@ Los enlaces de Asana admiten dos modelos operativos: una oportunidad puede vincu
 **tarea principal** dentro de un proyecto general o a un **proyecto independiente**. El
 dashboard detecta el tipo por la URL, consulta el recurso correspondiente y muestra solo
 avance/cierre; no replica las tareas en Noma.
+
+## WhatsApp Business
+
+El canal usa la Cloud API oficial de Meta con un único número del estudio. Cada proyecto
+puede generar un `bot_channel` y acreditar remitentes en E.164 mediante
+`bot_authorized_senders`; un número activo pertenece a un único canal. El navegador recibe
+solo la configuración operativa saneada, nunca secretos de Meta.
+
+Meta debe apuntar el webhook a `/api/webhooks/whatsapp`. El `GET` resuelve el challenge con
+`WHATSAPP_VERIFY_TOKEN`; cada `POST` valida `X-Hub-Signature-256` con
+`WHATSAPP_APP_SECRET` sobre el cuerpo crudo antes de aceptar el evento. Los mensajes de texto
+válidos se deduplican por su identificador de Meta, se guardan en la cola durable y el webhook
+responde de inmediato.
+
+El trabajo posterior corre fuera del ACK: un procesador bloquea y reclama eventos pendientes,
+resuelve el teléfono contra los remitentes acreditados y persiste conversación y mensajes. En
+los canales acreditados, un agente OpenAI ordena la solicitud, recupera know-how autorizado,
+clasifica preliminarmente su alcance y pide la confirmación del cliente antes de cualquier
+acción operacional. El modelo se configura con `OPENAI_MODEL` y usa `gpt-5.6-sol` por defecto;
+si falta `OPENAI_API_KEY` responde con una degradación amable y conserva el evento para
+reintento. Los remitentes desconocidos reciben una guía y no generan conversación. El drenado
+idempotente queda disponible para el cron de los hitos siguientes.
+
+Cuando el cliente confirma explícitamente el resumen, el agente materializa una
+`client_request` idempotente antes de llamar a Asana. El destino se resuelve por canal,
+proyecto o enlace operacional, en ese orden. Un intento incierto nunca se repite
+automáticamente: queda `pending` para revisión humana; si Asana confirma la creación, pasa a
+`in_asana` y la respuesta incluye folio y enlace. Las solicitudes fuera del acuerdo se crean
+igualmente con constancia de adicional.
 
 ## IA centralizada
 

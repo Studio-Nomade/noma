@@ -43,6 +43,17 @@ No se eliminan → se marcan `Cerrado`.
 `status` (default Levantamiento), `commercial_stage` (default Nuevo lead), `priority`
 (default Media), `responsible_id` → team_members, `next_action`, `internal_notes`.
 
+### retainers / retainer_periods
+
+`retainers` define una bolsa recurrente por proyecto y cliente: unidad
+(`deliverables | hours`), cuota mensual, vigencia, estado y política de arrastre.
+Solo puede existir un acuerdo activo por proyecto.
+
+`retainer_periods` materializa cada mes con cuota, consumo y saldo. El consumo usa
+bloqueo transaccional para impedir sobreconsumo concurrente. `client_requests`
+referencia el período, las unidades estimadas y la fecha efectiva de descuento,
+lo que hace idempotentes los reintentos del agente.
+
 ### briefs (1:1 con project)
 
 `project_id*` (único) → projects, `client_id` → clients, `area*`, `project_name`,
@@ -56,6 +67,20 @@ No se eliminan → se marcan `Cerrado`.
 `price_max_amount`, `price_currency` (default UF), `requirements`, `status` (default Activo),
 `related_services uuid[]`.
 
+`service_subareas` mantiene la taxonomía editable `área → subárea`. `services.subarea`
+conserva el nombre por compatibilidad con importadores; renombrar o eliminar una subárea
+actualiza sus servicios dentro de una transacción y exige un destino cuando tiene contenido.
+
+`service_variants` materializa los niveles `START | GROWTH | PERFORMANCE | ENTERPRISE`.
+Cada nivel tiene público/enfoque, descripción, metodología, entregables, exclusiones, plazo y
+precio propios. Start y Growth son obligatorios; los dos niveles superiores son opcionales.
+Los campos históricos de `services` reflejan Start para mantener compatibles las propuestas
+anteriores.
+
+`service_packages` + `service_package_items` guardan combinaciones reutilizables de servicios
+de distintas áreas, con variante y cantidad por línea. Un paquete acelera el cotizador, pero
+al aplicarlo cada servicio sigue siendo una línea editable de `proposal_services`.
+
 ### proposals
 
 `project_id*` → projects, `client_id` → clients, `title*`, y las 12 secciones de texto:
@@ -67,7 +92,8 @@ No se eliminan → se marcan `Cerrado`.
 ### proposal_services (join N:N)
 
 `proposal_id*` → proposals (CASCADE), `service_id*` → services (RESTRICT), `position int`,
-`custom_price_amount`, `custom_price_currency`. Único por (`proposal_id`, `service_id`).
+`variant_tier` (default START), `custom_price_amount`, `custom_price_currency`. Único por
+(`proposal_id`, `service_id`).
 
 ### resource_links (polimórfica)
 
@@ -84,6 +110,21 @@ No se eliminan → se marcan `Cerrado`.
 `user_id` → auth.users, `name`, `team_role`, `area`, `email`, `status`, `tools jsonb`,
 `access_references jsonb` (referencias a gestor de contraseñas — **nunca** secretos en claro),
 `repos jsonb`, `notes`.
+
+### employees / employee_documents / employee_time_off
+
+`employees` es la ficha laboral y puede vincularse 1:1 con `team_members` para
+resolver la identidad de “Mi portal”. El vínculo es explícito: nunca se infiere
+por nombre.
+
+`employee_documents` mantiene metadatos de contratos, anexos, liquidaciones,
+comprobantes, cotizaciones, licencias y certificados. El archivo vive en el
+bucket privado `people`; la aplicación entrega exclusivamente enlaces firmados
+de corta duración después de comprobar la sesión y la ficha vinculada.
+
+`employee_time_off` registra vacaciones, permisos y licencias con rango, días
+hábiles, estado y responsable de revisión. Personas gestiona las solicitudes y
+cada colaborador solo consulta las propias.
 
 ### user_connections (OAuth per-user)
 
@@ -113,10 +154,13 @@ su refresh token en `user_integrations` por compatibilidad con SSO, Gmail y Cale
 
 ```
 Client 1 ──── N Project 1 ──── 1 Brief
+                       1 ──── 1 Retainer 1 ──── N RetainerPeriod
                        1 ──── N Proposal N ──── N Service   (vía proposal_services)
 resource_links ── polimórfico ──> Client | Project | Proposal
 Service (biblioteca global)        StudioConfig (singleton)
 team_members ── user_id ──> auth.users
+team_members 1 ──── 0..1 employees 1 ──── N employee_documents
+                                  1 ──── N employee_time_off
 ```
 
 ## Reglas de negocio

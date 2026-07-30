@@ -1,30 +1,78 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
-import { services } from "@/db/schema";
+import { serviceSubareas, serviceVariants, services } from "@/db/schema";
 import { requireCatalogEditor } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { ensureServiceLedgerAccount } from "@/features/finance/plan-accounts/service-link";
 import { serviceSchema, type ServiceFormValues } from "./schema";
 import type { ServiceStatus } from "@/types/enums";
+import { SERVICE_STATUSES } from "@/types/enums";
+
+const serviceIdSchema = z.string().uuid("Identificador de servicio inválido.");
+
+async function assertSubarea(
+  writer: Pick<typeof db, "select">,
+  area: ServiceFormValues["area"],
+  subarea: string | null,
+) {
+  if (!subarea) return;
+  const [row] = await writer
+    .select({ id: serviceSubareas.id })
+    .from(serviceSubareas)
+    .where(
+      and(
+        eq(serviceSubareas.area, area),
+        eq(serviceSubareas.name, subarea),
+      ),
+    )
+    .limit(1);
+  if (!row) {
+    z.boolean()
+      .refine(Boolean, {
+        message: "La subárea seleccionada no pertenece al área del servicio.",
+      })
+      .parse(false);
+  }
+}
 
 function normalize(values: ServiceFormValues) {
   const d = serviceSchema.parse(values);
   const emptyToNull = (v?: string) => (v && v.trim() !== "" ? v : null);
+  const variants = d.variants.map((variant) => ({
+    ...variant,
+    audience: emptyToNull(variant.audience),
+    focus: emptyToNull(variant.focus),
+    description: emptyToNull(variant.description),
+    methodology: emptyToNull(variant.methodology),
+    deliverables: emptyToNull(variant.deliverables),
+    exclusions: emptyToNull(variant.exclusions),
+    estimatedTime: emptyToNull(variant.estimatedTime),
+    priceMinAmount: emptyToNull(variant.priceMinAmount),
+    priceMaxAmount: emptyToNull(variant.priceMaxAmount),
+  }));
+  const start = variants.find((variant) => variant.tier === "START")!;
   return {
-    name: d.name,
-    area: d.area,
-    description: emptyToNull(d.description),
-    deliverables: emptyToNull(d.deliverables),
-    estimatedTime: emptyToNull(d.estimatedTime),
-    priceMinAmount: emptyToNull(d.priceMinAmount),
-    priceMaxAmount: emptyToNull(d.priceMaxAmount),
-    priceCurrency: d.priceCurrency,
-    requirements: emptyToNull(d.requirements),
-    status: d.status,
+    service: {
+      name: d.name,
+      area: d.area,
+      subarea: emptyToNull(d.subarea),
+      description: start.description,
+      methodology: start.methodology,
+      deliverables: start.deliverables,
+      exclusions: start.exclusions,
+      estimatedTime: start.estimatedTime,
+      priceMinAmount: start.priceMinAmount,
+      priceMaxAmount: start.priceMaxAmount,
+      priceCurrency: start.priceCurrency,
+      requirements: emptyToNull(d.requirements),
+      status: d.status,
+    },
+    variants,
   };
 }
 
@@ -34,10 +82,21 @@ export async function createService(
   try {
     const user = await requireCatalogEditor();
     const data = normalize(values);
-    const [row] = await db
-      .insert(services)
-      .values({ ...data, createdBy: user.id })
-      .returning({ id: services.id });
+    const row = await db.transaction(async (tx) => {
+      await assertSubarea(tx, data.service.area, data.service.subarea);
+      const [created] = await tx
+        .insert(services)
+        .values({ ...data.service, createdBy: user.id })
+        .returning({ id: services.id });
+      await tx.insert(serviceVariants).values(
+        data.variants.map((variant) => ({
+          ...variant,
+          serviceId: created.id,
+          createdBy: user.id,
+        })),
+      );
+      return created;
+    });
     await ensureServiceLedgerAccount(row.id);
     await logActivity({
       entityType: "service",
@@ -58,15 +117,32 @@ export async function updateService(
 ): Promise<ActionResult> {
   try {
     const user = await requireCatalogEditor();
+    const serviceId = serviceIdSchema.parse(id);
     const data = normalize(values);
-    await db
-      .update(services)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(services.id, id));
-    await ensureServiceLedgerAccount(id);
+    await db.transaction(async (tx) => {
+      await assertSubarea(tx, data.service.area, data.service.subarea);
+      await tx
+        .update(services)
+        .set({ ...data.service, updatedAt: new Date() })
+        .where(eq(services.id, serviceId));
+      for (const variant of data.variants) {
+        await tx
+          .insert(serviceVariants)
+          .values({
+            ...variant,
+            serviceId,
+            createdBy: user.id,
+          })
+          .onConflictDoUpdate({
+            target: [serviceVariants.serviceId, serviceVariants.tier],
+            set: { ...variant, updatedAt: new Date() },
+          });
+      }
+    });
+    await ensureServiceLedgerAccount(serviceId);
     await logActivity({
       entityType: "service",
-      entityId: id,
+      entityId: serviceId,
       action: "service_ledger_account_linked",
       actorId: user.id,
     });
@@ -83,10 +159,16 @@ export async function setServiceStatus(
 ): Promise<ActionResult> {
   try {
     await requireCatalogEditor();
+    const input = z
+      .object({
+        id: serviceIdSchema,
+        status: z.enum(SERVICE_STATUSES),
+      })
+      .parse({ id, status });
     await db
       .update(services)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(services.id, id));
+      .set({ status: input.status, updatedAt: new Date() })
+      .where(eq(services.id, input.id));
     revalidatePath("/services");
     return { ok: true, data: undefined };
   } catch (err) {

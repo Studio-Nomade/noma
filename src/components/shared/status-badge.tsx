@@ -90,6 +90,24 @@ const COLOR_BY_VALUE: Record<string, StatusColor> = {
   "Por cobrar": "blue",
   Pagada: "emerald",
   Reclamada: "red",
+  // Agente de solicitudes
+  Capturada: "blue",
+  Pendiente: "amber",
+  "En Asana": "violet",
+  Cerrada: "slate",
+  "Dentro de alcance": "emerald",
+  Adicional: "amber",
+  "Por revisar": "slate",
+  in_scope: "emerald",
+  additional: "amber",
+  unknown: "slate",
+  captured: "blue",
+  pending: "amber",
+  in_asana: "violet",
+  closed: "slate",
+  approved: "emerald",
+  rejected: "red",
+  Finalizado: "slate",
 };
 
 const STYLE_BY_COLOR: Record<StatusColor, React.CSSProperties> = {

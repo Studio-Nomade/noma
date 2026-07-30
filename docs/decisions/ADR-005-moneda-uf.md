@@ -13,7 +13,8 @@ conversión actualizada al día.
 - **Enum `currency` = CLP | USD | UF.** Todo monto se almacena como par `*_amount` (numeric) +
   `*_currency`. **UF es el valor por defecto** en servicios y propuestas.
 - **Tabla `exchange_rates`** (`date`, `uf_clp`, `usd_clp`) poblada por un **sync diario** desde
-  **mindicador.cl** (indicadores del Banco Central de Chile, sin API key). Script
+  la API oficial de la **CMF** cuando `CMF_API_KEY` está configurada, con
+  **mindicador.cl** como respaldo sin API key. Script
   `npm run rates:sync` (programable vía cron de Vercel).
 - **Conversión al vuelo** en presentación: se muestra el monto en su moneda original y sus
   equivalencias usando la tasa del día (o la última disponible).
@@ -23,7 +24,7 @@ conversión actualizada al día.
 ## Consecuencias
 
 - Las cotizaciones se mantienen consistentes pese a la inflación.
-- Dependencia de un servicio externo gratuito → se guarda histórico en `exchange_rates` y se
-  contempla **fallback a la API de la CMF** si mindicador no responde.
+- Dependencia de servicios externos → se guarda histórico en `exchange_rates` y
+  existe fallback bidireccional CMF ↔ mindicador para mantener el sync operativo.
 - El conversor debe degradar con elegancia: si no hay tasa del día, usa la última conocida y
   lo señala.

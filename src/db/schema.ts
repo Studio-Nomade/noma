@@ -11,9 +11,11 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  check,
   primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import {
   AREAS,
   CURRENCIES,
@@ -262,6 +264,9 @@ export const employees = pgTable(
   "employees",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    teamMemberId: uuid("team_member_id")
+      .unique()
+      .references(() => teamMembers.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     rut: text("rut").notNull().unique(),
     roleTitle: text("role_title").notNull(),
@@ -274,9 +279,61 @@ export const employees = pgTable(
     baseSalaryCurrency: currencyEnum("base_salary_currency")
       .default("CLP")
       .notNull(),
+    startDate: date("start_date"),
     ...timestamps,
   },
   (t) => [index("employees_status_idx").on(t.status, t.name)],
+);
+
+export const employeeDocuments = pgTable(
+  "employee_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    title: text("title").notNull(),
+    period: date("period"),
+    storagePath: text("storage_path").notNull(),
+    mimeType: text("mime_type").notNull(),
+    visibility: text("visibility").default("employee").notNull(),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [
+    index("employee_documents_employee_idx").on(
+      t.employeeId,
+      t.category,
+      t.period,
+    ),
+  ],
+);
+
+export const employeeTimeOff = pgTable(
+  "employee_time_off",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    type: text("type").default("vacation").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    days: numeric("days", { precision: 6, scale: 2 }).notNull(),
+    status: text("status").default("pending").notNull(),
+    reason: text("reason"),
+    reviewedBy: uuid("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("employee_time_off_employee_idx").on(
+      t.employeeId,
+      t.status,
+      t.startDate,
+    ),
+  ],
 );
 
 // ── comunicación interna ────────────────────────────────────
@@ -504,6 +561,7 @@ export const projects = pgTable("projects", {
   }),
   nextAction: text("next_action"),
   internalNotes: text("internal_notes"),
+  asanaProjectGid: text("asana_project_gid"),
   ...timestamps,
 });
 
@@ -666,7 +724,10 @@ export const services = pgTable("services", {
   subarea: text("subarea"),
   category: text("category"),
   description: text("description"),
+  // Lista estructurada de pasos/tareas del servicio (noma-list:v1).
+  methodology: text("methodology"),
   deliverables: text("deliverables"),
+  exclusions: text("exclusions"),
   estimatedTime: text("estimated_time"),
   complexityLevel: complexityLevelEnum("complexity_level"),
   priceType: priceTypeEnum("price_type").default("uf").notNull(),
@@ -688,6 +749,118 @@ export const services = pgTable("services", {
     }),
   ...timestamps,
 });
+
+// ── service_subareas (taxonomía administrable por área) ──────
+export const serviceSubareas = pgTable(
+  "service_subareas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    area: areaEnum("area").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("service_subareas_area_name_unique").on(t.area, t.name),
+    index("service_subareas_area_idx").on(t.area, t.name),
+    check("service_subareas_name_not_blank", sql`btrim(${t.name}) <> ''`),
+  ],
+);
+
+// ── service_variants (Start → Enterprise) ───────────────────
+export const serviceVariants = pgTable(
+  "service_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "cascade" }),
+    tier: text("tier").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    audience: text("audience"),
+    focus: text("focus"),
+    description: text("description"),
+    methodology: text("methodology"),
+    deliverables: text("deliverables"),
+    exclusions: text("exclusions"),
+    estimatedTime: text("estimated_time"),
+    priceMinAmount: numeric("price_min_amount", { precision: 14, scale: 2 }),
+    priceMaxAmount: numeric("price_max_amount", { precision: 14, scale: 2 }),
+    priceCurrency: currencyEnum("price_currency").default("UF").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("service_variants_service_tier_unique").on(
+      t.serviceId,
+      t.tier,
+    ),
+    index("service_variants_service_idx").on(t.serviceId),
+    check(
+      "service_variants_tier_check",
+      sql`${t.tier} in ('START', 'GROWTH', 'PERFORMANCE', 'ENTERPRISE')`,
+    ),
+    check(
+      "service_variants_price_min_nonnegative",
+      sql`${t.priceMinAmount} is null or ${t.priceMinAmount} >= 0`,
+    ),
+    check(
+      "service_variants_price_max_nonnegative",
+      sql`${t.priceMaxAmount} is null or ${t.priceMaxAmount} >= 0`,
+    ),
+    check(
+      "service_variants_price_range_check",
+      sql`${t.priceMinAmount} is null or ${t.priceMaxAmount} is null or ${t.priceMaxAmount} >= ${t.priceMinAmount}`,
+    ),
+  ],
+);
+
+// ── service_packages (combinaciones reutilizables) ──────────
+export const servicePackages = pgTable("service_packages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  objective: text("objective"),
+  niche: text("niche"),
+  description: text("description"),
+  status: serviceStatusEnum("status").default("Activo").notNull(),
+  suggestedByAi: boolean("suggested_by_ai").default(false).notNull(),
+  ...timestamps,
+});
+
+export const servicePackageItems = pgTable(
+  "service_package_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    packageId: uuid("package_id")
+      .notNull()
+      .references(() => servicePackages.id, { onDelete: "cascade" }),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "restrict" }),
+    variantTier: text("variant_tier").default("START").notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+    position: integer("position").default(0).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("service_package_items_unique").on(
+      t.packageId,
+      t.serviceId,
+    ),
+    index("service_package_items_package_idx").on(t.packageId, t.position),
+    check(
+      "service_package_items_tier_check",
+      sql`${t.variantTier} in ('START', 'GROWTH', 'PERFORMANCE', 'ENTERPRISE')`,
+    ),
+    check(
+      "service_package_items_quantity_check",
+      sql`${t.quantity} between 1 and 99`,
+    ),
+    check(
+      "service_package_items_position_check",
+      sql`${t.position} >= 0`,
+    ),
+  ],
+);
 
 // ── service_modules (módulos combinables) ────────────────────
 export const serviceModules = pgTable("service_modules", {
@@ -767,6 +940,10 @@ export const proposals = pgTable("proposals", {
   exclusions: text("exclusions"),
   team: text("team"),
   commercialConditions: text("commercial_conditions"),
+  // Agrega una lámina específica para clientes con fee mensual.
+  includeMonthlyFeeCondition: boolean("include_monthly_fee_condition")
+    .default(false)
+    .notNull(),
   estimatedValueAmount: numeric("estimated_value_amount", {
     precision: 14,
     scale: 2,
@@ -798,6 +975,7 @@ export const proposalServices = pgTable(
     serviceId: uuid("service_id")
       .notNull()
       .references(() => services.id, { onDelete: "restrict" }),
+    variantTier: text("variant_tier").default("START").notNull(),
     position: integer("position").default(0).notNull(),
     // Cantidad (ej. 3 videos del mismo servicio) y prioridad (recargo).
     quantity: integer("quantity").default(1).notNull(),
@@ -810,6 +988,14 @@ export const proposalServices = pgTable(
   },
   (t) => [
     uniqueIndex("proposal_services_unique").on(t.proposalId, t.serviceId),
+    check(
+      "proposal_services_variant_tier_check",
+      sql`${t.variantTier} in ('START', 'GROWTH', 'PERFORMANCE', 'ENTERPRISE')`,
+    ),
+    check(
+      "proposal_services_quantity_check",
+      sql`${t.quantity} between 1 and 999`,
+    ),
   ],
 );
 
@@ -872,6 +1058,7 @@ export const clientContacts = pgTable(
       .references(() => clients.id, { onDelete: "cascade" }),
     name: text("name"),
     email: text("email").notNull(),
+    phone: text("phone"),
     role: text("role"), // cargo
     isPrimary: boolean("is_primary").default(false).notNull(),
     // Perfiles complementarios: un contacto puede ser varios a la vez
@@ -880,6 +1067,241 @@ export const clientContacts = pgTable(
     ...timestamps,
   },
   (t) => [index("client_contacts_client_idx").on(t.clientId)],
+);
+
+// ── Agente de WhatsApp por proyecto ─────────────────────────
+export const botChannels = pgTable(
+  "bot_channels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    asanaProjectGid: text("asana_project_gid"),
+    status: text("status").default("active").notNull(),
+    contextPack: jsonb("context_pack").$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("bot_channels_project_unique").on(t.projectId),
+    index("bot_channels_client_idx").on(t.clientId),
+    index("bot_channels_status_idx").on(t.status),
+  ],
+);
+
+export const botAuthorizedSenders = pgTable(
+  "bot_authorized_senders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    botChannelId: uuid("bot_channel_id")
+      .notNull()
+      .references(() => botChannels.id, { onDelete: "cascade" }),
+    clientContactId: uuid("client_contact_id").references(
+      () => clientContacts.id,
+      { onDelete: "set null" },
+    ),
+    displayName: text("display_name").notNull(),
+    phone: text("phone").notNull(),
+    profile: text("profile").notNull(),
+    status: text("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("bot_authorized_senders_active_phone_unique")
+      .on(t.phone)
+      .where(sql`${t.status} = 'active'`),
+    index("bot_authorized_senders_channel_idx").on(t.botChannelId),
+    index("bot_authorized_senders_contact_idx").on(t.clientContactId),
+  ],
+);
+
+export const retainers = pgTable(
+  "retainers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    unit: text("unit").notNull(),
+    quotaPerPeriod: numeric("quota_per_period", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    periodType: text("period_type").default("monthly").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date"),
+    status: text("status").default("active").notNull(),
+    rolloverPolicy: text("rollover_policy").default("none").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("retainers_active_project_unique")
+      .on(t.projectId)
+      .where(sql`${t.status} = 'active'`),
+    index("retainers_client_status_idx").on(t.clientId, t.status),
+  ],
+);
+
+export const retainerPeriods = pgTable(
+  "retainer_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    retainerId: uuid("retainer_id")
+      .notNull()
+      .references(() => retainers.id, { onDelete: "cascade" }),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    quota: numeric("quota", { precision: 12, scale: 2 }).notNull(),
+    consumed: numeric("consumed", { precision: 12, scale: 2 })
+      .default("0")
+      .notNull(),
+    remaining: numeric("remaining", { precision: 12, scale: 2 }).notNull(),
+    status: text("status").default("open").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("retainer_periods_retainer_start_unique").on(
+      t.retainerId,
+      t.periodStart,
+    ),
+    index("retainer_periods_status_idx").on(t.status, t.periodEnd),
+  ],
+);
+
+export const clientRequests = pgTable(
+  "client_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    botChannelId: uuid("bot_channel_id").references(() => botChannels.id, {
+      onDelete: "set null",
+    }),
+    senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
+      onDelete: "set null",
+    }),
+    retainerPeriodId: uuid("retainer_period_id").references(
+      () => retainerPeriods.id,
+      { onDelete: "set null" },
+    ),
+    estimatedUnits: numeric("estimated_units", { precision: 12, scale: 2 }),
+    retainerConsumedAt: timestamp("retainer_consumed_at", {
+      withTimezone: true,
+    }),
+    // Referencia lógica (sin FK por el orden de declaración de tablas) a la
+    // conversación exacta que originó la solicitud.
+    conversationId: uuid("conversation_id"),
+    sourceMessageId: text("source_message_id"),
+    idempotencyKey: text("idempotency_key"),
+    channel: text("channel").default("whatsapp").notNull(),
+    rawText: text("raw_text").notNull(),
+    normalizedSummary: text("normalized_summary"),
+    scopeClass: text("scope_class").default("unknown").notNull(),
+    predictedScopeClass: text("predicted_scope_class"),
+    scopeReason: text("scope_reason"),
+    scopeCorrectedAt: timestamp("scope_corrected_at", { withTimezone: true }),
+    asanaTaskGid: text("asana_task_gid"),
+    asanaUrl: text("asana_url"),
+    asanaAttemptedAt: timestamp("asana_attempted_at", { withTimezone: true }),
+    status: text("status").default("captured").notNull(),
+    createdVia: text("created_via").default("bot").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("client_requests_source_message_unique")
+      .on(t.sourceMessageId)
+      .where(sql`${t.sourceMessageId} is not null`),
+    uniqueIndex("client_requests_idempotency_unique")
+      .on(t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} is not null`),
+    index("client_requests_client_created_idx").on(t.clientId, t.createdAt),
+    index("client_requests_analytics_idx").on(
+      t.clientId,
+      t.createdAt,
+      t.scopeClass,
+      t.status,
+    ),
+    index("client_requests_project_created_idx").on(t.projectId, t.createdAt),
+    index("client_requests_conversation_idx").on(t.conversationId),
+    index("client_requests_retainer_period_idx").on(t.retainerPeriodId),
+    index("client_requests_status_idx").on(t.status),
+  ],
+);
+
+export const botConversations = pgTable(
+  "bot_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    botChannelId: uuid("bot_channel_id")
+      .notNull()
+      .references(() => botChannels.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
+      onDelete: "set null",
+    }),
+    phone: text("phone").notNull(),
+    status: text("status").default("open").notNull(),
+    lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("bot_conversations_channel_idx").on(t.botChannelId),
+    index("bot_conversations_phone_status_idx").on(t.phone, t.status),
+    uniqueIndex("bot_conversations_open_channel_phone_unique")
+      .on(t.botChannelId, t.phone)
+      .where(sql`${t.status} = 'open'`),
+  ],
+);
+
+export const botMessages = pgTable(
+  "bot_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => botConversations.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    waMessageId: text("wa_message_id"),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("bot_messages_conversation_created_idx").on(
+      t.conversationId,
+      t.createdAt,
+    ),
+    uniqueIndex("bot_messages_wa_message_unique")
+      .on(t.waMessageId)
+      .where(sql`${t.waMessageId} is not null`),
+  ],
+);
+
+export const whatsappInboundEvents = pgTable(
+  "whatsapp_inbound_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    waMessageId: text("wa_message_id").notNull().unique(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [
+    index("whatsapp_inbound_events_status_idx").on(t.status, t.createdAt),
+  ],
 );
 
 // ── email_templates (mantenedor de plantillas de correo) ─────
@@ -1128,10 +1550,9 @@ export const salesOrderBillingItems = pgTable(
     tentativeDate: date("tentative_date"),
     deliverable: text("deliverable"),
     status: billingItemStatusEnum("status").default("PENDIENTE").notNull(),
-    invoiceId: uuid("invoice_id").references(
-      (): AnyPgColumn => invoices.id,
-      { onDelete: "set null" },
-    ),
+    invoiceId: uuid("invoice_id").references((): AnyPgColumn => invoices.id, {
+      onDelete: "set null",
+    }),
     ...timestamps,
   },
   (t) => [
@@ -1671,6 +2092,10 @@ export type BriefVersion = typeof briefVersions.$inferSelect;
 export type NewBriefVersion = typeof briefVersions.$inferInsert;
 export type Service = typeof services.$inferSelect;
 export type NewService = typeof services.$inferInsert;
+export type ServiceSubarea = typeof serviceSubareas.$inferSelect;
+export type ServiceVariant = typeof serviceVariants.$inferSelect;
+export type ServicePackage = typeof servicePackages.$inferSelect;
+export type ServicePackageItem = typeof servicePackageItems.$inferSelect;
 export type ServiceModule = typeof serviceModules.$inferSelect;
 export type NewServiceModule = typeof serviceModules.$inferInsert;
 export type ServiceModuleLink = typeof serviceModuleLinks.$inferSelect;
@@ -1680,6 +2105,14 @@ export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ProposalNote = typeof proposalNotes.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
+export type BotChannel = typeof botChannels.$inferSelect;
+export type BotAuthorizedSender = typeof botAuthorizedSenders.$inferSelect;
+export type Retainer = typeof retainers.$inferSelect;
+export type RetainerPeriod = typeof retainerPeriods.$inferSelect;
+export type ClientRequest = typeof clientRequests.$inferSelect;
+export type BotConversation = typeof botConversations.$inferSelect;
+export type BotMessage = typeof botMessages.$inferSelect;
+export type WhatsappInboundEvent = typeof whatsappInboundEvents.$inferSelect;
 export type Sla = typeof slas.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
