@@ -188,6 +188,35 @@ function xmlValue(xml: string, tag: string) {
   return match?.[1]?.trim() ?? null;
 }
 
+function validDteValues(xml: string) {
+  const folio = xmlValue(xml, "Folio");
+  const netAmount = xmlValue(xml, "MntNeto");
+  const ivaAmount = xmlValue(xml, "IVA");
+  const totalAmount = xmlValue(xml, "MntTotal");
+  // MntExe (monto exento) es OPCIONAL: documentos afectos puros no lo traen.
+  // Cuando existe, entra en la ecuación neto + iva + exento = total.
+  const exeAmount = xmlValue(xml, "MntExe");
+  const rawAmounts = [netAmount, ivaAmount, totalAmount];
+  const net = Number(netAmount);
+  const iva = Number(ivaAmount);
+  const total = Number(totalAmount);
+  const exe = exeAmount && exeAmount !== "" ? Number(exeAmount) : 0;
+  const validAmounts =
+    rawAmounts.every((value) => value !== null && value !== "") &&
+    [net, iva, total, exe].every(
+      (value) => Number.isFinite(value) && value >= 0,
+    );
+  if (!folio || !validAmounts || Math.abs(net + iva + exe - total) > 1) {
+    return null;
+  }
+  return {
+    folio,
+    netAmount: netAmount!,
+    ivaAmount: ivaAmount!,
+    totalAmount: totalAmount!,
+  };
+}
+
 export async function attachInvoiceDte(
   _previous: ActionResult | null,
   formData: FormData,
@@ -202,17 +231,30 @@ export async function attachInvoiceDte(
     if (files.some((file) => file.size > 15 * 1024 * 1024)) {
       return { ok: false, error: "Cada archivo puede pesar hasta 15 MB." };
     }
+    const parsedFiles = await Promise.all(
+      files.map(async (file) => {
+        const lower = file.name.toLowerCase();
+        const kind = lower.endsWith(".pdf")
+          ? ("pdf" as const)
+          : lower.endsWith(".xml")
+            ? ("xml" as const)
+            : null;
+        return {
+          file,
+          kind,
+          buffer: Buffer.from(await file.arrayBuffer()),
+        };
+      }),
+    );
+    const invalidXml = parsedFiles.some(
+      ({ kind, buffer }) =>
+        kind === "xml" && !validDteValues(buffer.toString("utf8")),
+    );
     const patch: Partial<typeof invoices.$inferInsert> = {};
-    for (const file of files) {
-      const lower = file.name.toLowerCase();
-      const kind = lower.endsWith(".pdf")
-        ? "pdf"
-        : lower.endsWith(".xml")
-          ? "xml"
-          : null;
+    for (const { kind, buffer } of parsedFiles) {
       if (!kind) continue;
+      if (kind === "xml" && invalidXml) continue;
       const path = `dte/${invoiceId}/${kind}-${Date.now()}.${kind}`;
-      const buffer = Buffer.from(await file.arrayBuffer());
       await uploadToStorage(
         INVOICES_BUCKET,
         path,
@@ -221,30 +263,39 @@ export async function attachInvoiceDte(
       );
       if (kind === "pdf") patch.pdfUrl = path;
       else {
-        patch.xmlUrl = path;
         const xml = buffer.toString("utf8");
-        patch.folio = xmlValue(xml, "Folio") ?? undefined;
-        patch.netAmount = xmlValue(xml, "MntNeto") ?? undefined;
-        patch.ivaAmount = xmlValue(xml, "IVA") ?? undefined;
-        patch.totalAmount = xmlValue(xml, "MntTotal") ?? undefined;
+        const dte = validDteValues(xml)!;
+        patch.xmlUrl = path;
+        patch.folio = dte.folio;
+        patch.netAmount = dte.netAmount;
+        patch.ivaAmount = dte.ivaAmount;
+        patch.totalAmount = dte.totalAmount;
         patch.balanceDue = patch.totalAmount;
         patch.issuedAt = xmlValue(xml, "FchEmis") ?? undefined;
         patch.dueAt = xmlValue(xml, "FchVenc") ?? undefined;
         patch.estimatedPaymentDate = patch.dueAt;
       }
     }
-    await db
-      .update(invoices)
-      .set({ ...patch, updatedAt: new Date() })
-      .where(eq(invoices.id, invoiceId));
-    await logActivity({
-      entityType: "invoice",
-      entityId: invoiceId,
-      action: "dte_files_attached",
-      actorId: user.id,
-    });
+    if (Object.keys(patch).length > 0) {
+      await db
+        .update(invoices)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(invoices.id, invoiceId));
+      await logActivity({
+        entityType: "invoice",
+        entityId: invoiceId,
+        action: "dte_files_attached",
+        actorId: user.id,
+      });
+    }
     revalidatePath(`/finanzas/ingresos/${invoiceId}`);
     revalidatePath("/finanzas/ingresos");
+    if (invalidXml) {
+      return {
+        ok: false,
+        error: "El XML del DTE es inválido o inconsistente (folio/montos).",
+      };
+    }
     return { ok: true, data: undefined };
   } catch (error) {
     return handleActionError(error, "attachInvoiceDte");
