@@ -22,10 +22,10 @@ import {
   ClipboardList,
   BookOpenCheck,
   Contact,
-  Shapes,
   Users,
   UserRoundPlus,
   WalletCards,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -54,14 +54,24 @@ export const NAV_PRIMARY_ITEMS: NavItem[] = [
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Comercial",
+    label: "Administración",
     icon: Building2,
+    children: [{ href: "/clients", label: "Clientes", icon: Users }],
+  },
+  {
+    label: "Comercial",
+    icon: ChartNoAxesCombined,
     children: [
       { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-      { href: "/clients", label: "Clientes", icon: Users },
+      { href: "/projects", label: "Proyectos", icon: FolderKanban },
       { href: "/briefs", label: "Briefs", icon: FileText },
       { href: "/proposals", label: "Propuestas", icon: FileSignature },
-      { href: "/projects", label: "Proyectos", icon: FolderKanban },
+    ],
+  },
+  {
+    label: "Operaciones",
+    icon: Workflow,
+    children: [
       {
         href: "/solicitudes",
         label: "Solicitudes",
@@ -90,6 +100,16 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       { href: "/finanzas/importar", label: "Importar", icon: Upload },
       {
+        href: "/personas/empleados",
+        label: "Remuneraciones",
+        icon: UserRoundPlus,
+      },
+      {
+        href: "/personas/honorarios",
+        label: "Honorarios",
+        icon: ReceiptText,
+      },
+      {
         href: "/finanzas/configuracion",
         label: "Configuración",
         icon: SlidersHorizontal,
@@ -100,32 +120,27 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Personas",
     icon: Contact,
     children: [
+      {
+        href: "/personas/colaboradores",
+        label: "Colaboradores",
+        icon: Users,
+        requiresPeople: true,
+      },
       { href: "/surveys", label: "Encuestas", icon: ClipboardList },
       { href: "/training", label: "Capacitaciones", icon: BookOpenCheck },
       { href: "/onboarding", label: "Onboarding", icon: GraduationCap },
-      {
-        href: "/personas/honorarios",
-        label: "Honorarios",
-        icon: ReceiptText,
-        requiresPeople: true,
-      },
-      {
-        href: "/personas/empleados",
-        label: "Empleados",
-        icon: UserRoundPlus,
-        requiresPeople: true,
-      },
     ],
   },
   {
-    label: "Catálogo",
-    icon: Shapes,
-    children: [{ href: "/services", label: "Servicios", icon: Boxes }],
+    label: "Sistema",
+    icon: Settings,
+    children: [
+      { href: "/services", label: "Catálogo", icon: Boxes },
+      { href: "/context-docs", label: "Documentación", icon: Library },
+      { href: "/integrations", label: "Integraciones", icon: Plug },
+      { href: "/settings", label: "Ajustes", icon: SlidersHorizontal },
+    ],
   },
 ];
 
-export const NAV_FOOTER_ITEMS: NavItem[] = [
-  { href: "/context-docs", label: "Documentación", icon: Library },
-  { href: "/integrations", label: "Integraciones", icon: Plug },
-  { href: "/settings", label: "Ajustes", icon: Settings },
-];
+export const NAV_FOOTER_ITEMS: NavItem[] = [];
