@@ -67,6 +67,20 @@ lo que hace idempotentes los reintentos del agente.
 `price_max_amount`, `price_currency` (default UF), `requirements`, `status` (default Activo),
 `related_services uuid[]`.
 
+`service_subareas` mantiene la taxonomía editable `área → subárea`. `services.subarea`
+conserva el nombre por compatibilidad con importadores; renombrar o eliminar una subárea
+actualiza sus servicios dentro de una transacción y exige un destino cuando tiene contenido.
+
+`service_variants` materializa los niveles `START | GROWTH | PERFORMANCE | ENTERPRISE`.
+Cada nivel tiene público/enfoque, descripción, metodología, entregables, exclusiones, plazo y
+precio propios. Start y Growth son obligatorios; los dos niveles superiores son opcionales.
+Los campos históricos de `services` reflejan Start para mantener compatibles las propuestas
+anteriores.
+
+`service_packages` + `service_package_items` guardan combinaciones reutilizables de servicios
+de distintas áreas, con variante y cantidad por línea. Un paquete acelera el cotizador, pero
+al aplicarlo cada servicio sigue siendo una línea editable de `proposal_services`.
+
 ### proposals
 
 `project_id*` → projects, `client_id` → clients, `title*`, y las 12 secciones de texto:
@@ -78,7 +92,8 @@ lo que hace idempotentes los reintentos del agente.
 ### proposal_services (join N:N)
 
 `proposal_id*` → proposals (CASCADE), `service_id*` → services (RESTRICT), `position int`,
-`custom_price_amount`, `custom_price_currency`. Único por (`proposal_id`, `service_id`).
+`variant_tier` (default START), `custom_price_amount`, `custom_price_currency`. Único por
+(`proposal_id`, `service_id`).
 
 ### resource_links (polimórfica)
 

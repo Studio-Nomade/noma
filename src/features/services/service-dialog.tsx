@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Field } from "@/components/shared/field";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/currency/format";
 import { convertAmount, type Rates } from "@/lib/currency/convert";
@@ -32,31 +29,124 @@ import {
   AREAS,
   AREA_LABELS,
   SERVICE_STATUSES,
+  type Area,
   type Currency,
+  type ServiceStatus,
 } from "@/types/enums";
-import type { Service } from "@/db/schema";
-import { serviceSchema, type ServiceFormValues } from "./schema";
+import { cn } from "@/lib/utils";
 import { createService, updateService } from "./actions";
+import type { ServiceSubarea } from "@/db/schema";
+import type { ServiceWithVariants } from "./queries";
 import {
   parseStructuredContent,
   serializeStructuredContent,
   type StructuredContentItem,
 } from "@/features/proposals/structured-content";
+import {
+  PREVIOUS_SERVICE_TIER,
+  SERVICE_TIERS,
+  SERVICE_TIER_META,
+  type ServiceTier,
+} from "./tiers";
+import type {
+  ServiceFormValues,
+  ServiceVariantFormValues,
+} from "./schema";
 
-function toDefaults(service?: Service | null): ServiceFormValues {
+type VariantDraft = Omit<
+  ServiceVariantFormValues,
+  "methodology" | "deliverables" | "exclusions"
+> & {
+  methodology: StructuredContentItem[];
+  deliverables: StructuredContentItem[];
+  exclusions: StructuredContentItem[];
+};
+
+type ServiceDraft = {
+  name: string;
+  area: Area;
+  subarea: string;
+  requirements: string;
+  status: ServiceStatus;
+  variants: Record<ServiceTier, VariantDraft>;
+};
+
+function emptyVariant(tier: ServiceTier): VariantDraft {
   return {
-    name: service?.name ?? "",
-    area: service?.area ?? "B&D",
-    subarea: service?.subarea ?? "",
+    tier,
+    enabled: SERVICE_TIER_META[tier].required,
+    audience: "",
+    focus: "",
+    description: "",
+    methodology: [],
+    deliverables: [],
+    exclusions: [],
+    estimatedTime: "",
+    priceMinAmount: "",
+    priceMaxAmount: "",
+    priceCurrency: "UF",
+  };
+}
+
+function copyVariant(source: VariantDraft, tier: ServiceTier): VariantDraft {
+  return {
+    ...source,
+    tier,
+    enabled: true,
+    methodology: source.methodology.map((item) => ({ ...item })),
+    deliverables: source.deliverables.map((item) => ({ ...item })),
+    exclusions: source.exclusions.map((item) => ({ ...item })),
+  };
+}
+
+function buildDraft(service?: ServiceWithVariants | null): ServiceDraft {
+  const variants = Object.fromEntries(
+    SERVICE_TIERS.map((tier) => [tier, emptyVariant(tier)]),
+  ) as Record<ServiceTier, VariantDraft>;
+
+  const start: VariantDraft = {
+    tier: "START",
+    enabled: true,
+    audience: "",
+    focus: "",
     description: service?.description ?? "",
-    methodology: service?.methodology ?? "",
-    deliverables: service?.deliverables ?? "",
+    methodology: parseStructuredContent(service?.methodology, "stages"),
+    deliverables: parseStructuredContent(service?.deliverables, "deliverables"),
+    exclusions: parseStructuredContent(service?.exclusions, "deliverables"),
     estimatedTime: service?.estimatedTime ?? "",
     priceMinAmount: service?.priceMinAmount ?? "",
     priceMaxAmount: service?.priceMaxAmount ?? "",
     priceCurrency: service?.priceCurrency ?? "UF",
+  };
+  variants.START = start;
+  variants.GROWTH = copyVariant(start, "GROWTH");
+
+  for (const row of service?.variants ?? []) {
+    if (!SERVICE_TIERS.includes(row.tier as ServiceTier)) continue;
+    const tier = row.tier as ServiceTier;
+    variants[tier] = {
+      tier,
+      enabled: row.enabled,
+      audience: row.audience ?? "",
+      focus: row.focus ?? "",
+      description: row.description ?? "",
+      methodology: parseStructuredContent(row.methodology, "stages"),
+      deliverables: parseStructuredContent(row.deliverables, "deliverables"),
+      exclusions: parseStructuredContent(row.exclusions, "deliverables"),
+      estimatedTime: row.estimatedTime ?? "",
+      priceMinAmount: row.priceMinAmount ?? "",
+      priceMaxAmount: row.priceMaxAmount ?? "",
+      priceCurrency: row.priceCurrency,
+    };
+  }
+
+  return {
+    name: service?.name ?? "",
+    area: service?.area ?? "B&D",
+    subarea: service?.subarea ?? "",
     requirements: service?.requirements ?? "",
     status: service?.status ?? "Activo",
+    variants,
   };
 }
 
@@ -64,265 +154,387 @@ export function ServiceDialog({
   service,
   trigger,
   rates,
+  subareas,
 }: {
-  service?: Service | null;
+  service?: ServiceWithVariants | null;
   trigger: React.ReactElement;
   rates: Rates;
+  subareas: ServiceSubarea[];
 }) {
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<ServiceDraft>(() => buildDraft(service));
+  const [activeTier, setActiveTier] = useState<ServiceTier>("START");
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
   const isEdit = Boolean(service);
-
-  const defaults = toDefaults(service);
-  const [methodology, setMethodology] = useState<StructuredContentItem[]>(() =>
-    parseStructuredContent(service?.methodology, "stages"),
-  );
-  const [deliverables, setDeliverables] = useState<StructuredContentItem[]>(
-    () => parseStructuredContent(service?.deliverables, "deliverables"),
+  const variant = draft.variants[activeTier];
+  const areaSubareas = useMemo(
+    () => subareas.filter((item) => item.area === draft.area),
+    [draft.area, subareas],
   );
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    reset,
-    watch,
-    getValues,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceSchema),
-    defaultValues: defaults,
-  });
-  const priceMin = Number(watch("priceMinAmount")) || 0;
-  const priceMax = Number(watch("priceMaxAmount")) || 0;
-  const priceCurrency = watch("priceCurrency");
-
-  async function onSubmit(values: ServiceFormValues) {
-    const payload = {
-      ...values,
-      methodology: serializeStructuredContent(methodology),
-      deliverables: serializeStructuredContent(deliverables),
-    };
-    const result = isEdit
-      ? await updateService(service!.id, payload)
-      : await createService(payload);
-    if (result.ok) {
-      toast.success(isEdit ? "Servicio actualizado" : "Servicio creado");
-      setOpen(false);
-      if (!isEdit) reset(toDefaults(null));
-      router.refresh();
-    } else {
-      toast.error(result.error);
-    }
+  function resetDraft() {
+    setDraft(buildDraft(service));
+    setActiveTier("START");
   }
 
-  function handleOpenChange(next: boolean) {
-    setOpen(next);
-    if (next) {
-      reset(toDefaults(service));
-      setMethodology(parseStructuredContent(service?.methodology, "stages"));
-      setDeliverables(
-        parseStructuredContent(service?.deliverables, "deliverables"),
-      );
+  function setVariant(patch: Partial<VariantDraft>) {
+    setDraft((current) => ({
+      ...current,
+      variants: {
+        ...current.variants,
+        [activeTier]: { ...current.variants[activeTier], ...patch },
+      },
+    }));
+  }
+
+  function selectTier(tier: ServiceTier) {
+    setActiveTier(tier);
+  }
+
+  function toggleOptionalTier() {
+    const previousTier = PREVIOUS_SERVICE_TIER[activeTier];
+    if (!variant.enabled && previousTier) {
+      setDraft((current) => ({
+        ...current,
+        variants: {
+          ...current.variants,
+          [activeTier]: copyVariant(
+            current.variants[previousTier],
+            activeTier,
+          ),
+        },
+      }));
+      return;
     }
+    setVariant({ enabled: false });
+  }
+
+  function inheritPrevious() {
+    const previousTier = PREVIOUS_SERVICE_TIER[activeTier];
+    if (!previousTier) return;
+    setDraft((current) => ({
+      ...current,
+      variants: {
+        ...current.variants,
+        [activeTier]: copyVariant(
+          current.variants[previousTier],
+          activeTier,
+        ),
+      },
+    }));
+    toast.success(
+      `Contenido copiado desde ${SERVICE_TIER_META[previousTier].shortLabel}`,
+    );
   }
 
   function changeCurrency(next: Currency) {
-    const current = getValues("priceCurrency");
+    const current = variant.priceCurrency;
     if (next === current) return;
-    for (const field of ["priceMinAmount", "priceMaxAmount"] as const) {
-      const raw = Number(getValues(field));
-      if (!Number.isFinite(raw) || raw <= 0) continue;
-      const converted = convertAmount(raw, current, next, rates);
-      setValue(field, converted.toFixed(next === "CLP" ? 0 : 2), {
-        shouldDirty: true,
-      });
+    const converted = {
+      priceCurrency: next,
+      priceMinAmount: convertPrice(variant.priceMinAmount, current, next, rates),
+      priceMaxAmount: convertPrice(variant.priceMaxAmount, current, next, rates),
+    };
+    setVariant(converted);
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const payload: ServiceFormValues = {
+      name: draft.name,
+      area: draft.area,
+      subarea: draft.subarea,
+      requirements: draft.requirements,
+      status: draft.status,
+      variants: SERVICE_TIERS.map((tier) => {
+        const item = draft.variants[tier];
+        return {
+          ...item,
+          methodology: serializeStructuredContent(item.methodology),
+          deliverables: serializeStructuredContent(item.deliverables),
+          exclusions: serializeStructuredContent(item.exclusions),
+        };
+      }),
+    };
+    setSaving(true);
+    const result = isEdit
+      ? await updateService(service!.id, payload)
+      : await createService(payload);
+    setSaving(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
     }
-    setValue("priceCurrency", next, { shouldDirty: true });
+    toast.success(isEdit ? "Servicio actualizado" : "Servicio creado");
+    setOpen(false);
+    if (!isEdit) resetDraft();
+    router.refresh();
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) resetDraft();
+      }}
+    >
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Editar servicio" : "Nuevo servicio"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Field
-            label="Nombre del servicio"
-            required
-            error={errors.name?.message}
-          >
-            <Input {...register("name")} />
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Área" error={errors.area?.message}>
-              <Controller
-                control={control}
-                name="area"
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(v) => field.onChange(v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AREAS.map((a) => (
-                        <SelectItem key={a} value={a}>
-                          {AREA_LABELS[a]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-            <Field label="Subárea" error={errors.subarea?.message}>
+        <form onSubmit={submit} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Nombre del servicio" className="sm:col-span-2">
               <Input
-                placeholder="Ej: Identidad Visual"
-                {...register("subarea")}
+                required
+                value={draft.name}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
               />
-            </Field>
-            <Field label="Estado" error={errors.status?.message}>
-              <Controller
-                control={control}
-                name="status"
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(v) => field.onChange(v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SERVICE_STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
+            </FormField>
+            <FormField label="Área">
+              <Select
+                value={draft.area}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    area: value as Area,
+                    subarea: "",
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AREAS.map((area) => (
+                    <SelectItem key={area} value={area}>
+                      {area} · {AREA_LABELS[area]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Subárea">
+              <Select
+                value={draft.subarea || "__none"}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    subarea:
+                      !value || value === "__none" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin subárea" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Sin subárea</SelectItem>
+                  {areaSubareas.map((item) => (
+                    <SelectItem key={item.id} value={item.name}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
 
-          <Field label="Descripción" error={errors.description?.message}>
-            <Textarea rows={2} {...register("description")} />
-          </Field>
-
-          <StructuredServiceEditor
-            label="Metodología / proceso"
-            titlePlaceholder="Nombre del paso"
-            descriptionPlaceholder="Descripción del proceso"
-            items={methodology}
-            onChange={setMethodology}
-          />
-
-          <StructuredServiceEditor
-            label="Entregables incluidos"
-            titlePlaceholder="Nombre del entregable"
-            descriptionPlaceholder="Descripción o formato"
-            items={deliverables}
-            onChange={setDeliverables}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-1">
-            <Field
-              label="Tiempo estimado"
-              error={errors.estimatedTime?.message}
-            >
-              <Input
-                placeholder="Ej: 4–6 semanas"
-                {...register("estimatedTime")}
-              />
-            </Field>
-          </div>
-
-          <section className="border-border space-y-4 rounded-xl border p-4">
-            <div>
-              <h3 className="font-heading text-sm font-medium">
-                Precio referencial
-              </h3>
+          <section className="border-border overflow-hidden rounded-xl border">
+            <div className="bg-muted/30 border-border border-b px-4 py-3">
+              <p className="font-heading text-sm font-medium">
+                Tipo y complejidad del servicio
+              </p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Al cambiar la moneda, los montos se convierten con las tasas
-                vigentes sin alterar su valor económico.
+                Start y Growth son obligatorios. Los niveles superiores se
+                activan solo cuando este servicio los necesita.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-[1fr_1fr_9rem]">
-              <Field
-                label={`Precio mínimo (${priceCurrency})`}
-                error={errors.priceMinAmount?.message}
-              >
-                <Input
-                  type="number"
-                  min="0"
-                  step={priceCurrency === "CLP" ? "1" : "0.01"}
-                  {...register("priceMinAmount")}
-                />
-              </Field>
-              <Field
-                label={`Precio máximo (${priceCurrency})`}
-                error={errors.priceMaxAmount?.message}
-              >
-                <Input
-                  type="number"
-                  min="0"
-                  step={priceCurrency === "CLP" ? "1" : "0.01"}
-                  {...register("priceMaxAmount")}
-                />
-              </Field>
-              <Field label="Moneda" error={errors.priceCurrency?.message}>
-                <Select
-                  value={priceCurrency}
-                  onValueChange={(value) => changeCurrency(value as Currency)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(["UF", "CLP", "USD"] as Currency[]).map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+            <div className="grid divide-y md:grid-cols-4 md:divide-x md:divide-y-0">
+              {SERVICE_TIERS.map((tier, index) => {
+                const item = draft.variants[tier];
+                const active = tier === activeTier;
+                return (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => selectTier(tier)}
+                    className={cn(
+                      "relative min-h-20 p-4 text-left transition-colors",
+                      active ? "bg-primary text-primary-foreground" : "bg-card",
+                      !item.enabled && "opacity-55",
+                    )}
+                  >
+                    <span className="text-[10px] font-semibold tracking-widest uppercase opacity-70">
+                      Nivel {index + 1}
+                    </span>
+                    <span className="mt-1 block text-sm font-semibold">
+                      {SERVICE_TIER_META[tier].label}
+                    </span>
+                    <span className="mt-2 flex items-center gap-1 text-[11px]">
+                      {item.enabled ? (
+                        <>
+                          <Check className="size-3" /> Configurado
+                        </>
+                      ) : (
+                        "Opcional · desactivado"
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {(["UF", "CLP", "USD"] as Currency[]).map((currency) => (
-                <PriceEquivalent
-                  key={currency}
-                  currency={currency}
-                  min={convertAmount(priceMin, priceCurrency, currency, rates)}
-                  max={convertAmount(priceMax, priceCurrency, currency, rates)}
-                />
-              ))}
-            </div>
-            {(!rates.ufClp || !rates.usdClp) && (
-              <p className="text-destructive text-xs">
-                Faltan tasas vigentes; ejecuta npm run rates:sync antes de
-                convertir.
-              </p>
-            )}
           </section>
 
-          <Field
-            label="Requisitos para iniciar"
-            error={errors.requirements?.message}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-heading text-lg font-semibold">
+                Variante {SERVICE_TIER_META[activeTier].shortLabel}
+              </h3>
+              <p className="text-muted-foreground text-xs">
+                Esta información se utilizará al seleccionar la variante en una
+                propuesta o paquete.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {PREVIOUS_SERVICE_TIER[activeTier] && (
+                <Button type="button" variant="outline" onClick={inheritPrevious}>
+                  <Copy className="size-4" />
+                  Copiar nivel anterior
+                </Button>
+              )}
+              {!SERVICE_TIER_META[activeTier].required && (
+                <Button
+                  type="button"
+                  variant={variant.enabled ? "outline" : "default"}
+                  onClick={toggleOptionalTier}
+                >
+                  {variant.enabled ? "Desactivar variante" : "Activar variante"}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <fieldset
+            disabled={!variant.enabled}
+            className="space-y-5 disabled:opacity-50"
           >
-            <Textarea rows={2} {...register("requirements")} />
-          </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Público / perfil objetivo">
+                <Textarea
+                  rows={2}
+                  value={variant.audience}
+                  onChange={(event) =>
+                    setVariant({ audience: event.target.value })
+                  }
+                />
+              </FormField>
+              <FormField label="Enfoque de la variante">
+                <Textarea
+                  rows={2}
+                  value={variant.focus}
+                  onChange={(event) => setVariant({ focus: event.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Descripción">
+              <Textarea
+                rows={3}
+                value={variant.description}
+                onChange={(event) =>
+                  setVariant({ description: event.target.value })
+                }
+              />
+            </FormField>
+
+            <StructuredServiceEditor
+              label="Metodología / proceso"
+              titlePlaceholder="Nombre del paso"
+              descriptionPlaceholder="Descripción del proceso"
+              items={variant.methodology}
+              onChange={(methodology) => setVariant({ methodology })}
+            />
+            <StructuredServiceEditor
+              label="Entregables incluidos"
+              titlePlaceholder="Nombre del entregable"
+              descriptionPlaceholder="Descripción o formato"
+              items={variant.deliverables}
+              onChange={(deliverables) => setVariant({ deliverables })}
+            />
+            <StructuredServiceEditor
+              label="Qué no incluye · excluyentes"
+              titlePlaceholder="Elemento excluido"
+              descriptionPlaceholder="Aclaración o condición"
+              items={variant.exclusions}
+              onChange={(exclusions) => setVariant({ exclusions })}
+            />
+
+            <FormField label="Tiempo estimado">
+              <Input
+                placeholder="Ej: 4–6 semanas"
+                value={variant.estimatedTime}
+                onChange={(event) =>
+                  setVariant({ estimatedTime: event.target.value })
+                }
+              />
+            </FormField>
+
+            <PriceEditor
+              variant={variant}
+              rates={rates}
+              onChange={setVariant}
+              onCurrencyChange={changeCurrency}
+            />
+          </fieldset>
+
+          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+            <FormField label="Requisitos generales para iniciar">
+              <Textarea
+                rows={2}
+                value={draft.requirements}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    requirements: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label="Estado">
+              <Select
+                value={draft.status}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    status: value as ServiceStatus,
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SERVICE_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
 
           <DialogFooter>
             <Button
@@ -332,8 +544,8 @@ export function ServiceDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
+            <Button type="submit" disabled={saving}>
+              {saving
                 ? "Guardando…"
                 : isEdit
                   ? "Guardar cambios"
@@ -343,6 +555,23 @@ export function ServiceDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FormField({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label>{label}</Label>
+      {children}
+    </div>
   );
 }
 
@@ -366,7 +595,6 @@ function StructuredServiceEditor({
       ),
     );
   }
-
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -411,6 +639,98 @@ function StructuredServiceEditor({
   );
 }
 
+function PriceEditor({
+  variant,
+  rates,
+  onChange,
+  onCurrencyChange,
+}: {
+  variant: VariantDraft;
+  rates: Rates;
+  onChange: (patch: Partial<VariantDraft>) => void;
+  onCurrencyChange: (currency: Currency) => void;
+}) {
+  const min = Number(variant.priceMinAmount) || 0;
+  const max = Number(variant.priceMaxAmount) || 0;
+  return (
+    <section className="border-border space-y-4 rounded-xl border p-4">
+      <div>
+        <h4 className="font-heading text-sm font-medium">Precio referencial</h4>
+        <p className="text-muted-foreground mt-1 text-xs">
+          La moneda principal es editable; las equivalencias conservan el valor
+          económico con las tasas vigentes.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_9rem]">
+        <FormField label={`Precio mínimo (${variant.priceCurrency})`}>
+          <Input
+            type="number"
+            min="0"
+            step={variant.priceCurrency === "CLP" ? "1" : "0.01"}
+            value={variant.priceMinAmount}
+            onChange={(event) =>
+              onChange({ priceMinAmount: event.target.value })
+            }
+          />
+        </FormField>
+        <FormField label={`Precio máximo (${variant.priceCurrency})`}>
+          <Input
+            type="number"
+            min="0"
+            step={variant.priceCurrency === "CLP" ? "1" : "0.01"}
+            value={variant.priceMaxAmount}
+            onChange={(event) =>
+              onChange({ priceMaxAmount: event.target.value })
+            }
+          />
+        </FormField>
+        <FormField label="Moneda">
+          <Select
+            value={variant.priceCurrency}
+            onValueChange={(value) => onCurrencyChange(value as Currency)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(["UF", "CLP", "USD"] as Currency[]).map((currency) => (
+                <SelectItem key={currency} value={currency}>
+                  {currency}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {(["UF", "CLP", "USD"] as Currency[]).map((currency) => (
+          <PriceEquivalent
+            key={currency}
+            currency={currency}
+            min={convertAmount(
+              min,
+              variant.priceCurrency,
+              currency,
+              rates,
+            )}
+            max={convertAmount(
+              max,
+              variant.priceCurrency,
+              currency,
+              rates,
+            )}
+          />
+        ))}
+      </div>
+      {(!rates.ufClp || !rates.usdClp) && (
+        <p className="text-destructive text-xs">
+          Faltan tasas vigentes; ejecuta npm run rates:sync antes de convertir.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function PriceEquivalent({
   currency,
   min,
@@ -438,4 +758,16 @@ function PriceEquivalent({
       <p className="mt-1 text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );
+}
+
+function convertPrice(
+  value: string | undefined,
+  from: Currency,
+  to: Currency,
+  rates: Rates,
+) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return value ?? "";
+  const converted = convertAmount(amount, from, to, rates);
+  return converted.toFixed(to === "CLP" ? 0 : 2);
 }

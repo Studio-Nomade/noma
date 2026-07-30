@@ -726,6 +726,7 @@ export const services = pgTable("services", {
   // Lista estructurada de pasos/tareas del servicio (noma-list:v1).
   methodology: text("methodology"),
   deliverables: text("deliverables"),
+  exclusions: text("exclusions"),
   estimatedTime: text("estimated_time"),
   complexityLevel: complexityLevelEnum("complexity_level"),
   priceType: priceTypeEnum("price_type").default("uf").notNull(),
@@ -747,6 +748,90 @@ export const services = pgTable("services", {
     }),
   ...timestamps,
 });
+
+// ── service_subareas (taxonomía administrable por área) ──────
+export const serviceSubareas = pgTable(
+  "service_subareas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    area: areaEnum("area").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("service_subareas_area_name_unique").on(t.area, t.name),
+    index("service_subareas_area_idx").on(t.area, t.name),
+  ],
+);
+
+// ── service_variants (Start → Enterprise) ───────────────────
+export const serviceVariants = pgTable(
+  "service_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "cascade" }),
+    tier: text("tier").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    audience: text("audience"),
+    focus: text("focus"),
+    description: text("description"),
+    methodology: text("methodology"),
+    deliverables: text("deliverables"),
+    exclusions: text("exclusions"),
+    estimatedTime: text("estimated_time"),
+    priceMinAmount: numeric("price_min_amount", { precision: 14, scale: 2 }),
+    priceMaxAmount: numeric("price_max_amount", { precision: 14, scale: 2 }),
+    priceCurrency: currencyEnum("price_currency").default("UF").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("service_variants_service_tier_unique").on(
+      t.serviceId,
+      t.tier,
+    ),
+    index("service_variants_service_idx").on(t.serviceId),
+  ],
+);
+
+// ── service_packages (combinaciones reutilizables) ──────────
+export const servicePackages = pgTable("service_packages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  objective: text("objective"),
+  niche: text("niche"),
+  description: text("description"),
+  status: serviceStatusEnum("status").default("Activo").notNull(),
+  suggestedByAi: boolean("suggested_by_ai").default(false).notNull(),
+  ...timestamps,
+});
+
+export const servicePackageItems = pgTable(
+  "service_package_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    packageId: uuid("package_id")
+      .notNull()
+      .references(() => servicePackages.id, { onDelete: "cascade" }),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "restrict" }),
+    variantTier: text("variant_tier").default("START").notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+    position: integer("position").default(0).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("service_package_items_unique").on(
+      t.packageId,
+      t.serviceId,
+      t.variantTier,
+    ),
+    index("service_package_items_package_idx").on(t.packageId, t.position),
+  ],
+);
 
 // ── service_modules (módulos combinables) ────────────────────
 export const serviceModules = pgTable("service_modules", {
@@ -861,6 +946,7 @@ export const proposalServices = pgTable(
     serviceId: uuid("service_id")
       .notNull()
       .references(() => services.id, { onDelete: "restrict" }),
+    variantTier: text("variant_tier").default("START").notNull(),
     position: integer("position").default(0).notNull(),
     // Cantidad (ej. 3 videos del mismo servicio) y prioridad (recargo).
     quantity: integer("quantity").default(1).notNull(),
@@ -1969,6 +2055,10 @@ export type BriefVersion = typeof briefVersions.$inferSelect;
 export type NewBriefVersion = typeof briefVersions.$inferInsert;
 export type Service = typeof services.$inferSelect;
 export type NewService = typeof services.$inferInsert;
+export type ServiceSubarea = typeof serviceSubareas.$inferSelect;
+export type ServiceVariant = typeof serviceVariants.$inferSelect;
+export type ServicePackage = typeof servicePackages.$inferSelect;
+export type ServicePackageItem = typeof servicePackageItems.$inferSelect;
 export type ServiceModule = typeof serviceModules.$inferSelect;
 export type NewServiceModule = typeof serviceModules.$inferInsert;
 export type ServiceModuleLink = typeof serviceModuleLinks.$inferSelect;

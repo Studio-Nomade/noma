@@ -12,6 +12,8 @@ import {
   proposalNotes,
   teamMembers,
   projects,
+  servicePackageItems,
+  serviceVariants,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
@@ -30,6 +32,7 @@ import {
   publicUrl,
   uploadToStorage,
 } from "@/lib/supabase/storage";
+import { SERVICE_TIERS, type ServiceTier } from "@/features/services/tiers";
 
 /** Campos de texto editables de la propuesta. */
 const EDITABLE_FIELDS = [
@@ -149,6 +152,7 @@ export async function createProposalVersion(
         svc.map((s) => ({
           proposalId: row.id,
           serviceId: s.serviceId,
+          variantTier: s.variantTier,
           position: s.position,
           quantity: s.quantity,
           priority: s.priority,
@@ -242,21 +246,132 @@ export async function setProposalStatus(
 export async function addProposalService(
   proposalId: string,
   serviceId: string,
+  variantTier: ServiceTier = "START",
 ): Promise<ActionResult> {
   try {
     await requireUser();
+    if (!SERVICE_TIERS.includes(variantTier)) {
+      return { ok: false, error: "Variante inválida." };
+    }
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(proposalServices)
       .where(eq(proposalServices.proposalId, proposalId));
     await db
       .insert(proposalServices)
-      .values({ proposalId, serviceId, position: count })
+      .values({ proposalId, serviceId, variantTier, position: count })
       .onConflictDoNothing();
     revalidatePath(`/proposals/${proposalId}`);
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "addProposalService");
+  }
+}
+
+export async function updateProposalServiceVariant(
+  rowId: string,
+  proposalId: string,
+  variantTier: ServiceTier,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    if (!SERVICE_TIERS.includes(variantTier)) {
+      return { ok: false, error: "Variante inválida." };
+    }
+    const [row] = await db
+      .select({ serviceId: proposalServices.serviceId })
+      .from(proposalServices)
+      .where(
+        and(
+          eq(proposalServices.id, rowId),
+          eq(proposalServices.proposalId, proposalId),
+        ),
+      )
+      .limit(1);
+    if (!row) return { ok: false, error: "Servicio no encontrado." };
+    const [variant] = await db
+      .select({ id: serviceVariants.id })
+      .from(serviceVariants)
+      .where(
+        and(
+          eq(serviceVariants.serviceId, row.serviceId),
+          eq(serviceVariants.tier, variantTier),
+          eq(serviceVariants.enabled, true),
+        ),
+      )
+      .limit(1);
+    if (!variant && variantTier !== "START") {
+      return { ok: false, error: "Esta variante no está habilitada." };
+    }
+    await db
+      .update(proposalServices)
+      .set({
+        variantTier,
+        customPriceAmount: null,
+        customPriceCurrency: null,
+      })
+      .where(eq(proposalServices.id, rowId));
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return handleActionError(error, "updateProposalServiceVariant");
+  }
+}
+
+export async function addServicePackageToProposal(
+  proposalId: string,
+  packageId: string,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const ids = z.object({
+      proposalId: z.string().uuid(),
+      packageId: z.string().uuid(),
+    }).parse({ proposalId, packageId });
+    const lines = await db
+      .select()
+      .from(servicePackageItems)
+      .where(eq(servicePackageItems.packageId, ids.packageId))
+      .orderBy(servicePackageItems.position);
+    if (lines.length === 0) {
+      return { ok: false, error: "El paquete no contiene servicios." };
+    }
+    await db.transaction(async (tx) => {
+      const existing = await tx
+        .select()
+        .from(proposalServices)
+        .where(eq(proposalServices.proposalId, ids.proposalId));
+      let position = existing.length;
+      for (const line of lines) {
+        const current = existing.find(
+          (item) => item.serviceId === line.serviceId,
+        );
+        if (current) {
+          await tx
+            .update(proposalServices)
+            .set({
+              variantTier: line.variantTier,
+              quantity: current.quantity + line.quantity,
+              customPriceAmount: null,
+              customPriceCurrency: null,
+            })
+            .where(eq(proposalServices.id, current.id));
+        } else {
+          await tx.insert(proposalServices).values({
+            proposalId: ids.proposalId,
+            serviceId: line.serviceId,
+            variantTier: line.variantTier,
+            quantity: line.quantity,
+            position,
+          });
+          position += 1;
+        }
+      }
+    });
+    revalidatePath(`/proposals/${proposalId}`);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return handleActionError(error, "addServicePackageToProposal");
   }
 }
 

@@ -27,6 +27,8 @@ La app se aloja en **Vercel** (SSR/Server Actions). Cada rama de GitHub genera u
 | `CMF_API_URL`                      | `https://api.cmfchile.cl/api-sbifv3/recursos_api`      | All      |
 | `GOOGLE_CLIENT_ID`                 | OAuth client de Google Cloud                           | All      |
 | `GOOGLE_CLIENT_SECRET`             | OAuth secret de Google Cloud                           | All      |
+| `OPENAI_API_KEY`                   | Project API key server-side para IA                    | All      |
+| `OPENAI_MODEL`                     | Modelo central (default `gpt-5.6-sol`)                 | All      |
 | `NOMA_SUPERADMIN_EMAILS`           | Dirección con acceso total (coma)                      | All      |
 | `NOMA_COMERCIAL_EMAILS`            | Comercial/Finanzas y edición de catálogo (coma)        | All      |
 | `NOMA_LEGAL_EMAILS`                | Legal, Compliance y SLA (coma)                         | All      |
@@ -36,6 +38,11 @@ La app se aloja en **Vercel** (SSR/Server Actions). Cada rama de GitHub genera u
 `GOOGLE_CLIENT_SECRET` son las que permiten actuar **como el usuario**: envío de
 propuestas por Gmail, creación de reuniones en Calendar/Meet y lectura de notas en
 Drive. Sin ellas esas acciones fallan (el resto de la app funciona).
+
+`OPENAI_API_KEY` se crea como **project key** en OpenAI Platform y se guarda únicamente
+como secreto de Vercel/GitHub o en `.env.local`. No debe usar prefijo `NEXT_PUBLIC_`.
+Los paquetes sugeridos envían combinaciones saneadas de IDs, nombres y áreas; nunca precios,
+textos de propuestas ni datos de clientes.
 
 Opcionales (activan integraciones; si faltan, la funcionalidad degrada y avisa):
 

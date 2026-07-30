@@ -1,10 +1,13 @@
-import { Plus, Boxes } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { listServices } from "@/features/services/queries";
+import {
+  listServicePackages,
+  listServiceSubareas,
+  listServicesWithVariants,
+} from "@/features/services/queries";
 import { ServiceDialog } from "@/features/services/service-dialog";
-import { ServicesList } from "@/features/services/services-list";
+import { ServicesHub } from "@/features/services/services-hub";
 import { requireUser } from "@/lib/auth";
 import { roleFor } from "@/lib/roles";
 import { getLatestRates } from "@/lib/currency/rates";
@@ -12,8 +15,10 @@ import { getLatestRates } from "@/lib/currency/rates";
 export const metadata = { title: "Servicios" };
 
 export default async function ServicesPage() {
-  const [services, user, rates] = await Promise.all([
-    listServices(),
+  const [services, subareas, packages, user, rates] = await Promise.all([
+    listServicesWithVariants(),
+    listServiceSubareas(),
+    listServicePackages(),
     requireUser(),
     getLatestRates(),
   ]);
@@ -22,6 +27,7 @@ export default async function ServicesPage() {
   const newButton = canEdit ? (
     <ServiceDialog
       rates={{ ufClp: rates.ufClp, usdClp: rates.usdClp }}
+      subareas={subareas}
       trigger={
         <Button>
           <Plus className="size-4" />
@@ -39,20 +45,13 @@ export default async function ServicesPage() {
         action={newButton}
       />
 
-      {services.length === 0 ? (
-        <EmptyState
-          icon={Boxes}
-          title="Aún no hay servicios"
-          description="Crea servicios o ejecuta el seed para cargar la biblioteca demo."
-          action={newButton}
-        />
-      ) : (
-        <ServicesList
-          services={services}
-          canEdit={canEdit}
-          rates={{ ufClp: rates.ufClp, usdClp: rates.usdClp }}
-        />
-      )}
+      <ServicesHub
+        services={services}
+        subareas={subareas}
+        packages={packages}
+        canEdit={canEdit}
+        rates={{ ufClp: rates.ufClp, usdClp: rates.usdClp }}
+      />
     </>
   );
 }

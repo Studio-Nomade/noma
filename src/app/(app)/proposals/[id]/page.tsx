@@ -15,8 +15,10 @@ import {
   getProposalVersions,
   getProposalNotes,
   listServicesForAreas,
+  listServiceVariantsForAreas,
   listTeamForSelect,
 } from "@/features/proposals/queries";
+import { listServicePackages } from "@/features/services/queries";
 import { getClientContacts } from "@/features/clients/queries";
 import { listTemplatesForArea } from "@/features/email/queries";
 import { ServiceSelector } from "@/features/proposals/service-selector";
@@ -59,6 +61,8 @@ export default async function ProposalDetailPage({
     contacts,
     templates,
     salesOrder,
+    servicePackages,
+    serviceVariants,
   ] = await Promise.all([
     requireUser(),
     getProposalServices(id),
@@ -73,6 +77,8 @@ export default async function ProposalDetailPage({
       : Promise.resolve([]),
     listTemplatesForArea(projectArea),
     getSalesOrderByProposal(id),
+    listServicePackages(),
+    listServiceVariantsForAreas(areas),
   ]);
 
   const ufClp = Number(rates.ufClp) || 0;
@@ -222,6 +228,8 @@ export default async function ProposalDetailPage({
                   selected={selected}
                   catalog={catalog}
                   rates={{ ufClp, usdClp }}
+                  packages={servicePackages}
+                  variants={serviceVariants}
                 />
               </div>
 

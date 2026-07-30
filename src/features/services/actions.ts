@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { services } from "@/db/schema";
+import { serviceVariants, services } from "@/db/schema";
 import { requireCatalogEditor } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
@@ -14,19 +14,36 @@ import type { ServiceStatus } from "@/types/enums";
 function normalize(values: ServiceFormValues) {
   const d = serviceSchema.parse(values);
   const emptyToNull = (v?: string) => (v && v.trim() !== "" ? v : null);
+  const variants = d.variants.map((variant) => ({
+    ...variant,
+    audience: emptyToNull(variant.audience),
+    focus: emptyToNull(variant.focus),
+    description: emptyToNull(variant.description),
+    methodology: emptyToNull(variant.methodology),
+    deliverables: emptyToNull(variant.deliverables),
+    exclusions: emptyToNull(variant.exclusions),
+    estimatedTime: emptyToNull(variant.estimatedTime),
+    priceMinAmount: emptyToNull(variant.priceMinAmount),
+    priceMaxAmount: emptyToNull(variant.priceMaxAmount),
+  }));
+  const start = variants.find((variant) => variant.tier === "START")!;
   return {
-    name: d.name,
-    area: d.area,
-    subarea: emptyToNull(d.subarea),
-    description: emptyToNull(d.description),
-    methodology: emptyToNull(d.methodology),
-    deliverables: emptyToNull(d.deliverables),
-    estimatedTime: emptyToNull(d.estimatedTime),
-    priceMinAmount: emptyToNull(d.priceMinAmount),
-    priceMaxAmount: emptyToNull(d.priceMaxAmount),
-    priceCurrency: d.priceCurrency,
-    requirements: emptyToNull(d.requirements),
-    status: d.status,
+    service: {
+      name: d.name,
+      area: d.area,
+      subarea: emptyToNull(d.subarea),
+      description: start.description,
+      methodology: start.methodology,
+      deliverables: start.deliverables,
+      exclusions: start.exclusions,
+      estimatedTime: start.estimatedTime,
+      priceMinAmount: start.priceMinAmount,
+      priceMaxAmount: start.priceMaxAmount,
+      priceCurrency: start.priceCurrency,
+      requirements: emptyToNull(d.requirements),
+      status: d.status,
+    },
+    variants,
   };
 }
 
@@ -36,10 +53,20 @@ export async function createService(
   try {
     const user = await requireCatalogEditor();
     const data = normalize(values);
-    const [row] = await db
-      .insert(services)
-      .values({ ...data, createdBy: user.id })
-      .returning({ id: services.id });
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(services)
+        .values({ ...data.service, createdBy: user.id })
+        .returning({ id: services.id });
+      await tx.insert(serviceVariants).values(
+        data.variants.map((variant) => ({
+          ...variant,
+          serviceId: created.id,
+          createdBy: user.id,
+        })),
+      );
+      return created;
+    });
     await ensureServiceLedgerAccount(row.id);
     await logActivity({
       entityType: "service",
@@ -61,10 +88,25 @@ export async function updateService(
   try {
     const user = await requireCatalogEditor();
     const data = normalize(values);
-    await db
-      .update(services)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(services.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(services)
+        .set({ ...data.service, updatedAt: new Date() })
+        .where(eq(services.id, id));
+      for (const variant of data.variants) {
+        await tx
+          .insert(serviceVariants)
+          .values({
+            ...variant,
+            serviceId: id,
+            createdBy: user.id,
+          })
+          .onConflictDoUpdate({
+            target: [serviceVariants.serviceId, serviceVariants.tier],
+            set: { ...variant, updatedAt: new Date() },
+          });
+      }
+    });
     await ensureServiceLedgerAccount(id);
     await logActivity({
       entityType: "service",
