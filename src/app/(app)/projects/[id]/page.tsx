@@ -51,6 +51,8 @@ import {
 } from "@/features/finance/sales-orders/queries";
 import { getBotChannelForProject } from "@/features/bot/queries";
 import { AuthorizedSendersCard } from "@/features/bot/authorized-senders-card";
+import { getProjectRetainer } from "@/features/retainers/queries";
+import { RetainerCard } from "@/features/retainers/retainer-card";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -92,6 +94,7 @@ export default async function ProjectDetailPage({
     financeDetails,
     sla,
     botChannelState,
+    retainerData,
   ] = await Promise.all([
     getProjectLinks(id),
     listClients(),
@@ -112,6 +115,7 @@ export default async function ProjectDetailPage({
       : Promise.resolve({ invoices: [], collections: [] }),
     isLegal ? getProjectSla(id) : Promise.resolve(null),
     getBotChannelForProject(id),
+    getProjectRetainer(id),
   ]);
   const asanaLink = links.find((link) => link.type === "asana") ?? null;
   const isHandedOff = project.commercialStage === "Traspasado a operación";
@@ -187,6 +191,7 @@ export default async function ProjectDetailPage({
             </>
           )}
           <TabsTrigger value="operation">Operación</TabsTrigger>
+          <TabsTrigger value="retainer">Retainer</TabsTrigger>
           <TabsTrigger value="activity">Actividad</TabsTrigger>
         </TabsList>
 
@@ -534,6 +539,10 @@ export default async function ProjectDetailPage({
               />
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="retainer">
+          <RetainerCard projectId={project.id} data={retainerData} />
         </TabsContent>
 
         <TabsContent value="activity">

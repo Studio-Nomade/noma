@@ -16,6 +16,7 @@ import {
 } from "./context";
 import { searchKnowledge } from "./knowledge";
 import { materializeClientRequest } from "./requests";
+import { classifyScope } from "./scope";
 
 const MAX_TOOL_LOOPS = 5;
 
@@ -129,48 +130,6 @@ export async function runAgentTurn(input: {
   throw new Error("El agente excedió el máximo de iteraciones de herramientas.");
 }
 
-export function classifyScope(
-  summary: string,
-  pack: BotContextPack,
-): { scopeClass: "in_scope" | "additional" | "unknown"; reason: string } {
-  if (/\b(adicional|fuera de alcance|nuevo proyecto|no incluido)\b/i.test(summary)) {
-    return {
-      scopeClass: "additional",
-      reason: "La solicitud se presenta explícitamente como adicional o no incluida.",
-    };
-  }
-
-  const requestTerms = significantTerms(summary);
-  const scopeText = [
-    pack.project.type,
-    pack.project.description,
-    pack.project.objective,
-    ...pack.project.areas,
-    ...pack.services.flatMap((service) => [
-      service.name,
-      service.area,
-      service.description,
-      service.deliverables,
-    ]),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const scopeTerms = new Set(significantTerms(scopeText));
-  const matches = requestTerms.filter((term) => scopeTerms.has(term));
-
-  if (matches.length >= 1) {
-    return {
-      scopeClass: "in_scope",
-      reason: `Coincide con el alcance registrado (${matches.slice(0, 4).join(", ")}).`,
-    };
-  }
-  return {
-    scopeClass: "unknown",
-    reason:
-      "No hay evidencia suficiente en el alcance registrado; debe confirmarlo el equipo.",
-  };
-}
-
 async function executeTool(
   call: ResponseFunctionToolCall,
   pack: BotContextPack,
@@ -199,7 +158,11 @@ async function executeTool(
     }
     case "classify_scope": {
       const args = classifyScopeArgs.parse(rawArgs);
-      result = classifyScope(args.summary, pack);
+      result = await classifyScope({
+        botChannel: context.botChannel,
+        summary: args.summary,
+        pack,
+      });
       break;
     }
     case "propose_request": {
@@ -459,6 +422,7 @@ function finalClientMessage(modelText: string, events: AgentToolEvent[]) {
     result.status === "in_asana" && result.asanaUrl
       ? `Puedes verla aquí: ${result.asanaUrl}`
       : "El equipo la ingresará en su tablero y continuará desde ahí.",
+    result.scopeNotice,
     result.additionalNotice,
   ].filter((line): line is string => Boolean(line));
   return lines.join("\n");
@@ -468,6 +432,7 @@ function isMaterializedRequest(value: unknown): value is {
   folio: string;
   status: "in_asana" | "pending";
   asanaUrl: string | null;
+  scopeNotice: string | null;
   additionalNotice: string | null;
 } {
   if (!value || typeof value !== "object") return false;
@@ -476,36 +441,9 @@ function isMaterializedRequest(value: unknown): value is {
     typeof candidate.folio === "string" &&
     (candidate.status === "in_asana" || candidate.status === "pending") &&
     (typeof candidate.asanaUrl === "string" || candidate.asanaUrl === null) &&
+    (typeof candidate.scopeNotice === "string" ||
+      candidate.scopeNotice === null) &&
     (typeof candidate.additionalNotice === "string" ||
       candidate.additionalNotice === null)
   );
-}
-
-function significantTerms(value: string): string[] {
-  const ignored = new Set([
-    "para",
-    "como",
-    "este",
-    "esta",
-    "esto",
-    "desde",
-    "hasta",
-    "sobre",
-    "entre",
-    "hacer",
-    "necesito",
-    "queremos",
-    "cliente",
-    "proyecto",
-  ]);
-  return [
-    ...new Set(
-      value
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "")
-        .toLowerCase()
-        .match(/[\p{L}\p{N}]{4,}/gu)
-        ?.filter((term) => !ignored.has(term)) ?? [],
-    ),
-  ];
 }

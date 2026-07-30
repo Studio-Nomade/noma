@@ -116,6 +116,45 @@ export default async function PortalPage({
           )}
         </section>
 
+        {data.retainers.length > 0 && (
+          <section className="glass glass-sheen mb-6 rounded-xl p-5 sm:p-6">
+            <h2 className="font-heading mb-4 text-sm font-medium">
+              Bolsas mensuales
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {data.retainers.map((retainer) => {
+                const unit =
+                  retainer.unit === "hours" ? "horas" : "entregables";
+                const quota = Number(retainer.quota);
+                const consumed = Number(retainer.consumed);
+                const percentage =
+                  quota > 0 ? Math.min(100, (consumed / quota) * 100) : 0;
+                return (
+                  <div
+                    key={retainer.id}
+                    className="border-border rounded-xl border p-4"
+                  >
+                    <p className="font-medium">{retainer.projectName}</p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      {Number(retainer.remaining)} de {quota} {unit} disponibles
+                    </p>
+                    <div className="bg-muted mt-3 h-2 overflow-hidden rounded-full">
+                      <div
+                        className="bg-primary h-full rounded-full"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      Período {fecha(retainer.periodStart)} —{" "}
+                      {fecha(retainer.periodEnd)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <section className="glass glass-sheen rounded-xl p-5 sm:p-6">
           <h2 className="font-heading mb-4 text-sm font-medium">
             Estado de tus proyectos

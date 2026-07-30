@@ -934,6 +934,62 @@ export const botAuthorizedSenders = pgTable(
   ],
 );
 
+export const retainers = pgTable(
+  "retainers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    unit: text("unit").notNull(),
+    quotaPerPeriod: numeric("quota_per_period", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    periodType: text("period_type").default("monthly").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date"),
+    status: text("status").default("active").notNull(),
+    rolloverPolicy: text("rollover_policy").default("none").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("retainers_active_project_unique")
+      .on(t.projectId)
+      .where(sql`${t.status} = 'active'`),
+    index("retainers_client_status_idx").on(t.clientId, t.status),
+  ],
+);
+
+export const retainerPeriods = pgTable(
+  "retainer_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    retainerId: uuid("retainer_id")
+      .notNull()
+      .references(() => retainers.id, { onDelete: "cascade" }),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    quota: numeric("quota", { precision: 12, scale: 2 }).notNull(),
+    consumed: numeric("consumed", { precision: 12, scale: 2 })
+      .default("0")
+      .notNull(),
+    remaining: numeric("remaining", { precision: 12, scale: 2 }).notNull(),
+    status: text("status").default("open").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("retainer_periods_retainer_start_unique").on(
+      t.retainerId,
+      t.periodStart,
+    ),
+    index("retainer_periods_status_idx").on(t.status, t.periodEnd),
+  ],
+);
+
 export const clientRequests = pgTable(
   "client_requests",
   {
@@ -950,6 +1006,14 @@ export const clientRequests = pgTable(
     senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
       onDelete: "set null",
     }),
+    retainerPeriodId: uuid("retainer_period_id").references(
+      () => retainerPeriods.id,
+      { onDelete: "set null" },
+    ),
+    estimatedUnits: numeric("estimated_units", { precision: 12, scale: 2 }),
+    retainerConsumedAt: timestamp("retainer_consumed_at", {
+      withTimezone: true,
+    }),
     // Referencia lógica (sin FK por el orden de declaración de tablas) a la
     // conversación exacta que originó la solicitud.
     conversationId: uuid("conversation_id"),
@@ -959,6 +1023,7 @@ export const clientRequests = pgTable(
     rawText: text("raw_text").notNull(),
     normalizedSummary: text("normalized_summary"),
     scopeClass: text("scope_class").default("unknown").notNull(),
+    scopeReason: text("scope_reason"),
     asanaTaskGid: text("asana_task_gid"),
     asanaUrl: text("asana_url"),
     asanaAttemptedAt: timestamp("asana_attempted_at", { withTimezone: true }),
@@ -976,6 +1041,7 @@ export const clientRequests = pgTable(
     index("client_requests_client_created_idx").on(t.clientId, t.createdAt),
     index("client_requests_project_created_idx").on(t.projectId, t.createdAt),
     index("client_requests_conversation_idx").on(t.conversationId),
+    index("client_requests_retainer_period_idx").on(t.retainerPeriodId),
     index("client_requests_status_idx").on(t.status),
   ],
 );
@@ -1844,6 +1910,8 @@ export type ProposalNote = typeof proposalNotes.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
 export type BotChannel = typeof botChannels.$inferSelect;
 export type BotAuthorizedSender = typeof botAuthorizedSenders.$inferSelect;
+export type Retainer = typeof retainers.$inferSelect;
+export type RetainerPeriod = typeof retainerPeriods.$inferSelect;
 export type ClientRequest = typeof clientRequests.$inferSelect;
 export type BotConversation = typeof botConversations.$inferSelect;
 export type BotMessage = typeof botMessages.$inferSelect;

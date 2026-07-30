@@ -43,6 +43,17 @@ No se eliminan → se marcan `Cerrado`.
 `status` (default Levantamiento), `commercial_stage` (default Nuevo lead), `priority`
 (default Media), `responsible_id` → team_members, `next_action`, `internal_notes`.
 
+### retainers / retainer_periods
+
+`retainers` define una bolsa recurrente por proyecto y cliente: unidad
+(`deliverables | hours`), cuota mensual, vigencia, estado y política de arrastre.
+Solo puede existir un acuerdo activo por proyecto.
+
+`retainer_periods` materializa cada mes con cuota, consumo y saldo. El consumo usa
+bloqueo transaccional para impedir sobreconsumo concurrente. `client_requests`
+referencia el período, las unidades estimadas y la fecha efectiva de descuento,
+lo que hace idempotentes los reintentos del agente.
+
 ### briefs (1:1 con project)
 
 `project_id*` (único) → projects, `client_id` → clients, `area*`, `project_name`,
@@ -113,6 +124,7 @@ su refresh token en `user_integrations` por compatibilidad con SSO, Gmail y Cale
 
 ```
 Client 1 ──── N Project 1 ──── 1 Brief
+                       1 ──── 1 Retainer 1 ──── N RetainerPeriod
                        1 ──── N Proposal N ──── N Service   (vía proposal_services)
 resource_links ── polimórfico ──> Client | Project | Proposal
 Service (biblioteca global)        StudioConfig (singleton)

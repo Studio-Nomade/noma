@@ -92,6 +92,20 @@ export default async function RequestDetailPage({
                 <dt className="text-muted-foreground">Mensaje original</dt>
                 <dd className="whitespace-pre-wrap">{request.rawText}</dd>
               </div>
+              {request.scopeReason && (
+                <div>
+                  <dt className="text-muted-foreground">
+                    Motivo de clasificación
+                  </dt>
+                  <dd>{request.scopeReason}</dd>
+                </div>
+              )}
+              {request.estimatedUnits && (
+                <div>
+                  <dt className="text-muted-foreground">Consumo estimado</dt>
+                  <dd>{Number(request.estimatedUnits)}</dd>
+                </div>
+              )}
             </dl>
           </div>
           <div className="glass rounded-xl p-5">

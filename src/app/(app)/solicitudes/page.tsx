@@ -9,6 +9,7 @@ import {
   listRequests,
 } from "@/features/bot/requests-queries";
 import { formatDate } from "@/features/finance/helpers";
+import { getRetainerHealth } from "@/features/retainers/queries";
 
 const SCOPE_LABELS: Record<string, string> = {
   in_scope: "Dentro de alcance",
@@ -47,9 +48,10 @@ export default async function RequestsPage({
     from,
     to,
   };
-  const [{ rows, total }, options] = await Promise.all([
+  const [{ rows, total }, options, health] = await Promise.all([
     listRequests(filters, { page, pageSize }),
     getRequestFilterOptions(),
+    getRetainerHealth(),
   ]);
 
   return (
@@ -58,6 +60,35 @@ export default async function RequestsPage({
         title="Solicitudes"
         description="Solicitudes recibidas por el agente de WhatsApp y su seguimiento operativo."
       />
+
+      {health.length > 0 && (
+        <section className="mb-5">
+          <h2 className="font-heading mb-3 text-sm font-medium">
+            Salud de retainers · período actual
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {health.map((item) => {
+              const quota = Number(item.quota ?? 0);
+              const remaining = Number(item.remaining ?? quota);
+              const additionalRate = item.requests
+                ? Math.round((item.additional / item.requests) * 100)
+                : 0;
+              return (
+                <div key={item.retainerId} className="glass rounded-xl p-4">
+                  <div className="font-medium">{item.clientName}</div>
+                  <div className="text-muted-foreground mt-1 text-sm">
+                    {remaining} de {quota}{" "}
+                    {item.unit === "hours" ? "horas" : "entregables"} disponibles
+                  </div>
+                  <div className="text-muted-foreground mt-2 text-xs">
+                    {additionalRate}% solicitudes adicionales este mes
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <form className="glass mb-5 grid gap-3 rounded-xl p-4 md:grid-cols-2 xl:grid-cols-6">
         <label className="relative md:col-span-2 xl:col-span-2">
@@ -159,6 +190,11 @@ export default async function RequestsPage({
                       >
                         {request.summary || request.rawText}
                       </Link>
+                      {request.scopeReason && (
+                        <span className="text-muted-foreground mt-1 block text-xs">
+                          {request.scopeReason}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="block">{request.clientName}</span>

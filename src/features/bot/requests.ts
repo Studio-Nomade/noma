@@ -8,6 +8,8 @@ import { createAsanaTask } from "@/features/asana/asana";
 import { logActivity } from "@/lib/activity";
 import { resolveAsanaProjectGid, type AsanaTargetChannel } from "./asana-target";
 import { notifyNewClientRequest } from "./notify";
+import { classifyScope } from "./scope";
+import { consumeRequest } from "@/features/retainers/periods";
 
 export type RequestMaterializationInput = {
   botChannel: AsanaTargetChannel & { clientId: string };
@@ -31,6 +33,7 @@ export type RequestMaterializationResult = {
   asanaTaskGid: string | null;
   asanaUrl: string | null;
   duplicate: boolean;
+  scopeNotice: string | null;
   additionalNotice: string | null;
 };
 
@@ -40,8 +43,16 @@ export async function materializeClientRequest(
   const idempotencyKey = requestKey(input);
   const existing = await findExisting(idempotencyKey, input.sourceMessageId);
   if (existing) return toResult(existing, true);
+  const decision = await classifyScope({
+    botChannel: input.botChannel,
+    summary: input.summary,
+  });
+  let effectiveInput = {
+    ...input,
+    scopeClass: decision.scopeClass,
+  };
 
-  const [inserted] = await db
+  const [created] = await db
     .insert(clientRequests)
     .values({
       clientId: input.botChannel.clientId,
@@ -53,18 +64,25 @@ export async function materializeClientRequest(
       idempotencyKey,
       rawText: input.rawText,
       normalizedSummary: input.summary,
-      scopeClass: input.scopeClass,
+      scopeClass: decision.scopeClass,
+      scopeReason: decision.reason,
+      retainerPeriodId: decision.retainerPeriodId,
+      estimatedUnits:
+        decision.estimatedUnits === null
+          ? null
+          : decision.estimatedUnits.toFixed(2),
       status: "pending",
     })
     .onConflictDoNothing()
     .returning();
-  if (!inserted) {
+  if (!created) {
     const winner = await findExisting(idempotencyKey, input.sourceMessageId);
     if (!winner) {
       throw new Error("No se pudo resolver la solicitud idempotente.");
     }
     return toResult(winner, true);
   }
+  let inserted = created;
 
   await logActivity({
     entityType: "client_request",
@@ -72,8 +90,31 @@ export async function materializeClientRequest(
     action: "request_captured",
   });
 
+  if (
+    decision.scopeClass === "in_scope" &&
+    decision.retainerPeriodId &&
+    decision.estimatedUnits
+  ) {
+    const consumption = await consumeRequest(inserted.id);
+    if (!consumption.ok) {
+      const reason =
+        "El alcance coincide, pero el saldo cambió antes de confirmar; se registró como adicional.";
+      const [updated] = await db
+        .update(clientRequests)
+        .set({
+          scopeClass: "additional",
+          scopeReason: reason,
+          updatedAt: new Date(),
+        })
+        .where(eq(clientRequests.id, inserted.id))
+        .returning();
+      inserted = updated ?? inserted;
+      effectiveInput = { ...effectiveInput, scopeClass: "additional" };
+    }
+  }
+
   const projectGid = await resolveAsanaProjectGid(input.botChannel);
-  if (!projectGid) return finishNewRequest(inserted, input);
+  if (!projectGid) return finishNewRequest(inserted, effectiveInput);
 
   // Reclama el único intento externo antes de llamar. Si el proceso cae tras
   // este punto, queda pending para revisión humana en vez de duplicar la tarea.
@@ -90,11 +131,11 @@ export async function materializeClientRequest(
   if (!claimed) return toResult(inserted, true);
 
   const asana = await createAsanaTask({
-    name: `${input.clientName} · ${input.summary}`.slice(0, 250),
-    notes: formatAsanaNotes(input),
+    name: `${effectiveInput.clientName} · ${effectiveInput.summary}`.slice(0, 250),
+    notes: formatAsanaNotes(effectiveInput),
     projectGid,
   });
-  if (!asana.connected) return finishNewRequest(inserted, input);
+  if (!asana.connected) return finishNewRequest(inserted, effectiveInput);
 
   const [updated] = await db
     .update(clientRequests)
@@ -106,7 +147,7 @@ export async function materializeClientRequest(
     })
     .where(eq(clientRequests.id, inserted.id))
     .returning();
-  return finishNewRequest(updated ?? inserted, input);
+  return finishNewRequest(updated ?? inserted, effectiveInput);
 }
 
 async function finishNewRequest(
@@ -189,6 +230,14 @@ function toResult(
     asanaTaskGid: request.asanaTaskGid,
     asanaUrl: request.asanaUrl,
     duplicate,
+    scopeNotice:
+      request.scopeClass === "in_scope"
+        ? request.retainerConsumedAt && request.estimatedUnits
+          ? `Dentro del acuerdo mensual. Se descontaron ${Number(request.estimatedUnits).toLocaleString("es-CL")} unidad(es) de la bolsa vigente.`
+          : "Dentro del alcance registrado."
+        : request.scopeClass === "unknown"
+          ? "El alcance quedó pendiente de revisión por el equipo."
+          : null,
     additionalNotice:
       request.scopeClass === "additional"
         ? "Queda registrado como solicitud adicional fuera del acuerdo mensual; el equipo la tomará como tal."
