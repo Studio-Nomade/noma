@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, ne } from "drizzle-orm";
+import { and, eq, gte, lt, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   businessLines,
@@ -10,7 +10,7 @@ import {
   services,
 } from "@/db/schema";
 import { IVA_RATE } from "@/features/proposals/totals";
-import { toNum } from "./helpers";
+import { monthBounds, toNum } from "./helpers";
 
 export type ProfitLossGrouping = "account" | "client" | "line";
 export type ProfitLossSection = "income" | "cost" | "expense" | "unclassified";
@@ -78,13 +78,20 @@ export async function getMonthlyProfitAndLoss({
 }): Promise<ProfitLossReport> {
   const months = monthRange(from, to);
   const currentMonth = new Date().toISOString().slice(0, 7);
+  const { start } = monthBounds(from);
+  const { nextStart } = monthBounds(to);
+  // `periodoSii` es el período contable autoritativo del P&L (igual que en el
+  // reporte operacional). Los registros antiguos sin período usan emisión.
+  const accountingPeriod = sql<string>`coalesce(
+    ${finDocuments.periodoSii},
+    to_char(${finDocuments.fechaEmision}, 'YYYY-MM')
+  )`;
   const documents = await db
     .select({
       direction: finDocuments.direction,
       type: finDocuments.type,
       net: finDocuments.neto,
-      period: finDocuments.periodoSii,
-      issueDate: finDocuments.fechaEmision,
+      period: accountingPeriod,
       accountId: ledgerAccounts.id,
       accountCode: ledgerAccounts.code,
       accountName: ledgerAccounts.name,
@@ -110,8 +117,8 @@ export async function getMonthlyProfitAndLoss({
     .where(
       and(
         eq(finDocuments.recordStatus, "ACTIVO"),
-        gte(finDocuments.fechaEmision, `${from}-01`),
-        lte(finDocuments.fechaEmision, `${to}-31`),
+        gte(accountingPeriod, from),
+        lte(accountingPeriod, to),
       ),
     );
 
@@ -152,7 +159,7 @@ export async function getMonthlyProfitAndLoss({
   };
 
   for (const document of documents) {
-    const month = document.period ?? document.issueDate.slice(0, 7);
+    const month = document.period;
     const section = sectionFor(document.direction, document.accountType);
     // Las NOTA_CREDITO reducen ventas o compras dentro de su sección. Firmamos
     // por TIPO (no por el signo almacenado) para ser robustos ante cualquier vía
@@ -213,8 +220,8 @@ export async function getMonthlyProfitAndLoss({
         and(
           eq(salesOrderBillingItems.status, "PENDIENTE"),
           ne(salesOrders.status, "BORRADOR"),
-          gte(salesOrderBillingItems.tentativeDate, `${from}-01`),
-          lte(salesOrderBillingItems.tentativeDate, `${to}-31`),
+          gte(salesOrderBillingItems.tentativeDate, start),
+          lt(salesOrderBillingItems.tentativeDate, nextStart),
         ),
       );
     for (const item of pending) {
