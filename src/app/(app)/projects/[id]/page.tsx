@@ -49,6 +49,8 @@ import {
   getSalesOrderBillingItemsForProject,
   getSalesOrdersForProject,
 } from "@/features/finance/sales-orders/queries";
+import { getBotChannelForProject } from "@/features/bot/queries";
+import { AuthorizedSendersCard } from "@/features/bot/authorized-senders-card";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -89,6 +91,7 @@ export default async function ProjectDetailPage({
     billingItems,
     financeDetails,
     sla,
+    botChannelState,
   ] = await Promise.all([
     getProjectLinks(id),
     listClients(),
@@ -108,6 +111,7 @@ export default async function ProjectDetailPage({
       ? getProjectFinanceDetails(id)
       : Promise.resolve({ invoices: [], collections: [] }),
     isLegal ? getProjectSla(id) : Promise.resolve(null),
+    getBotChannelForProject(id),
   ]);
   const asanaLink = links.find((link) => link.type === "asana") ?? null;
   const isHandedOff = project.commercialStage === "Traspasado a operación";
@@ -508,6 +512,27 @@ export default async function ProjectDetailPage({
                 }
               />
             </section>
+            <div className="lg:col-span-2">
+              <AuthorizedSendersCard
+                projectId={project.id}
+                channel={
+                  botChannelState
+                    ? {
+                        id: botChannelState.channel.id,
+                        status: botChannelState.channel.status,
+                        senders: botChannelState.senders,
+                      }
+                    : null
+                }
+                contacts={contacts.map((contact) => ({
+                  id: contact.id,
+                  name: contact.name,
+                  email: contact.email,
+                  phone: contact.phone,
+                  role: contact.role,
+                }))}
+              />
+            </div>
           </div>
         </TabsContent>
 

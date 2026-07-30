@@ -56,6 +56,7 @@ adicionales.
 | **Google Meet**         | Reuniones                                                                              | Guardar link de reunión             | —                                        |
 | **Slack**               | Canales por cliente/proyecto/área                                                      | Link a canal                        | Alertas y resúmenes                      |
 | **Asana**               | Control de proyectos (réplica por áreas)                                               | Estado de tarea/proyecto vinculado  | Portal cliente                           |
+| **WhatsApp**            | Canal 1:1 para solicitudes de clientes acreditados                                     | Esquema y acreditación por proyecto | Webhook, agente y creación en Asana      |
 | **Canva**               | Presentaciones y piezas editables                                                      | Link a presentación                 | —                                        |
 
 ## `resource_links` (modelo)
@@ -70,6 +71,17 @@ Los enlaces de Asana admiten dos modelos operativos: una oportunidad puede vincu
 **tarea principal** dentro de un proyecto general o a un **proyecto independiente**. El
 dashboard detecta el tipo por la URL, consulta el recurso correspondiente y muestra solo
 avance/cierre; no replica las tareas en Noma.
+
+## WhatsApp Business
+
+El canal usa la Cloud API oficial de Meta con un único número del estudio. Cada proyecto
+puede generar un `bot_channel` y acreditar remitentes en E.164 mediante
+`bot_authorized_senders`; un número activo pertenece a un único canal. El navegador recibe
+solo la configuración operativa saneada, nunca secretos de Meta.
+
+La base de datos deja preparadas la cola durable de eventos, conversaciones, mensajes y
+solicitudes. El transporte por webhook, el procesamiento y las respuestas salientes se
+habilitan en los siguientes hitos del módulo.
 
 ## IA centralizada
 

@@ -239,6 +239,13 @@
       "when": 1785105320871,
       "tag": "0033_skinny_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785371429857,
+      "tag": "0034_magenta_vapor",
+      "breakpoints": true
     }
   ]
 }

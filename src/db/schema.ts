@@ -14,6 +14,7 @@ import {
   primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import {
   AREAS,
   CURRENCIES,
@@ -504,6 +505,7 @@ export const projects = pgTable("projects", {
   }),
   nextAction: text("next_action"),
   internalNotes: text("internal_notes"),
+  asanaProjectGid: text("asana_project_gid"),
   ...timestamps,
 });
 
@@ -872,6 +874,7 @@ export const clientContacts = pgTable(
       .references(() => clients.id, { onDelete: "cascade" }),
     name: text("name"),
     email: text("email").notNull(),
+    phone: text("phone"),
     role: text("role"), // cargo
     isPrimary: boolean("is_primary").default(false).notNull(),
     // Perfiles complementarios: un contacto puede ser varios a la vez
@@ -880,6 +883,149 @@ export const clientContacts = pgTable(
     ...timestamps,
   },
   (t) => [index("client_contacts_client_idx").on(t.clientId)],
+);
+
+// ── Agente de WhatsApp por proyecto ─────────────────────────
+export const botChannels = pgTable(
+  "bot_channels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    asanaProjectGid: text("asana_project_gid"),
+    status: text("status").default("active").notNull(),
+    contextPack: jsonb("context_pack").$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("bot_channels_project_unique").on(t.projectId),
+    index("bot_channels_client_idx").on(t.clientId),
+    index("bot_channels_status_idx").on(t.status),
+  ],
+);
+
+export const botAuthorizedSenders = pgTable(
+  "bot_authorized_senders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    botChannelId: uuid("bot_channel_id")
+      .notNull()
+      .references(() => botChannels.id, { onDelete: "cascade" }),
+    clientContactId: uuid("client_contact_id").references(
+      () => clientContacts.id,
+      { onDelete: "set null" },
+    ),
+    displayName: text("display_name").notNull(),
+    phone: text("phone").notNull(),
+    profile: text("profile").notNull(),
+    status: text("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("bot_authorized_senders_active_phone_unique")
+      .on(t.phone)
+      .where(sql`${t.status} = 'active'`),
+    index("bot_authorized_senders_channel_idx").on(t.botChannelId),
+    index("bot_authorized_senders_contact_idx").on(t.clientContactId),
+  ],
+);
+
+export const clientRequests = pgTable(
+  "client_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    botChannelId: uuid("bot_channel_id").references(() => botChannels.id, {
+      onDelete: "set null",
+    }),
+    senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
+      onDelete: "set null",
+    }),
+    channel: text("channel").default("whatsapp").notNull(),
+    rawText: text("raw_text").notNull(),
+    normalizedSummary: text("normalized_summary"),
+    scopeClass: text("scope_class").default("unknown").notNull(),
+    asanaTaskGid: text("asana_task_gid"),
+    asanaUrl: text("asana_url"),
+    status: text("status").default("captured").notNull(),
+    createdVia: text("created_via").default("bot").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("client_requests_client_created_idx").on(t.clientId, t.createdAt),
+    index("client_requests_project_created_idx").on(t.projectId, t.createdAt),
+    index("client_requests_status_idx").on(t.status),
+  ],
+);
+
+export const botConversations = pgTable(
+  "bot_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    botChannelId: uuid("bot_channel_id")
+      .notNull()
+      .references(() => botChannels.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
+      onDelete: "set null",
+    }),
+    phone: text("phone").notNull(),
+    status: text("status").default("open").notNull(),
+    lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("bot_conversations_channel_idx").on(t.botChannelId),
+    index("bot_conversations_phone_status_idx").on(t.phone, t.status),
+  ],
+);
+
+export const botMessages = pgTable(
+  "bot_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => botConversations.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    waMessageId: text("wa_message_id"),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("bot_messages_conversation_created_idx").on(
+      t.conversationId,
+      t.createdAt,
+    ),
+    uniqueIndex("bot_messages_wa_message_unique")
+      .on(t.waMessageId)
+      .where(sql`${t.waMessageId} is not null`),
+  ],
+);
+
+export const whatsappInboundEvents = pgTable(
+  "whatsapp_inbound_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    waMessageId: text("wa_message_id").notNull().unique(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("whatsapp_inbound_events_status_idx").on(t.status, t.createdAt)],
 );
 
 // ── email_templates (mantenedor de plantillas de correo) ─────
@@ -1680,6 +1826,12 @@ export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ProposalNote = typeof proposalNotes.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
+export type BotChannel = typeof botChannels.$inferSelect;
+export type BotAuthorizedSender = typeof botAuthorizedSenders.$inferSelect;
+export type ClientRequest = typeof clientRequests.$inferSelect;
+export type BotConversation = typeof botConversations.$inferSelect;
+export type BotMessage = typeof botMessages.$inferSelect;
+export type WhatsappInboundEvent = typeof whatsappInboundEvents.$inferSelect;
 export type Sla = typeof slas.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
