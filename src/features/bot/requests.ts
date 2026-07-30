@@ -6,7 +6,10 @@ import { db } from "@/db";
 import { clientRequests } from "@/db/schema";
 import { createAsanaTask } from "@/features/asana/asana";
 import { logActivity } from "@/lib/activity";
-import { resolveAsanaProjectGid, type AsanaTargetChannel } from "./asana-target";
+import {
+  resolveAsanaProjectGid,
+  type AsanaTargetChannel,
+} from "./asana-target";
 import { notifyNewClientRequest } from "./notify";
 import { classifyScope } from "./scope";
 import { consumeRequest } from "@/features/retainers/periods";
@@ -65,6 +68,7 @@ export async function materializeClientRequest(
       rawText: input.rawText,
       normalizedSummary: input.summary,
       scopeClass: decision.scopeClass,
+      predictedScopeClass: decision.scopeClass,
       scopeReason: decision.reason,
       retainerPeriodId: decision.retainerPeriodId,
       estimatedUnits:
@@ -131,7 +135,10 @@ export async function materializeClientRequest(
   if (!claimed) return toResult(inserted, true);
 
   const asana = await createAsanaTask({
-    name: `${effectiveInput.clientName} · ${effectiveInput.summary}`.slice(0, 250),
+    name: `${effectiveInput.clientName} · ${effectiveInput.summary}`.slice(
+      0,
+      250,
+    ),
     notes: formatAsanaNotes(effectiveInput),
     projectGid,
   });

@@ -39,6 +39,13 @@ const contextPackSchema = z.object({
     }),
   ),
   tone: z.string(),
+  longTermMemory: z
+    .object({
+      summary: z.string(),
+      generatedAt: z.string(),
+      messageCount: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export type BotContextPack = z.infer<typeof contextPackSchema>;
@@ -131,8 +138,8 @@ export async function buildContextPack(
       areas: project.areas.length ? project.areas : [project.area],
     },
     services: uniqueServices,
-    tone:
-      "Editorial, claro y cálido. Directo sin ser frío; profesional sin lenguaje burocrático.",
+    tone: "Editorial, claro y cálido. Directo sin ser frío; profesional sin lenguaje burocrático.",
+    longTermMemory: cached.success ? cached.data.longTermMemory : undefined,
   };
 
   await db

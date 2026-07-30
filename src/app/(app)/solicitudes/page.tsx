@@ -8,8 +8,10 @@ import {
   getRequestFilterOptions,
   listRequests,
 } from "@/features/bot/requests-queries";
+import { getBotAnalytics } from "@/features/bot/analytics";
 import { formatDate } from "@/features/finance/helpers";
 import { getRetainerHealth } from "@/features/retainers/queries";
+import { requireUser } from "@/lib/auth";
 
 const SCOPE_LABELS: Record<string, string> = {
   in_scope: "Dentro de alcance",
@@ -30,6 +32,9 @@ export default async function RequestsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Gating explícito: las métricas operativas solo se resuelven dentro de la
+  // sesión de equipo protegida por el layout de la aplicación.
+  await requireUser();
   const params = await searchParams;
   const text = (key: string) =>
     typeof params[key] === "string" ? params[key] : undefined;
@@ -48,10 +53,18 @@ export default async function RequestsPage({
     from,
     to,
   };
-  const [{ rows, total }, options, health] = await Promise.all([
+  const analyticsFrom =
+    from ?? new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+  const analyticsTo = to ?? new Date();
+  const [{ rows, total }, options, health, analytics] = await Promise.all([
     listRequests(filters, { page, pageSize }),
     getRequestFilterOptions(),
     getRetainerHealth(),
+    getBotAnalytics({
+      clientId: filters.clientId,
+      from: analyticsFrom,
+      to: analyticsTo,
+    }),
   ]);
 
   return (
@@ -60,6 +73,95 @@ export default async function RequestsPage({
         title="Solicitudes"
         description="Solicitudes recibidas por el agente de WhatsApp y su seguimiento operativo."
       />
+
+      <section className="mb-5" aria-labelledby="analytics-title">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2
+              id="analytics-title"
+              className="font-heading text-base font-medium"
+            >
+              Analítica operativa
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              El rango y cliente se controlan con los filtros de esta página.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard
+            label="Solicitudes"
+            value={String(analytics.totals.requests)}
+          />
+          <MetricCard
+            label="Adicionales"
+            value={`${analytics.totals.additionalRate}%`}
+          />
+          <MetricCard
+            label="Primera respuesta"
+            value={formatMinutes(analytics.totals.averageResponseMinutes)}
+          />
+          <MetricCard
+            label="Hasta Asana"
+            value={formatMinutes(analytics.totals.averageAsanaMinutes)}
+          />
+          <MetricCard
+            label="Precisión de alcance"
+            value={
+              analytics.totals.classificationAccuracy === null
+                ? "Sin muestra"
+                : `${analytics.totals.classificationAccuracy}%`
+            }
+            detail={`${analytics.totals.corrected} correcciones`}
+          />
+        </div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          <BreakdownCard
+            title="Carga por cliente"
+            rows={analytics.byClient.slice(0, 6)}
+          />
+          <BreakdownCard
+            title="Evolución mensual"
+            rows={analytics.monthly.map((item) => ({
+              id: item.period,
+              name: item.period,
+              requests: item.requests,
+              additional: item.additional,
+            }))}
+          />
+          <BreakdownCard
+            title="Tipos más frecuentes"
+            rows={analytics.topTypes.map((item) => ({
+              id: item.name,
+              name: item.name,
+              requests: item.requests,
+              additional: 0,
+            }))}
+            showAdditional={false}
+          />
+          <BreakdownCard
+            title="Carga por proyecto"
+            rows={analytics.byProject.slice(0, 6)}
+          />
+          <BreakdownCard
+            title="Carga por área"
+            rows={analytics.byArea.map((item) => ({
+              id: item.name,
+              ...item,
+            }))}
+          />
+          <BreakdownCard
+            title="Recurrencia semanal"
+            rows={analytics.weekly.slice(-8).map((item) => ({
+              id: item.period,
+              name: item.period,
+              requests: item.requests,
+              additional: 0,
+            }))}
+            showAdditional={false}
+          />
+        </div>
+      </section>
 
       {health.length > 0 && (
         <section className="mb-5">
@@ -78,7 +180,8 @@ export default async function RequestsPage({
                   <div className="font-medium">{item.clientName}</div>
                   <div className="text-muted-foreground mt-1 text-sm">
                     {remaining} de {quota}{" "}
-                    {item.unit === "hours" ? "horas" : "entregables"} disponibles
+                    {item.unit === "hours" ? "horas" : "entregables"}{" "}
+                    disponibles
                   </div>
                   <div className="text-muted-foreground mt-2 text-xs">
                     {additionalRate}% solicitudes adicionales este mes
@@ -204,7 +307,9 @@ export default async function RequestsPage({
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge
-                        value={SCOPE_LABELS[request.scopeClass] ?? "Por revisar"}
+                        value={
+                          SCOPE_LABELS[request.scopeClass] ?? "Por revisar"
+                        }
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -280,4 +385,81 @@ function FilterSelect({
       {children}
     </select>
   );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="glass rounded-xl p-4">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="font-heading mt-1 text-2xl">{value}</div>
+      {detail && (
+        <div className="text-muted-foreground mt-1 text-xs">{detail}</div>
+      )}
+    </div>
+  );
+}
+
+function BreakdownCard({
+  title,
+  rows,
+  showAdditional = true,
+}: {
+  title: string;
+  rows: Array<{
+    id: string;
+    name: string;
+    requests: number;
+    additional: number;
+  }>;
+  showAdditional?: boolean;
+}) {
+  const max = Math.max(1, ...rows.map((row) => row.requests));
+  return (
+    <div className="glass rounded-xl p-4">
+      <h3 className="font-heading text-sm font-medium">{title}</h3>
+      {rows.length ? (
+        <div className="mt-3 space-y-3">
+          {rows.map((row) => (
+            <div key={row.id}>
+              <div className="flex justify-between gap-3 text-xs">
+                <span className="truncate">{row.name}</span>
+                <span className="text-muted-foreground whitespace-nowrap">
+                  {row.requests}
+                  {showAdditional && row.additional
+                    ? ` · ${row.additional} adicionales`
+                    : ""}
+                </span>
+              </div>
+              <div className="bg-muted mt-1 h-1.5 overflow-hidden rounded-full">
+                <div
+                  className="bg-primary h-full rounded-full"
+                  style={{
+                    width: `${Math.max(4, (row.requests / max) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-muted-foreground mt-3 text-sm">
+          Sin datos en este período.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function formatMinutes(value: number | null) {
+  if (value === null) return "Sin muestra";
+  if (value < 60) return `${Math.round(value)} min`;
+  return `${Math.round((value / 60) * 10) / 10} h`;
 }

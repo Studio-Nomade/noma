@@ -9,13 +9,11 @@ import {
   botMessages,
   whatsappInboundEvents,
 } from "@/db/schema";
+import { refreshLongTermMemoryIfDue } from "@/features/bot/memory";
 import { runAgentTurn } from "@/features/bot/agent";
 import { notifyUnknownWhatsAppSender } from "@/features/bot/notify";
 import { sendText } from "./client";
-import {
-  inboundEventPayloadSchema,
-  normalizeWhatsAppPhone,
-} from "./inbound";
+import { inboundEventPayloadSchema, normalizeWhatsAppPhone } from "./inbound";
 
 const UNKNOWN_SENDER_MESSAGE =
   "Este número no está habilitado para enviar solicitudes. Contacta a tu equipo de Studio Nomade para acreditarlo.";
@@ -39,7 +37,9 @@ export async function processPending({
       results.push({ id: event.id, status: "done" });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message.slice(0, 500) : "Error desconocido";
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : "Error desconocido";
       await db
         .update(whatsappInboundEvents)
         .set({
@@ -83,7 +83,12 @@ async function claimPending(limit: number, includeFailed: boolean) {
         error: null,
         updatedAt: new Date(),
       })
-      .where(inArray(whatsappInboundEvents.id, events.map((event) => event.id)));
+      .where(
+        inArray(
+          whatsappInboundEvents.id,
+          events.map((event) => event.id),
+        ),
+      );
     return events;
   });
 }
@@ -168,7 +173,8 @@ async function processEvent(
           agent: "fallback",
           sourceMessageId: payload.waMessageId,
           delivery: "blocked_24h",
-          reason: "El mensaje se procesó fuera de la ventana de atención de 24h.",
+          reason:
+            "El mensaje se procesó fuera de la ventana de atención de 24h.",
         },
       });
     }
@@ -250,6 +256,11 @@ async function processEvent(
           delivery: "degraded",
           reason: delivery.reason,
         },
+  });
+  // La memoria es una mejora degradable: una falla del resumen nunca impide
+  // responder ni confirmar la recepción del webhook.
+  await refreshLongTermMemoryIfDue(resolved.channelId).catch((error) => {
+    console.error("[bot-memory]", error);
   });
   await markDone(eventId, delivery.connected ? null : delivery.reason);
 }

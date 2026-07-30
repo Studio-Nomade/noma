@@ -1023,7 +1023,9 @@ export const clientRequests = pgTable(
     rawText: text("raw_text").notNull(),
     normalizedSummary: text("normalized_summary"),
     scopeClass: text("scope_class").default("unknown").notNull(),
+    predictedScopeClass: text("predicted_scope_class"),
     scopeReason: text("scope_reason"),
+    scopeCorrectedAt: timestamp("scope_corrected_at", { withTimezone: true }),
     asanaTaskGid: text("asana_task_gid"),
     asanaUrl: text("asana_url"),
     asanaAttemptedAt: timestamp("asana_attempted_at", { withTimezone: true }),
@@ -1039,6 +1041,12 @@ export const clientRequests = pgTable(
       .on(t.idempotencyKey)
       .where(sql`${t.idempotencyKey} is not null`),
     index("client_requests_client_created_idx").on(t.clientId, t.createdAt),
+    index("client_requests_analytics_idx").on(
+      t.clientId,
+      t.createdAt,
+      t.scopeClass,
+      t.status,
+    ),
     index("client_requests_project_created_idx").on(t.projectId, t.createdAt),
     index("client_requests_conversation_idx").on(t.conversationId),
     index("client_requests_retainer_period_idx").on(t.retainerPeriodId),
@@ -1107,7 +1115,9 @@ export const whatsappInboundEvents = pgTable(
     error: text("error"),
     ...timestamps,
   },
-  (t) => [index("whatsapp_inbound_events_status_idx").on(t.status, t.createdAt)],
+  (t) => [
+    index("whatsapp_inbound_events_status_idx").on(t.status, t.createdAt),
+  ],
 );
 
 // ── email_templates (mantenedor de plantillas de correo) ─────
@@ -1356,10 +1366,9 @@ export const salesOrderBillingItems = pgTable(
     tentativeDate: date("tentative_date"),
     deliverable: text("deliverable"),
     status: billingItemStatusEnum("status").default("PENDIENTE").notNull(),
-    invoiceId: uuid("invoice_id").references(
-      (): AnyPgColumn => invoices.id,
-      { onDelete: "set null" },
-    ),
+    invoiceId: uuid("invoice_id").references((): AnyPgColumn => invoices.id, {
+      onDelete: "set null",
+    }),
     ...timestamps,
   },
   (t) => [

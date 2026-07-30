@@ -44,9 +44,24 @@ export async function updateRequestScope(
     const user = await requireUser();
     const requestId = requestIdSchema.parse(id);
     const scope = scopeSchema.parse(scopeClass);
+    const [existing] = await db
+      .select({
+        scopeClass: clientRequests.scopeClass,
+        predictedScopeClass: clientRequests.predictedScopeClass,
+      })
+      .from(clientRequests)
+      .where(eq(clientRequests.id, requestId))
+      .limit(1);
+    if (!existing) return { ok: false, error: "Solicitud no encontrada." };
+    const corrected =
+      scope !== (existing.predictedScopeClass ?? existing.scopeClass);
     const [updated] = await db
       .update(clientRequests)
-      .set({ scopeClass: scope, updatedAt: new Date() })
+      .set({
+        scopeClass: scope,
+        scopeCorrectedAt: corrected ? new Date() : null,
+        updatedAt: new Date(),
+      })
       .where(eq(clientRequests.id, requestId))
       .returning({ id: clientRequests.id });
     if (!updated) return { ok: false, error: "Solicitud no encontrada." };
