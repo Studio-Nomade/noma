@@ -90,6 +90,7 @@ export async function runAgentTurn(input: {
       .map((message) => message.content)
       .join("\n"),
     clientName: pack.client.name,
+    projectName: pack.project.name,
     confirmed: hasExplicitConfirmation(history, input.userText),
   };
 
@@ -223,6 +224,7 @@ async function executeTool(
               sourceMessageId: context.sourceMessageId,
               rawText: context.rawText || args.summary,
               clientName: context.clientName,
+              projectName: context.projectName,
               ...args,
             })),
             instruction:
@@ -376,6 +378,7 @@ type AgentExecutionContext = {
   sender: { id: string; displayName: string; profile: string };
   rawText: string;
   clientName: string;
+  projectName: string;
   confirmed: boolean;
 };
 

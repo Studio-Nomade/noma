@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   botAuthorizedSenders,
@@ -10,6 +10,7 @@ import {
   whatsappInboundEvents,
 } from "@/db/schema";
 import { runAgentTurn } from "@/features/bot/agent";
+import { notifyUnknownWhatsAppSender } from "@/features/bot/notify";
 import { sendText } from "./client";
 import {
   inboundEventPayloadSchema,
@@ -21,8 +22,14 @@ const UNKNOWN_SENDER_MESSAGE =
 const AGENT_FALLBACK_MESSAGE =
   "Gracias por escribirnos. No pude ordenar tu solicitud en este momento, pero el mensaje quedó registrado para que el equipo pueda retomarlo.";
 
-export async function processPending({ limit = 10 }: { limit?: number } = {}) {
-  const events = await claimPending(Math.max(1, Math.min(limit, 50)));
+export async function processPending({
+  limit = 10,
+  includeFailed = false,
+}: { limit?: number; includeFailed?: boolean } = {}) {
+  const events = await claimPending(
+    Math.max(1, Math.min(limit, 50)),
+    includeFailed,
+  );
   const results: { id: string; status: "done" | "failed" }[] = [];
 
   for (const event of events) {
@@ -47,12 +54,22 @@ export async function processPending({ limit = 10 }: { limit?: number } = {}) {
   return results;
 }
 
-async function claimPending(limit: number) {
+async function claimPending(limit: number, includeFailed: boolean) {
   return db.transaction(async (tx) => {
     const events = await tx
       .select()
       .from(whatsappInboundEvents)
-      .where(eq(whatsappInboundEvents.status, "pending"))
+      .where(
+        includeFailed
+          ? or(
+              eq(whatsappInboundEvents.status, "pending"),
+              and(
+                eq(whatsappInboundEvents.status, "failed"),
+                lt(whatsappInboundEvents.attempts, 5),
+              ),
+            )
+          : eq(whatsappInboundEvents.status, "pending"),
+      )
       .orderBy(asc(whatsappInboundEvents.createdAt))
       .limit(limit)
       .for("update", { skipLocked: true });
@@ -108,6 +125,7 @@ async function processEvent(
 
   if (!resolved) {
     const delivery = await sendText(phone, UNKNOWN_SENDER_MESSAGE);
+    await notifyUnknownWhatsAppSender(phone);
     await markDone(eventId, delivery.connected ? null : delivery.reason);
     return;
   }
@@ -131,16 +149,29 @@ async function processEvent(
     })
     .onConflictDoNothing();
 
+  const responseState = await getResponseState(
+    conversation.id,
+    payload.waMessageId,
+  );
+  if (responseState.completed) {
+    await markDone(eventId, null);
+    return;
+  }
+
   if (!isWithinCustomerCareWindow(inboundAt)) {
-    await db.insert(botMessages).values({
-      conversationId: conversation.id,
-      role: "assistant",
-      content: AGENT_FALLBACK_MESSAGE,
-      meta: {
-        delivery: "blocked_24h",
-        reason: "El mensaje se procesó fuera de la ventana de atención de 24h.",
-      },
-    });
+    if (!responseState.fallback) {
+      await db.insert(botMessages).values({
+        conversationId: conversation.id,
+        role: "assistant",
+        content: AGENT_FALLBACK_MESSAGE,
+        meta: {
+          agent: "fallback",
+          sourceMessageId: payload.waMessageId,
+          delivery: "blocked_24h",
+          reason: "El mensaje se procesó fuera de la ventana de atención de 24h.",
+        },
+      });
+    }
     await markDone(
       eventId,
       "Respuesta bloqueada: fuera de la ventana de atención de 24h.",
@@ -168,19 +199,22 @@ async function processEvent(
       },
     });
   } catch (error) {
-    const delivery = await sendText(phone, AGENT_FALLBACK_MESSAGE);
-    await db.insert(botMessages).values({
-      conversationId: conversation.id,
-      role: "assistant",
-      content: AGENT_FALLBACK_MESSAGE,
-      meta: {
-        agent: "fallback",
-        delivery: delivery.connected ? "sent" : "degraded",
-        ...(delivery.connected
-          ? { waMessageId: delivery.id }
-          : { reason: delivery.reason }),
-      },
-    });
+    if (!responseState.fallback) {
+      const delivery = await sendText(phone, AGENT_FALLBACK_MESSAGE);
+      await db.insert(botMessages).values({
+        conversationId: conversation.id,
+        role: "assistant",
+        content: AGENT_FALLBACK_MESSAGE,
+        meta: {
+          agent: "fallback",
+          sourceMessageId: payload.waMessageId,
+          delivery: delivery.connected ? "sent" : "degraded",
+          ...(delivery.connected
+            ? { waMessageId: delivery.id }
+            : { reason: delivery.reason }),
+        },
+      });
+    }
     const reason =
       error instanceof Error ? error.message : "Error desconocido del agente";
     throw new Error(`El agente no pudo responder: ${reason}`);
@@ -192,6 +226,7 @@ async function processEvent(
       role: "tool",
       content: JSON.stringify(toolEvent.result),
       meta: {
+        sourceMessageId: payload.waMessageId,
         tool: toolEvent.name,
         arguments: toolEvent.arguments,
         result: toolEvent.result,
@@ -205,10 +240,38 @@ async function processEvent(
     role: "assistant",
     content: agentTurn.text,
     meta: delivery.connected
-      ? { delivery: "sent", waMessageId: delivery.id }
-      : { delivery: "degraded", reason: delivery.reason },
+      ? {
+          sourceMessageId: payload.waMessageId,
+          delivery: "sent",
+          waMessageId: delivery.id,
+        }
+      : {
+          sourceMessageId: payload.waMessageId,
+          delivery: "degraded",
+          reason: delivery.reason,
+        },
   });
   await markDone(eventId, delivery.connected ? null : delivery.reason);
+}
+
+async function getResponseState(
+  conversationId: string,
+  sourceMessageId: string,
+) {
+  const rows = await db
+    .select({ meta: botMessages.meta })
+    .from(botMessages)
+    .where(
+      and(
+        eq(botMessages.conversationId, conversationId),
+        eq(botMessages.role, "assistant"),
+        sql`${botMessages.meta}->>'sourceMessageId' = ${sourceMessageId}`,
+      ),
+    );
+  return {
+    fallback: rows.some((row) => row.meta?.agent === "fallback"),
+    completed: rows.some((row) => row.meta?.agent !== "fallback"),
+  };
 }
 
 async function getOrCreateConversation(input: {

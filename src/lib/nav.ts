@@ -13,6 +13,7 @@ import {
   KanbanSquare,
   Landmark,
   Library,
+  MessageSquareText,
   Plug,
   ReceiptText,
   Settings,
@@ -61,6 +62,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/briefs", label: "Briefs", icon: FileText },
       { href: "/proposals", label: "Propuestas", icon: FileSignature },
       { href: "/projects", label: "Proyectos", icon: FolderKanban },
+      {
+        href: "/solicitudes",
+        label: "Solicitudes",
+        icon: MessageSquareText,
+      },
     ],
   },
   {

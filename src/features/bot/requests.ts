@@ -7,6 +7,7 @@ import { clientRequests } from "@/db/schema";
 import { createAsanaTask } from "@/features/asana/asana";
 import { logActivity } from "@/lib/activity";
 import { resolveAsanaProjectGid, type AsanaTargetChannel } from "./asana-target";
+import { notifyNewClientRequest } from "./notify";
 
 export type RequestMaterializationInput = {
   botChannel: AsanaTargetChannel & { clientId: string };
@@ -15,6 +16,7 @@ export type RequestMaterializationInput = {
   sourceMessageId: string;
   rawText: string;
   clientName: string;
+  projectName: string;
   summary: string;
   scopeClass: "in_scope" | "additional" | "unknown";
   dueDate: string | null;
@@ -46,6 +48,7 @@ export async function materializeClientRequest(
       projectId: input.botChannel.projectId,
       botChannelId: input.botChannel.id,
       senderId: input.sender.id,
+      conversationId: input.conversationId,
       sourceMessageId: input.sourceMessageId,
       idempotencyKey,
       rawText: input.rawText,
@@ -70,7 +73,7 @@ export async function materializeClientRequest(
   });
 
   const projectGid = await resolveAsanaProjectGid(input.botChannel);
-  if (!projectGid) return toResult(inserted, false);
+  if (!projectGid) return finishNewRequest(inserted, input);
 
   // Reclama el único intento externo antes de llamar. Si el proceso cae tras
   // este punto, queda pending para revisión humana en vez de duplicar la tarea.
@@ -91,7 +94,7 @@ export async function materializeClientRequest(
     notes: formatAsanaNotes(input),
     projectGid,
   });
-  if (!asana.connected) return toResult(inserted, false);
+  if (!asana.connected) return finishNewRequest(inserted, input);
 
   const [updated] = await db
     .update(clientRequests)
@@ -103,7 +106,23 @@ export async function materializeClientRequest(
     })
     .where(eq(clientRequests.id, inserted.id))
     .returning();
-  return toResult(updated ?? inserted, false);
+  return finishNewRequest(updated ?? inserted, input);
+}
+
+async function finishNewRequest(
+  request: typeof clientRequests.$inferSelect,
+  input: RequestMaterializationInput,
+) {
+  // Slack es un espejo degradable: nunca bloquea la captura ni la respuesta.
+  await notifyNewClientRequest({
+    requestId: request.id,
+    clientName: input.clientName,
+    projectName: input.projectName,
+    summary: input.summary,
+    scopeClass: input.scopeClass,
+    asanaUrl: request.asanaUrl,
+  });
+  return toResult(request, false);
 }
 
 function findExisting(idempotencyKey: string, sourceMessageId: string) {

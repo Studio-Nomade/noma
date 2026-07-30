@@ -950,6 +950,9 @@ export const clientRequests = pgTable(
     senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
       onDelete: "set null",
     }),
+    // Referencia lógica (sin FK por el orden de declaración de tablas) a la
+    // conversación exacta que originó la solicitud.
+    conversationId: uuid("conversation_id"),
     sourceMessageId: text("source_message_id"),
     idempotencyKey: text("idempotency_key"),
     channel: text("channel").default("whatsapp").notNull(),
@@ -972,6 +975,7 @@ export const clientRequests = pgTable(
       .where(sql`${t.idempotencyKey} is not null`),
     index("client_requests_client_created_idx").on(t.clientId, t.createdAt),
     index("client_requests_project_created_idx").on(t.projectId, t.createdAt),
+    index("client_requests_conversation_idx").on(t.conversationId),
     index("client_requests_status_idx").on(t.status),
   ],
 );
