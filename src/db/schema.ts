@@ -950,17 +950,26 @@ export const clientRequests = pgTable(
     senderId: uuid("sender_id").references(() => botAuthorizedSenders.id, {
       onDelete: "set null",
     }),
+    sourceMessageId: text("source_message_id"),
+    idempotencyKey: text("idempotency_key"),
     channel: text("channel").default("whatsapp").notNull(),
     rawText: text("raw_text").notNull(),
     normalizedSummary: text("normalized_summary"),
     scopeClass: text("scope_class").default("unknown").notNull(),
     asanaTaskGid: text("asana_task_gid"),
     asanaUrl: text("asana_url"),
+    asanaAttemptedAt: timestamp("asana_attempted_at", { withTimezone: true }),
     status: text("status").default("captured").notNull(),
     createdVia: text("created_via").default("bot").notNull(),
     ...timestamps,
   },
   (t) => [
+    uniqueIndex("client_requests_source_message_unique")
+      .on(t.sourceMessageId)
+      .where(sql`${t.sourceMessageId} is not null`),
+    uniqueIndex("client_requests_idempotency_unique")
+      .on(t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} is not null`),
     index("client_requests_client_created_idx").on(t.clientId, t.createdAt),
     index("client_requests_project_created_idx").on(t.projectId, t.createdAt),
     index("client_requests_status_idx").on(t.status),

@@ -94,6 +94,13 @@ si falta `OPENAI_API_KEY` responde con una degradación amable y conserva el eve
 reintento. Los remitentes desconocidos reciben una guía y no generan conversación. El drenado
 idempotente queda disponible para el cron de los hitos siguientes.
 
+Cuando el cliente confirma explícitamente el resumen, el agente materializa una
+`client_request` idempotente antes de llamar a Asana. El destino se resuelve por canal,
+proyecto o enlace operacional, en ese orden. Un intento incierto nunca se repite
+automáticamente: queda `pending` para revisión humana; si Asana confirma la creación, pasa a
+`in_asana` y la respuesta incluye folio y enlace. Las solicitudes fuera del acuerdo se crean
+igualmente con constancia de adicional.
+
 ## IA centralizada
 
 `/integrations` muestra si `OPENAI_API_KEY` y `GEMINI_API_KEY` están configuradas sin revelar

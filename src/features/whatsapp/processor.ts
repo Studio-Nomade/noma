@@ -84,9 +84,12 @@ async function processEvent(
   const [resolved] = await db
     .select({
       senderId: botAuthorizedSenders.id,
+      senderName: botAuthorizedSenders.displayName,
+      senderProfile: botAuthorizedSenders.profile,
       channelId: botChannels.id,
       projectId: botChannels.projectId,
       clientId: botChannels.clientId,
+      asanaProjectGid: botChannels.asanaProjectGid,
       contextPack: botChannels.contextPack,
     })
     .from(botAuthorizedSenders)
@@ -152,10 +155,17 @@ async function processEvent(
         id: resolved.channelId,
         projectId: resolved.projectId,
         clientId: resolved.clientId,
+        asanaProjectGid: resolved.asanaProjectGid,
         contextPack: resolved.contextPack,
       },
       conversationId: conversation.id,
       userText: payload.text,
+      sourceMessageId: payload.waMessageId,
+      sender: {
+        id: resolved.senderId,
+        displayName: resolved.senderName,
+        profile: resolved.senderProfile,
+      },
     });
   } catch (error) {
     const delivery = await sendText(phone, AGENT_FALLBACK_MESSAGE);

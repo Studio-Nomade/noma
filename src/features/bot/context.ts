@@ -44,7 +44,7 @@ const contextPackSchema = z.object({
 export type BotContextPack = z.infer<typeof contextPackSchema>;
 export type BotChannelContextInput = Pick<
   BotChannel,
-  "id" | "projectId" | "clientId" | "contextPack"
+  "id" | "projectId" | "clientId" | "asanaProjectGid" | "contextPack"
 >;
 
 export async function buildContextPack(

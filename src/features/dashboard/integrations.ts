@@ -265,20 +265,24 @@ export async function getMeetingProjectOptions(): Promise<
   });
 }
 
-type AsanaTarget = { kind: "task" | "project"; gid: string };
+type AsanaTarget =
+  | { kind: "task"; gid: string; projectGid?: string }
+  | { kind: "project"; gid: string };
 
 export function parseAsanaTarget(url: string): AsanaTarget | null {
   try {
     const pathname = new URL(url).pathname;
     const namedTask = pathname.match(/\/task\/(\d+)/i)?.[1];
-    if (namedTask) return { kind: "task", gid: namedTask };
     const namedProject = pathname.match(/\/project\/(\d+)/i)?.[1];
+    if (namedTask) {
+      return { kind: "task", gid: namedTask, projectGid: namedProject };
+    }
     if (namedProject) return { kind: "project", gid: namedProject };
 
     const classic = pathname.match(/\/0\/(\d+)(?:\/(\d+))?/);
     if (!classic) return null;
     return classic[2]
-      ? { kind: "task", gid: classic[2] }
+      ? { kind: "task", gid: classic[2], projectGid: classic[1] }
       : { kind: "project", gid: classic[1] };
   } catch {
     return null;
