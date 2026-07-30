@@ -9,6 +9,7 @@ import {
   salesOrders,
   services,
 } from "@/db/schema";
+import { IVA_RATE } from "@/features/proposals/totals";
 import { toNum } from "./helpers";
 
 export type ProfitLossGrouping = "account" | "client" | "line";
@@ -80,6 +81,7 @@ export async function getMonthlyProfitAndLoss({
   const documents = await db
     .select({
       direction: finDocuments.direction,
+      type: finDocuments.type,
       net: finDocuments.neto,
       period: finDocuments.periodoSii,
       issueDate: finDocuments.fechaEmision,
@@ -152,7 +154,13 @@ export async function getMonthlyProfitAndLoss({
   for (const document of documents) {
     const month = document.period ?? document.issueDate.slice(0, 7);
     const section = sectionFor(document.direction, document.accountType);
-    const amount = Math.abs(toNum(document.net));
+    // Las NOTA_CREDITO reducen ventas o compras dentro de su sección. Firmamos
+    // por TIPO (no por el signo almacenado) para ser robustos ante cualquier vía
+    // de ingreso: el importador ya las normaliza a negativo, y así una NC creada
+    // por otra vía con neto positivo también resta.
+    const amount =
+      (document.type === "NOTA_CREDITO" ? -1 : 1) *
+      Math.abs(toNum(document.net));
     if (grouping === "client") {
       add({
         key: document.contactId ?? "no-client",
@@ -211,14 +219,16 @@ export async function getMonthlyProfitAndLoss({
       );
     for (const item of pending) {
       if (!item.date) continue;
-      // calculatedAmount queda congelado en CLP al generar la Nota de Venta.
+      // calculatedAmount queda congelado en CLP bruto. El P&L es neto, por eso
+      // descontamos el IVA uniforme de 19%; un ítem exento requerirá modelado
+      // tributario explícito antes de poder evitar este descuento.
       add({
         key: `unbilled:${item.orderId}`,
         label: "Ingresos por facturar",
         detail: item.label,
         section: "income",
         month: item.date.slice(0, 7),
-        amount: toNum(item.amount),
+        amount: toNum(item.amount) / (1 + IVA_RATE),
         proformaOnly: true,
       });
     }

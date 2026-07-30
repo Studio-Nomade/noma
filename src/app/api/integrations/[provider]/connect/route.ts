@@ -5,14 +5,9 @@ import {
   getOAuthProvider,
   providerCredentials,
 } from "@/features/integrations/providers";
+import { safeInternalRedirect } from "@/features/integrations/oauth-redirect";
 
 export const runtime = "nodejs";
-
-function safeRedirectTo(value: string | null): string {
-  return value?.startsWith("/") && !value.startsWith("//")
-    ? value
-    : "/integrations";
-}
 
 export async function GET(
   request: NextRequest,
@@ -21,7 +16,7 @@ export async function GET(
   await requireUser();
   const { provider: providerId } = await context.params;
   const provider = getOAuthProvider(providerId);
-  const redirectTo = safeRedirectTo(
+  const redirectTo = safeInternalRedirect(
     request.nextUrl.searchParams.get("redirectTo"),
   );
 
