@@ -193,16 +193,20 @@ function validDteValues(xml: string) {
   const netAmount = xmlValue(xml, "MntNeto");
   const ivaAmount = xmlValue(xml, "IVA");
   const totalAmount = xmlValue(xml, "MntTotal");
+  // MntExe (monto exento) es OPCIONAL: documentos afectos puros no lo traen.
+  // Cuando existe, entra en la ecuación neto + iva + exento = total.
+  const exeAmount = xmlValue(xml, "MntExe");
   const rawAmounts = [netAmount, ivaAmount, totalAmount];
   const net = Number(netAmount);
   const iva = Number(ivaAmount);
   const total = Number(totalAmount);
+  const exe = exeAmount && exeAmount !== "" ? Number(exeAmount) : 0;
   const validAmounts =
     rawAmounts.every((value) => value !== null && value !== "") &&
-    [net, iva, total].every(
+    [net, iva, total, exe].every(
       (value) => Number.isFinite(value) && value >= 0,
     );
-  if (!folio || !validAmounts || Math.abs(net + iva - total) > 1) {
+  if (!folio || !validAmounts || Math.abs(net + iva + exe - total) > 1) {
     return null;
   }
   return {

@@ -154,9 +154,13 @@ export async function getMonthlyProfitAndLoss({
   for (const document of documents) {
     const month = document.period ?? document.issueDate.slice(0, 7);
     const section = sectionFor(document.direction, document.accountType);
-    // El importador normaliza las NOTA_CREDITO a netos negativos. Conservamos
-    // ese signo para que reduzcan ventas o compras dentro de su misma sección.
-    const amount = toNum(document.net);
+    // Las NOTA_CREDITO reducen ventas o compras dentro de su sección. Firmamos
+    // por TIPO (no por el signo almacenado) para ser robustos ante cualquier vía
+    // de ingreso: el importador ya las normaliza a negativo, y así una NC creada
+    // por otra vía con neto positivo también resta.
+    const amount =
+      (document.type === "NOTA_CREDITO" ? -1 : 1) *
+      Math.abs(toNum(document.net));
     if (grouping === "client") {
       add({
         key: document.contactId ?? "no-client",
