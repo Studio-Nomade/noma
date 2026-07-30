@@ -20,6 +20,7 @@ import {
 const GROUPS_KEY = "noma:sidebar:groups";
 
 function isItemActive(pathname: string, href: string) {
+  if (href === "/" || href === "/finanzas") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -39,9 +40,7 @@ export function SidebarNav({
     (group) => !group.requiresFinance || isFinance,
   ).map((group) => ({
     ...group,
-    children: group.children.filter(
-      (item) => !item.requiresPeople || isPeople,
-    ),
+    children: group.children.filter((item) => !item.requiresPeople || isPeople),
   }));
   const activeGroup = visibleGroups.find(
     (group) =>

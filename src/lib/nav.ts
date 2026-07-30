@@ -84,10 +84,16 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: CircleDollarSign,
     requiresFinance: true,
     children: [
+      { href: "/finanzas", label: "Dashboard", icon: LayoutDashboard },
       { href: "/finanzas/ingresos", label: "Ingresos", icon: Banknote },
       { href: "/finanzas/egresos", label: "Egresos", icon: ReceiptText },
       { href: "/finanzas/banco", label: "Banco", icon: Landmark },
       { href: "/finanzas/cobranza", label: "Cobranza", icon: HandCoins },
+      {
+        href: "/finanzas/notas-de-venta",
+        label: "Notas de venta",
+        icon: FileSignature,
+      },
       {
         href: "/finanzas/reportes",
         label: "Reportes",
