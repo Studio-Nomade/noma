@@ -724,7 +724,7 @@ export const services = pgTable("services", {
   subarea: text("subarea"),
   category: text("category"),
   description: text("description"),
-  // Lista estructurada de pasos/tareas del servicio (noma-list:v1).
+  // Texto enriquecido seguro (noma-rich:v1); acepta noma-list:v1 histórico.
   methodology: text("methodology"),
   deliverables: text("deliverables"),
   exclusions: text("exclusions"),
@@ -790,10 +790,7 @@ export const serviceVariants = pgTable(
     ...timestamps,
   },
   (t) => [
-    uniqueIndex("service_variants_service_tier_unique").on(
-      t.serviceId,
-      t.tier,
-    ),
+    uniqueIndex("service_variants_service_tier_unique").on(t.serviceId, t.tier),
     index("service_variants_service_idx").on(t.serviceId),
     check(
       "service_variants_tier_check",
@@ -842,10 +839,7 @@ export const servicePackageItems = pgTable(
     ...timestamps,
   },
   (t) => [
-    uniqueIndex("service_package_items_unique").on(
-      t.packageId,
-      t.serviceId,
-    ),
+    uniqueIndex("service_package_items_unique").on(t.packageId, t.serviceId),
     index("service_package_items_package_idx").on(t.packageId, t.position),
     check(
       "service_package_items_tier_check",
@@ -855,10 +849,7 @@ export const servicePackageItems = pgTable(
       "service_package_items_quantity_check",
       sql`${t.quantity} between 1 and 99`,
     ),
-    check(
-      "service_package_items_position_check",
-      sql`${t.position} >= 0`,
-    ),
+    check("service_package_items_position_check", sql`${t.position} >= 0`),
   ],
 );
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AREAS, CURRENCIES, SERVICE_STATUSES } from "@/types/enums";
 import { SERVICE_TIERS } from "./tiers";
+import { richTextStorageSchema } from "./rich-text";
 
 const optionalText = z.string().trim().optional();
 
@@ -16,8 +17,8 @@ export const serviceVariantSchema = z.object({
   audience: optionalText,
   focus: optionalText,
   description: optionalText,
-  methodology: optionalText,
-  deliverables: optionalText,
+  methodology: richTextStorageSchema.optional(),
+  deliverables: richTextStorageSchema.optional(),
   exclusions: optionalText,
   estimatedTime: optionalText,
   priceMinAmount: optionalMoney,

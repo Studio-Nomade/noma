@@ -58,7 +58,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Administración",
     icon: Building2,
-    children: [{ href: "/clients", label: "Clientes", icon: Users }],
+    children: [
+      { href: "/clients", label: "Clientes", icon: Users },
+      { href: "/services", label: "Catálogo", icon: Boxes },
+    ],
   },
   {
     label: "Comercial",
@@ -149,7 +152,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Sistema",
     icon: Settings,
     children: [
-      { href: "/services", label: "Catálogo", icon: Boxes },
       { href: "/context-docs", label: "Documentación", icon: Library },
       { href: "/integrations", label: "Integraciones", icon: Plug },
       { href: "/settings", label: "Ajustes", icon: SlidersHorizontal },
