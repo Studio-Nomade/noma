@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import {
@@ -48,17 +49,20 @@ import {
   SERVICE_TIER_META,
   type ServiceTier,
 } from "./tiers";
-import type {
-  ServiceFormValues,
-  ServiceVariantFormValues,
-} from "./schema";
+import type { ServiceFormValues, ServiceVariantFormValues } from "./schema";
 
-type VariantDraft = Omit<
-  ServiceVariantFormValues,
-  "methodology" | "deliverables" | "exclusions"
-> & {
-  methodology: StructuredContentItem[];
-  deliverables: StructuredContentItem[];
+const ServiceRichTextEditor = dynamic(
+  () =>
+    import("./rich-text-editor").then((module) => module.ServiceRichTextEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="border-border bg-muted/20 h-60 animate-pulse rounded-xl border" />
+    ),
+  },
+);
+
+type VariantDraft = Omit<ServiceVariantFormValues, "exclusions"> & {
   exclusions: StructuredContentItem[];
 };
 
@@ -78,8 +82,8 @@ function emptyVariant(tier: ServiceTier): VariantDraft {
     audience: "",
     focus: "",
     description: "",
-    methodology: [],
-    deliverables: [],
+    methodology: "",
+    deliverables: "",
     exclusions: [],
     estimatedTime: "",
     priceMinAmount: "",
@@ -93,8 +97,8 @@ function copyVariant(source: VariantDraft, tier: ServiceTier): VariantDraft {
     ...source,
     tier,
     enabled: true,
-    methodology: source.methodology.map((item) => ({ ...item })),
-    deliverables: source.deliverables.map((item) => ({ ...item })),
+    methodology: source.methodology,
+    deliverables: source.deliverables,
     exclusions: source.exclusions.map((item) => ({ ...item })),
   };
 }
@@ -110,8 +114,8 @@ function buildDraft(service?: ServiceWithVariants | null): ServiceDraft {
     audience: "",
     focus: "",
     description: service?.description ?? "",
-    methodology: parseStructuredContent(service?.methodology, "stages"),
-    deliverables: parseStructuredContent(service?.deliverables, "deliverables"),
+    methodology: service?.methodology ?? "",
+    deliverables: service?.deliverables ?? "",
     exclusions: parseStructuredContent(service?.exclusions, "deliverables"),
     estimatedTime: service?.estimatedTime ?? "",
     priceMinAmount: service?.priceMinAmount ?? "",
@@ -130,8 +134,8 @@ function buildDraft(service?: ServiceWithVariants | null): ServiceDraft {
       audience: row.audience ?? "",
       focus: row.focus ?? "",
       description: row.description ?? "",
-      methodology: parseStructuredContent(row.methodology, "stages"),
-      deliverables: parseStructuredContent(row.deliverables, "deliverables"),
+      methodology: row.methodology ?? "",
+      deliverables: row.deliverables ?? "",
       exclusions: parseStructuredContent(row.exclusions, "deliverables"),
       estimatedTime: row.estimatedTime ?? "",
       priceMinAmount: row.priceMinAmount ?? "",
@@ -213,10 +217,7 @@ export function ServiceDialog({
         ...current,
         variants: {
           ...current.variants,
-          [activeTier]: copyVariant(
-            current.variants[previousTier],
-            activeTier,
-          ),
+          [activeTier]: copyVariant(current.variants[previousTier], activeTier),
         },
       }));
       return;
@@ -231,10 +232,7 @@ export function ServiceDialog({
       ...current,
       variants: {
         ...current.variants,
-        [activeTier]: copyVariant(
-          current.variants[previousTier],
-          activeTier,
-        ),
+        [activeTier]: copyVariant(current.variants[previousTier], activeTier),
       },
     }));
     setCustomizedTiers((current) => new Set(current).add(activeTier));
@@ -248,8 +246,18 @@ export function ServiceDialog({
     if (next === current) return;
     const converted = {
       priceCurrency: next,
-      priceMinAmount: convertPrice(variant.priceMinAmount, current, next, rates),
-      priceMaxAmount: convertPrice(variant.priceMaxAmount, current, next, rates),
+      priceMinAmount: convertPrice(
+        variant.priceMinAmount,
+        current,
+        next,
+        rates,
+      ),
+      priceMaxAmount: convertPrice(
+        variant.priceMaxAmount,
+        current,
+        next,
+        rates,
+      ),
     };
     setVariant(converted);
   }
@@ -269,8 +277,6 @@ export function ServiceDialog({
             : draft.variants[tier];
         return {
           ...item,
-          methodology: serializeStructuredContent(item.methodology),
-          deliverables: serializeStructuredContent(item.deliverables),
           exclusions: serializeStructuredContent(item.exclusions),
         };
       }),
@@ -349,8 +355,7 @@ export function ServiceDialog({
                 onValueChange={(value) =>
                   setDraft((current) => ({
                     ...current,
-                    subarea:
-                      !value || value === "__none" ? "" : value,
+                    subarea: !value || value === "__none" ? "" : value,
                   }))
                 }
               >
@@ -427,7 +432,11 @@ export function ServiceDialog({
             </div>
             <div className="flex gap-2">
               {PREVIOUS_SERVICE_TIER[activeTier] && (
-                <Button type="button" variant="outline" onClick={inheritPrevious}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={inheritPrevious}
+                >
                   <Copy className="size-4" />
                   Copiar nivel anterior
                 </Button>
@@ -462,7 +471,9 @@ export function ServiceDialog({
                 <Textarea
                   rows={2}
                   value={variant.focus}
-                  onChange={(event) => setVariant({ focus: event.target.value })}
+                  onChange={(event) =>
+                    setVariant({ focus: event.target.value })
+                  }
                 />
               </FormField>
             </div>
@@ -477,19 +488,19 @@ export function ServiceDialog({
               />
             </FormField>
 
-            <StructuredServiceEditor
+            <ServiceRichTextEditor
               label="Metodología / proceso"
-              titlePlaceholder="Nombre del paso"
-              descriptionPlaceholder="Descripción del proceso"
-              items={variant.methodology}
+              legacyMode="stages"
+              value={variant.methodology ?? ""}
               onChange={(methodology) => setVariant({ methodology })}
+              placeholder="Describe el proceso con subtítulos, párrafos y listas…"
             />
-            <StructuredServiceEditor
+            <ServiceRichTextEditor
               label="Entregables incluidos"
-              titlePlaceholder="Nombre del entregable"
-              descriptionPlaceholder="Descripción o formato"
-              items={variant.deliverables}
+              legacyMode="deliverables"
+              value={variant.deliverables ?? ""}
               onChange={(deliverables) => setVariant({ deliverables })}
+              placeholder="Organiza los entregables con subtítulos y listas…"
             />
             <StructuredServiceEditor
               label="Qué no incluye · excluyentes"
@@ -725,18 +736,8 @@ function PriceEditor({
           <PriceEquivalent
             key={currency}
             currency={currency}
-            min={convertAmount(
-              min,
-              variant.priceCurrency,
-              currency,
-              rates,
-            )}
-            max={convertAmount(
-              max,
-              variant.priceCurrency,
-              currency,
-              rates,
-            )}
+            min={convertAmount(min, variant.priceCurrency, currency, rates)}
+            max={convertAmount(max, variant.priceCurrency, currency, rates)}
           />
         ))}
       </div>

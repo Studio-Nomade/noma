@@ -1,6 +1,7 @@
 import type { Area, Currency } from "@/types/enums";
 import type { GanttData } from "../gantt";
 import type { StructuredContentItem } from "../structured-content";
+import type { RichTextBlock } from "@/features/services/rich-text";
 
 export type BillingCadence = "one-time" | "monthly" | "quarterly";
 
@@ -10,8 +11,8 @@ export type ProposalTemplateService = {
   name: string;
   subarea: string | null;
   description: string | null;
-  methodology: StructuredContentItem[];
-  deliverables: StructuredContentItem[];
+  methodology: RichTextBlock[];
+  deliverables: RichTextBlock[];
   exclusions: StructuredContentItem[];
   unitAmount: number;
   baseTotal: number;

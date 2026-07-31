@@ -73,7 +73,9 @@ actualiza sus servicios dentro de una transacción y exige un destino cuando tie
 
 `service_variants` materializa los niveles `START | GROWTH | PERFORMANCE | ENTERPRISE`.
 Cada nivel tiene público/enfoque, descripción, metodología, entregables, exclusiones, plazo y
-precio propios. Start y Growth son obligatorios; los dos niveles superiores son opcionales.
+precio propios. Metodología y entregables almacenan un documento enriquecido versionado
+(`noma-rich:v1`) con títulos, negrita y listas; el lector mantiene compatibilidad con el
+formato histórico `noma-list:v1`. Start y Growth son obligatorios; los dos niveles superiores son opcionales.
 Los campos históricos de `services` reflejan Start para mantener compatibles las propuestas
 anteriores.
 

@@ -19,6 +19,10 @@ import type { ProposalTemplateData } from "./templates/types";
 import { getAreaCover, getHeaderLogo, pdfAssetPath } from "./templates/assets";
 import type { Area } from "@/types/enums";
 import type { StructuredContentItem } from "./structured-content";
+import {
+  paginateRichTextBlocks,
+  type RichTextBlock,
+} from "@/features/services/rich-text";
 
 export type ProposalPdfData = ProposalTemplateData;
 
@@ -428,6 +432,123 @@ function StructuredListPdfPage({
   );
 }
 
+function PdfRichTextRuns({ block }: { block: RichTextBlock }) {
+  return (
+    <>
+      {block.runs.map((run, index) => (
+        <Text
+          key={index}
+          style={run.bold ? { fontFamily: "San Diego", fontWeight: 600 } : {}}
+        >
+          {run.text}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+function ServiceRichTextPdfPage({
+  serviceName,
+  title,
+  blocks,
+  accent,
+  area,
+  page,
+  totalPages,
+}: {
+  serviceName: string;
+  title: string;
+  blocks: RichTextBlock[];
+  accent: string;
+  area: Area;
+  page: number;
+  totalPages: number;
+}) {
+  return (
+    <DeckPage dark accent={accent} area={area}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+        }}
+      >
+        <View>
+          <Text style={s.eyebrow}>{serviceName}</Text>
+          <Text style={[s.display, { fontSize: titleSize(title, 38) }]}>
+            {title}.
+          </Text>
+        </View>
+        {totalPages > 1 && (
+          <Text style={{ fontSize: 7, color: "#8f8f8c" }}>
+            {String(page).padStart(2, "0")} /{" "}
+            {String(totalPages).padStart(2, "0")}
+          </Text>
+        )}
+      </View>
+      <View style={{ marginTop: 18 }}>
+        {blocks.map((block, index) => {
+          if (block.kind === "heading") {
+            return (
+              <Text
+                key={index}
+                style={{
+                  marginTop: index ? 7 : 0,
+                  marginBottom: 3,
+                  fontSize: 10.5,
+                  lineHeight: 1.3,
+                  color: accent,
+                  fontWeight: 600,
+                }}
+              >
+                <PdfRichTextRuns block={block} />
+              </Text>
+            );
+          }
+          const listPrefix =
+            block.kind === "ordered"
+              ? `${block.ordinal}.`
+              : block.kind === "bullet"
+                ? "•"
+                : "";
+          return (
+            <View
+              key={index}
+              style={{
+                flexDirection: "row",
+                marginTop: 3,
+                paddingLeft: block.level * 12,
+              }}
+            >
+              {listPrefix && (
+                <Text
+                  style={{
+                    width: 15,
+                    fontSize: 8.5,
+                    color: "#9b9b98",
+                  }}
+                >
+                  {listPrefix}
+                </Text>
+              )}
+              <Text
+                style={{
+                  flex: 1,
+                  fontSize: 9,
+                  lineHeight: 1.4,
+                  color: block.kind === "paragraph" ? "#d0d0cd" : "#f5f5f3",
+                }}
+              >
+                <PdfRichTextRuns block={block} />
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </DeckPage>
+  );
+}
+
 const EXECUTION_COPY: Record<string, { title: string; body: string }> = {
   Prioridad: {
     title: "MODALIDAD PRIORITARIA",
@@ -641,81 +762,44 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                       {service.description ??
                         "Servicio seleccionado para esta propuesta."}
                     </Text>
-                    {service.methodology.length > 0 && (
-                      <View style={{ marginTop: 22 }}>
-                        <Text
-                          style={[s.eyebrow, { fontFamily: "Helvetica-Bold" }]}
-                        >
-                          Proceso / metodología
-                        </Text>
-                        {service.methodology.slice(0, 6).map((item) => (
-                          <Text
-                            key={`${item.title}-${item.description}`}
-                            style={s.small}
-                          >
-                            — {item.title}
-                            {item.description ? `: ${item.description}` : ""}
-                          </Text>
-                        ))}
-                      </View>
-                    )}
                   </View>
                 </View>
               </DeckPage>,
             ];
-            if (service.deliverables.length > 0) {
-              serviceSlides.push(
-                <DeckPage
-                  key={`${service.id}-deliverables`}
-                  dark
+            const methodologyPages = paginateRichTextBlocks(
+              service.methodology,
+            );
+            serviceSlides.push(
+              ...methodologyPages.map((blocks, index) => (
+                <ServiceRichTextPdfPage
+                  key={`${service.id}-methodology-${index}`}
+                  serviceName={service.name}
+                  title="Proceso / metodología"
+                  blocks={blocks}
                   accent={proposalAreaAccent[service.area]}
                   area={service.area}
-                >
-                  <Text style={s.eyebrow}>{service.name}</Text>
-                  <Text style={[s.display, { fontSize: 52 }]}>INCLUYE.</Text>
-                  <View
-                    style={{
-                      marginTop: "auto",
-                      flexDirection: "row",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {service.deliverables.slice(0, 10).map((item) => (
-                      <View
-                        key={`${item.title}-${item.description}`}
-                        style={{
-                          width: "50%",
-                          borderTopWidth: 0.5,
-                          borderTopColor: "#777",
-                          paddingVertical: 8,
-                          paddingRight: 14,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            fontFamily: "Helvetica-Bold",
-                          }}
-                        >
-                          {item.title}
-                        </Text>
-                        {item.description && (
-                          <Text
-                            style={{
-                              marginTop: 3,
-                              fontSize: 8,
-                              color: "#bdbdbd",
-                            }}
-                          >
-                            {item.description}
-                          </Text>
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                </DeckPage>,
-              );
-            }
+                  page={index + 1}
+                  totalPages={methodologyPages.length}
+                />
+              )),
+            );
+            const deliverablePages = paginateRichTextBlocks(
+              service.deliverables,
+            );
+            serviceSlides.push(
+              ...deliverablePages.map((blocks, index) => (
+                <ServiceRichTextPdfPage
+                  key={`${service.id}-deliverables-${index}`}
+                  serviceName={service.name}
+                  title="Incluye"
+                  blocks={blocks}
+                  accent={proposalAreaAccent[service.area]}
+                  area={service.area}
+                  page={index + 1}
+                  totalPages={deliverablePages.length}
+                />
+              )),
+            );
             if (service.exclusions.length > 0) {
               serviceSlides.push(
                 <DeckPage
