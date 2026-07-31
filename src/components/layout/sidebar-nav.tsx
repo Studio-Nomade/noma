@@ -86,16 +86,68 @@ export function SidebarNav({
           />
         ))}
         <div className="border-border my-2 w-8 border-t" />
-        {visibleGroups
-          .flatMap((group) => group.children)
-          .map((item) => (
-            <CollapsedItem
-              key={item.href}
-              item={item}
-              active={isItemActive(pathname, item.href)}
-              onNavigate={onNavigate}
-            />
-          ))}
+        {visibleGroups.map((group) => {
+          const open = openGroups[group.label] ?? group.label === activeGroup;
+          const groupActive = group.label === activeGroup;
+          const GroupIcon = group.icon;
+
+          return (
+            <div
+              key={group.label}
+              className="flex w-full flex-col items-center"
+            >
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.label)}
+                      aria-label={group.label}
+                      aria-expanded={open}
+                      className={cn(
+                        "relative flex size-9 items-center justify-center rounded-lg transition-all duration-[var(--dur-base)] ease-[var(--ease-out-expo)]",
+                        groupActive
+                          ? "glass-hairline text-foreground bg-[var(--glass-bg)]"
+                          : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-bg)]",
+                      )}
+                    />
+                  }
+                >
+                  <GroupIcon className="size-4" />
+                  <ChevronDown
+                    className={cn(
+                      "absolute right-0.5 bottom-0.5 size-2.5 transition-transform duration-200",
+                      open && "rotate-180",
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="right">{group.label}</TooltipContent>
+              </Tooltip>
+              <div
+                className={cn(
+                  "grid transition-[grid-template-rows,opacity] duration-200",
+                  open
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0",
+                )}
+              >
+                <div className="overflow-hidden">
+                  <div className="border-border/70 relative mt-1 flex flex-col items-center gap-1 border-l pl-2">
+                    {group.children.map((item) => (
+                      <CollapsedItem
+                        key={item.href}
+                        item={item}
+                        active={isItemActive(pathname, item.href)}
+                        onNavigate={onNavigate}
+                        compact
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
         <div className="border-border my-2 w-8 border-t" />
         {NAV_FOOTER_ITEMS.map((item) => (
           <CollapsedItem
@@ -229,10 +281,12 @@ function CollapsedItem({
   item,
   active,
   onNavigate,
+  compact = false,
 }: {
   item: NavItem;
   active: boolean;
   onNavigate?: () => void;
+  compact?: boolean;
 }) {
   const Icon = item.icon;
   return (
@@ -245,7 +299,8 @@ function CollapsedItem({
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative flex size-9 items-center justify-center rounded-lg transition-all duration-[var(--dur-base)] ease-[var(--ease-out-expo)]",
+              "relative flex items-center justify-center rounded-lg transition-all duration-[var(--dur-base)] ease-[var(--ease-out-expo)]",
+              compact ? "size-8" : "size-9",
               active
                 ? "glass-hairline text-foreground bg-[var(--glass-bg)]"
                 : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-bg)]",

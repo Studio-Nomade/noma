@@ -10,6 +10,7 @@ import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { ensureServiceLedgerAccount } from "@/features/finance/plan-accounts/service-link";
 import { serviceSchema, type ServiceFormValues } from "./schema";
+import { normalizeRichTextStorage } from "./rich-text";
 import type { ServiceStatus } from "@/types/enums";
 import { SERVICE_STATUSES } from "@/types/enums";
 
@@ -25,10 +26,7 @@ async function assertSubarea(
     .select({ id: serviceSubareas.id })
     .from(serviceSubareas)
     .where(
-      and(
-        eq(serviceSubareas.area, area),
-        eq(serviceSubareas.name, subarea),
-      ),
+      and(eq(serviceSubareas.area, area), eq(serviceSubareas.name, subarea)),
     )
     .limit(1);
   if (!row) {
@@ -48,8 +46,12 @@ function normalize(values: ServiceFormValues) {
     audience: emptyToNull(variant.audience),
     focus: emptyToNull(variant.focus),
     description: emptyToNull(variant.description),
-    methodology: emptyToNull(variant.methodology),
-    deliverables: emptyToNull(variant.deliverables),
+    methodology: emptyToNull(
+      normalizeRichTextStorage(variant.methodology, "stages"),
+    ),
+    deliverables: emptyToNull(
+      normalizeRichTextStorage(variant.deliverables, "deliverables"),
+    ),
     exclusions: emptyToNull(variant.exclusions),
     estimatedTime: emptyToNull(variant.estimatedTime),
     priceMinAmount: emptyToNull(variant.priceMinAmount),

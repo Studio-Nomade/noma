@@ -5,6 +5,7 @@ import { formatMoney } from "@/lib/currency/format";
 import { lineAmount } from "../totals";
 import { getTeamPhoto } from "./assets";
 import { parseStructuredContent } from "../structured-content";
+import { richTextBlocks } from "@/features/services/rich-text";
 
 export function lines(value: string | null | undefined): string[] {
   return (value ?? "")
@@ -58,12 +59,9 @@ export function normalizeServices(
       name: row.name,
       subarea: row.subarea,
       description: row.description,
-      methodology: parseStructuredContent(row.methodology, "stages"),
-      deliverables: parseStructuredContent(row.deliverables, "deliverables"),
-      exclusions: parseStructuredContent(
-        row.serviceExclusions,
-        "deliverables",
-      ),
+      methodology: richTextBlocks(row.methodology, "stages"),
+      deliverables: richTextBlocks(row.deliverables, "deliverables"),
+      exclusions: parseStructuredContent(row.serviceExclusions, "deliverables"),
       unitAmount: base,
       baseTotal,
       surchargeAmount,

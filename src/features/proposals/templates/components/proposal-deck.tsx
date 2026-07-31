@@ -7,6 +7,10 @@ import { proposalAreaAccent, proposalTheme } from "../themes";
 import { getAreaCover, getHeaderLogo, proposalFixedSlides } from "../assets";
 import type { Area } from "@/types/enums";
 import type { StructuredContentItem } from "../../structured-content";
+import {
+  paginateRichTextColumns,
+  type RichTextBlock,
+} from "@/features/services/rich-text";
 
 function SlideFrame({
   children,
@@ -365,6 +369,96 @@ function StructuredListSlide({
   );
 }
 
+function RichTextRuns({ block }: { block: RichTextBlock }) {
+  return block.runs.map((run, index) =>
+    run.bold ? (
+      <strong key={index}>{run.text}</strong>
+    ) : (
+      <span key={index}>{run.text}</span>
+    ),
+  );
+}
+
+function ServiceRichTextSlide({
+  serviceName,
+  title,
+  columns,
+  accent,
+  page,
+  totalPages,
+}: {
+  serviceName: string;
+  title: string;
+  columns: RichTextBlock[][];
+  accent: string;
+  page: number;
+  totalPages: number;
+}) {
+  return (
+    <SlideFrame dark accent={accent}>
+      <div className="flex items-end justify-between gap-[4%]">
+        <div>
+          <p className="mb-[2%] text-[.9cqw] tracking-[.18em] uppercase">
+            {serviceName}
+          </p>
+          <h2 className="proposal-title text-[3.2cqw] leading-none uppercase">
+            {title}.
+          </h2>
+        </div>
+        {totalPages > 1 && (
+          <span className="text-[.8cqw] tracking-widest text-white/55">
+            {String(page).padStart(2, "0")} /{" "}
+            {String(totalPages).padStart(2, "0")}
+          </span>
+        )}
+      </div>
+      <div className="mt-[4%] grid grid-cols-3 items-start gap-[3%] text-[.88cqw] leading-[1.34]">
+        {columns.map((blocks, columnIndex) => (
+          <div
+            key={columnIndex}
+            className="grid content-start gap-[2.2%] border-white/15 pl-[5%] first:border-l-0 first:pl-0 [&:not(:first-child)]:border-l"
+          >
+            {blocks.map((block, index) => {
+              if (block.kind === "heading") {
+                return (
+                  <p
+                    key={index}
+                    className="mt-[1.5%] text-[.98cqw] leading-[1.25] font-semibold"
+                    style={{ color: accent }}
+                  >
+                    <RichTextRuns block={block} />
+                  </p>
+                );
+              }
+              if (block.kind === "bullet" || block.kind === "ordered") {
+                return (
+                  <p
+                    key={index}
+                    className="flex gap-[3%]"
+                    style={{ paddingLeft: `${block.level * 3}%` }}
+                  >
+                    <span className="shrink-0 text-white/55">
+                      {block.kind === "ordered" ? `${block.ordinal}.` : "•"}
+                    </span>
+                    <span>
+                      <RichTextRuns block={block} />
+                    </span>
+                  </p>
+                );
+              }
+              return (
+                <p key={index} className="text-white/80">
+                  <RichTextRuns block={block} />
+                </p>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </SlideFrame>
+  );
+}
+
 export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
   const accent = proposalAreaAccent[data.areas[0]];
   const textSlides = [
@@ -480,55 +574,42 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
                   </div>
                   <div className="flex flex-col justify-center text-[1.05cqw] leading-[1.5]">
                     <p>{service.description}</p>
-                    {service.methodology.length > 0 && (
-                      <>
-                        <p className="mt-[8%] mb-[2%] font-bold uppercase">
-                          Proceso / metodología
-                        </p>
-                        <ul className="space-y-1">
-                          {service.methodology.slice(0, 6).map((item) => (
-                            <li key={`${item.title}-${item.description}`}>
-                              — <strong>{item.title}</strong>
-                              {item.description ? `: ${item.description}` : ""}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
                   </div>
                 </div>
               </SlideFrame>,
             ];
-            if (service.deliverables.length > 0) {
-              serviceSlides.push(
-                <SlideFrame
-                  key={`${service.id}-deliverables`}
-                  dark
+            const methodologyPages = paginateRichTextColumns(
+              service.methodology,
+            );
+            serviceSlides.push(
+              ...methodologyPages.map((columns, index) => (
+                <ServiceRichTextSlide
+                  key={`${service.id}-methodology-${index}`}
+                  serviceName={service.name}
+                  title="Proceso / metodología"
+                  columns={columns}
                   accent={proposalAreaAccent[service.area]}
-                  area={service.area}
-                >
-                  <p className="mb-[4%] text-[1cqw] tracking-[.18em] uppercase">
-                    {service.name}
-                  </p>
-                  <DisplayTitle text="INCLUYE">INCLUYE.</DisplayTitle>
-                  <ul className="mt-auto grid grid-cols-2 gap-x-[7%] gap-y-[5%] text-[1.15cqw] leading-[1.45]">
-                    {service.deliverables.slice(0, 10).map((item) => (
-                      <li
-                        key={`${item.title}-${item.description}`}
-                        className="border-t border-white/25 pt-[3%]"
-                      >
-                        <strong>{item.title}</strong>
-                        {item.description && (
-                          <span className="mt-1 block text-white/70">
-                            {item.description}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </SlideFrame>,
-              );
-            }
+                  page={index + 1}
+                  totalPages={methodologyPages.length}
+                />
+              )),
+            );
+            const deliverablePages = paginateRichTextColumns(
+              service.deliverables,
+            );
+            serviceSlides.push(
+              ...deliverablePages.map((columns, index) => (
+                <ServiceRichTextSlide
+                  key={`${service.id}-deliverables-${index}`}
+                  serviceName={service.name}
+                  title="Incluye"
+                  columns={columns}
+                  accent={proposalAreaAccent[service.area]}
+                  page={index + 1}
+                  totalPages={deliverablePages.length}
+                />
+              )),
+            );
             if (service.exclusions.length > 0) {
               serviceSlides.push(
                 <SlideFrame
