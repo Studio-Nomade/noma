@@ -8,7 +8,7 @@ import { getAreaCover, getHeaderLogo, proposalFixedSlides } from "../assets";
 import type { Area } from "@/types/enums";
 import type { StructuredContentItem } from "../../structured-content";
 import {
-  paginateRichTextBlocks,
+  paginateRichTextColumns,
   type RichTextBlock,
 } from "@/features/services/rich-text";
 
@@ -382,14 +382,14 @@ function RichTextRuns({ block }: { block: RichTextBlock }) {
 function ServiceRichTextSlide({
   serviceName,
   title,
-  blocks,
+  columns,
   accent,
   page,
   totalPages,
 }: {
   serviceName: string;
   title: string;
-  blocks: RichTextBlock[];
+  columns: RichTextBlock[][];
   accent: string;
   page: number;
   totalPages: number;
@@ -412,41 +412,48 @@ function ServiceRichTextSlide({
           </span>
         )}
       </div>
-      <div className="mt-[4%] grid content-start gap-[1.8%] text-[1.02cqw] leading-[1.4]">
-        {blocks.map((block, index) => {
-          if (block.kind === "heading") {
-            return (
-              <p
-                key={index}
-                className="mt-[1.5%] font-semibold"
-                style={{ color: accent }}
-              >
-                <RichTextRuns block={block} />
-              </p>
-            );
-          }
-          if (block.kind === "bullet" || block.kind === "ordered") {
-            return (
-              <p
-                key={index}
-                className="flex gap-[1.5%]"
-                style={{ paddingLeft: `${block.level * 1.2}%` }}
-              >
-                <span className="shrink-0 text-white/55">
-                  {block.kind === "ordered" ? `${block.ordinal}.` : "•"}
-                </span>
-                <span>
+      <div className="mt-[4%] grid grid-cols-3 items-start gap-[3%] text-[.88cqw] leading-[1.34]">
+        {columns.map((blocks, columnIndex) => (
+          <div
+            key={columnIndex}
+            className="grid content-start gap-[2.2%] border-white/15 pl-[5%] first:border-l-0 first:pl-0 [&:not(:first-child)]:border-l"
+          >
+            {blocks.map((block, index) => {
+              if (block.kind === "heading") {
+                return (
+                  <p
+                    key={index}
+                    className="mt-[1.5%] text-[.98cqw] leading-[1.25] font-semibold"
+                    style={{ color: accent }}
+                  >
+                    <RichTextRuns block={block} />
+                  </p>
+                );
+              }
+              if (block.kind === "bullet" || block.kind === "ordered") {
+                return (
+                  <p
+                    key={index}
+                    className="flex gap-[3%]"
+                    style={{ paddingLeft: `${block.level * 3}%` }}
+                  >
+                    <span className="shrink-0 text-white/55">
+                      {block.kind === "ordered" ? `${block.ordinal}.` : "•"}
+                    </span>
+                    <span>
+                      <RichTextRuns block={block} />
+                    </span>
+                  </p>
+                );
+              }
+              return (
+                <p key={index} className="text-white/80">
                   <RichTextRuns block={block} />
-                </span>
-              </p>
-            );
-          }
-          return (
-            <p key={index} className="text-white/80">
-              <RichTextRuns block={block} />
-            </p>
-          );
-        })}
+                </p>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </SlideFrame>
   );
@@ -571,32 +578,32 @@ export function ProposalDeck({ data }: { data: ProposalTemplateData }) {
                 </div>
               </SlideFrame>,
             ];
-            const methodologyPages = paginateRichTextBlocks(
+            const methodologyPages = paginateRichTextColumns(
               service.methodology,
             );
             serviceSlides.push(
-              ...methodologyPages.map((blocks, index) => (
+              ...methodologyPages.map((columns, index) => (
                 <ServiceRichTextSlide
                   key={`${service.id}-methodology-${index}`}
                   serviceName={service.name}
                   title="Proceso / metodología"
-                  blocks={blocks}
+                  columns={columns}
                   accent={proposalAreaAccent[service.area]}
                   page={index + 1}
                   totalPages={methodologyPages.length}
                 />
               )),
             );
-            const deliverablePages = paginateRichTextBlocks(
+            const deliverablePages = paginateRichTextColumns(
               service.deliverables,
             );
             serviceSlides.push(
-              ...deliverablePages.map((blocks, index) => (
+              ...deliverablePages.map((columns, index) => (
                 <ServiceRichTextSlide
                   key={`${service.id}-deliverables-${index}`}
                   serviceName={service.name}
                   title="Incluye"
-                  blocks={blocks}
+                  columns={columns}
                   accent={proposalAreaAccent[service.area]}
                   page={index + 1}
                   totalPages={deliverablePages.length}

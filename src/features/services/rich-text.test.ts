@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   paginateRichTextBlocks,
+  paginateRichTextColumns,
   normalizeRichTextStorage,
   parseRichTextDocument,
   richTextBlocks,
@@ -62,6 +63,33 @@ test("conserva títulos, negritas y listas permitidas", () => {
   assert.equal(blocks[0]?.kind, "heading");
   assert.equal(blocks[1]?.kind, "bullet");
   assert.equal(blocks[1]?.runs[0]?.bold, true);
+});
+
+test("interpreta un párrafo completamente en negrita como subtítulo", () => {
+  const value = serializeRichTextDocument({
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "text",
+            text: "3. Estrategia de contenidos",
+            marks: [{ type: "bold" }],
+          },
+        ],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Desarrollo de líneas editoriales." }],
+      },
+    ],
+  });
+
+  const blocks = richTextBlocks(value, "deliverables");
+
+  assert.equal(blocks[0]?.kind, "heading");
+  assert.equal(blocks[1]?.kind, "paragraph");
 });
 
 test("descarta nodos y marcas no autorizados", () => {
@@ -125,4 +153,28 @@ test("mantiene un subtítulo junto al contenido que le sigue", () => {
 
   assert.equal(pages.length, 1);
   assert.equal(pages[0]?.[0]?.kind, "heading");
+});
+
+test("agrupa hasta tres columnas por diapositiva", () => {
+  const blocks = Array.from({ length: 6 }, (_, section) => [
+    {
+      kind: "heading" as const,
+      runs: [{ text: `Sección ${section + 1}`, bold: true }],
+      level: 3,
+    },
+    ...Array.from({ length: 5 }, (_, index) => ({
+      kind: "bullet" as const,
+      runs: [{ text: `Actividad ${index + 1}`, bold: false }],
+      level: 0,
+    })),
+  ]).flat();
+  const pages = paginateRichTextColumns(blocks);
+
+  assert.equal(pages.length, 2);
+  assert.equal(pages[0]?.length, 3);
+  assert.equal(pages[1]?.length, 3);
+  assert.equal(
+    pages.flat(2).filter((block) => block.kind === "heading").length,
+    6,
+  );
 });

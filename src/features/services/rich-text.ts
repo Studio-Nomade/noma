@@ -212,6 +212,16 @@ function nodeText(node: RichTextNode): string {
     .join("");
 }
 
+function isBoldSubtitle(runs: RichTextRun[]): boolean {
+  const visibleRuns = runs.filter((run) => run.text.trim());
+  const length = visibleRuns.reduce((sum, run) => sum + run.text.length, 0);
+  return (
+    visibleRuns.length > 0 &&
+    length <= 180 &&
+    visibleRuns.every((run) => run.bold)
+  );
+}
+
 function appendListBlocks(
   node: RichTextNode,
   blocks: RichTextBlock[],
@@ -264,7 +274,15 @@ export function richTextBlocks(
     } else if (node.type === "paragraph") {
       const runs = nodeRuns(node);
       if (runs.some((run) => run.text.trim())) {
-        blocks.push({ kind: "paragraph", runs, level: 0 });
+        const subtitle = isBoldSubtitle(runs);
+        // El editor permite usar negrita para subtítulos. Los interpretamos
+        // como encabezados semánticos para mantenerlos junto a su contenido
+        // cuando el PDF distribuye una sección extensa entre columnas.
+        blocks.push({
+          kind: subtitle ? "heading" : "paragraph",
+          runs,
+          level: subtitle ? 3 : 0,
+        });
       }
     } else if (node.type === "bulletList" || node.type === "orderedList") {
       appendListBlocks(node, blocks, 0, node.type === "orderedList");
@@ -332,5 +350,23 @@ export function paginateRichTextBlocks(
     }
   }
   flush();
+  return pages;
+}
+
+/**
+ * Cada página usa columnas con la misma capacidad tipográfica que una página
+ * de una columna. Así se reduce la cantidad de láminas sin encoger el texto ni
+ * cortar la relación entre un subtítulo y su lista.
+ */
+export function paginateRichTextColumns(
+  blocks: RichTextBlock[],
+  columnCount = 3,
+  maxColumnWeight = 16,
+): RichTextBlock[][][] {
+  const columns = paginateRichTextBlocks(blocks, maxColumnWeight);
+  const pages: RichTextBlock[][][] = [];
+  for (let index = 0; index < columns.length; index += columnCount) {
+    pages.push(columns.slice(index, index + columnCount));
+  }
   return pages;
 }

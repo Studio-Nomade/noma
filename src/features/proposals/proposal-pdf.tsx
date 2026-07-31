@@ -20,7 +20,7 @@ import { getAreaCover, getHeaderLogo, pdfAssetPath } from "./templates/assets";
 import type { Area } from "@/types/enums";
 import type { StructuredContentItem } from "./structured-content";
 import {
-  paginateRichTextBlocks,
+  paginateRichTextColumns,
   type RichTextBlock,
 } from "@/features/services/rich-text";
 
@@ -450,7 +450,7 @@ function PdfRichTextRuns({ block }: { block: RichTextBlock }) {
 function ServiceRichTextPdfPage({
   serviceName,
   title,
-  blocks,
+  columns,
   accent,
   area,
   page,
@@ -458,7 +458,7 @@ function ServiceRichTextPdfPage({
 }: {
   serviceName: string;
   title: string;
-  blocks: RichTextBlock[];
+  columns: RichTextBlock[][];
   accent: string;
   area: Area;
   page: number;
@@ -486,64 +486,83 @@ function ServiceRichTextPdfPage({
           </Text>
         )}
       </View>
-      <View style={{ marginTop: 18 }}>
-        {blocks.map((block, index) => {
-          if (block.kind === "heading") {
-            return (
-              <Text
-                key={index}
-                style={{
-                  marginTop: index ? 7 : 0,
-                  marginBottom: 3,
-                  fontSize: 10.5,
-                  lineHeight: 1.3,
-                  color: accent,
-                  fontWeight: 600,
-                }}
-              >
-                <PdfRichTextRuns block={block} />
-              </Text>
-            );
-          }
-          const listPrefix =
-            block.kind === "ordered"
-              ? `${block.ordinal}.`
-              : block.kind === "bullet"
-                ? "•"
-                : "";
-          return (
-            <View
-              key={index}
-              style={{
-                flexDirection: "row",
-                marginTop: 3,
-                paddingLeft: block.level * 12,
-              }}
-            >
-              {listPrefix && (
-                <Text
+      <View
+        style={{
+          marginTop: 18,
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 14,
+        }}
+      >
+        {columns.map((blocks, columnIndex) => (
+          <View
+            key={columnIndex}
+            style={{
+              width: "32%",
+              paddingLeft: columnIndex ? 13 : 0,
+              borderLeftWidth: columnIndex ? 0.5 : 0,
+              borderLeftColor: "#4a4a48",
+            }}
+          >
+            {blocks.map((block, index) => {
+              if (block.kind === "heading") {
+                return (
+                  <Text
+                    key={index}
+                    style={{
+                      marginTop: index ? 6 : 0,
+                      marginBottom: 3,
+                      fontSize: 8.7,
+                      lineHeight: 1.25,
+                      color: accent,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <PdfRichTextRuns block={block} />
+                  </Text>
+                );
+              }
+              const listPrefix =
+                block.kind === "ordered"
+                  ? `${block.ordinal}.`
+                  : block.kind === "bullet"
+                    ? "•"
+                    : "";
+              return (
+                <View
+                  key={index}
                   style={{
-                    width: 15,
-                    fontSize: 8.5,
-                    color: "#9b9b98",
+                    flexDirection: "row",
+                    marginTop: 2.5,
+                    paddingLeft: block.level * 8,
                   }}
                 >
-                  {listPrefix}
-                </Text>
-              )}
-              <Text
-                style={{
-                  flex: 1,
-                  fontSize: 9,
-                  lineHeight: 1.4,
-                  color: block.kind === "paragraph" ? "#d0d0cd" : "#f5f5f3",
-                }}
-              >
-                <PdfRichTextRuns block={block} />
-              </Text>
-            </View>
-          );
-        })}
+                  {listPrefix && (
+                    <Text
+                      style={{
+                        width: 11,
+                        fontSize: 7.4,
+                        color: "#9b9b98",
+                      }}
+                    >
+                      {listPrefix}
+                    </Text>
+                  )}
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 7.7,
+                      lineHeight: 1.35,
+                      color: block.kind === "paragraph" ? "#d0d0cd" : "#f5f5f3",
+                    }}
+                  >
+                    <PdfRichTextRuns block={block} />
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ))}
       </View>
     </DeckPage>
   );
@@ -766,16 +785,16 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                 </View>
               </DeckPage>,
             ];
-            const methodologyPages = paginateRichTextBlocks(
+            const methodologyPages = paginateRichTextColumns(
               service.methodology,
             );
             serviceSlides.push(
-              ...methodologyPages.map((blocks, index) => (
+              ...methodologyPages.map((columns, index) => (
                 <ServiceRichTextPdfPage
                   key={`${service.id}-methodology-${index}`}
                   serviceName={service.name}
                   title="Proceso / metodología"
-                  blocks={blocks}
+                  columns={columns}
                   accent={proposalAreaAccent[service.area]}
                   area={service.area}
                   page={index + 1}
@@ -783,16 +802,16 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                 />
               )),
             );
-            const deliverablePages = paginateRichTextBlocks(
+            const deliverablePages = paginateRichTextColumns(
               service.deliverables,
             );
             serviceSlides.push(
-              ...deliverablePages.map((blocks, index) => (
+              ...deliverablePages.map((columns, index) => (
                 <ServiceRichTextPdfPage
                   key={`${service.id}-deliverables-${index}`}
                   serviceName={service.name}
                   title="Incluye"
-                  blocks={blocks}
+                  columns={columns}
                   accent={proposalAreaAccent[service.area]}
                   area={service.area}
                   page={index + 1}
