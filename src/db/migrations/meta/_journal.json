@@ -316,6 +316,27 @@
       "when": 1785431242854,
       "tag": "0044_handy_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1785443980316,
+      "tag": "0045_square_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1785453610387,
+      "tag": "0046_slow_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785519414196,
+      "tag": "0047_colorful_machine_man",
+      "breakpoints": true
     }
   ]
 }

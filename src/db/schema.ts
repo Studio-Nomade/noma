@@ -565,6 +565,256 @@ export const projects = pgTable("projects", {
   ...timestamps,
 });
 
+// ── Email Studio (proyectos de desarrollo de correo) ────────
+export const emailStudioProjects = pgTable(
+  "email_studio_projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    nomaProjectId: uuid("noma_project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    description: text("description"),
+    status: text("status").default("active").notNull(),
+    subject: text("subject").default("Nuevo correo").notNull(),
+    previewText: text("preview_text").default("").notNull(),
+    emailWidth: integer("email_width").default(700).notNull(),
+    canvasColor: text("canvas_color").default("#f4f4f1").notNull(),
+    bodyColor: text("body_color").default("#ffffff").notNull(),
+    textColor: text("text_color").default("#333333").notNull(),
+    currentDocument: jsonb("current_document").$type<unknown>(),
+    currentDocumentVersion: integer("current_document_version")
+      .default(0)
+      .notNull(),
+    generationMode: text("generation_mode"),
+    generatedAt: timestamp("generated_at", { withTimezone: true }),
+    lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index("email_studio_projects_client_idx").on(
+      table.clientId,
+      table.updatedAt,
+    ),
+    index("email_studio_projects_status_idx").on(table.status, table.updatedAt),
+    check(
+      "email_studio_projects_status_check",
+      sql`${table.status} in ('active', 'archived')`,
+    ),
+    check(
+      "email_studio_projects_document_version_check",
+      sql`${table.currentDocumentVersion} >= 0`,
+    ),
+    check(
+      "email_studio_projects_width_check",
+      sql`${table.emailWidth} between 560 and 720`,
+    ),
+  ],
+);
+
+export const emailStudioAssets = pgTable(
+  "email_studio_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => emailStudioProjects.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    status: text("status").default("active").notNull(),
+    label: text("label").notNull(),
+    originalName: text("original_name").notNull(),
+    storagePath: text("storage_path").notNull(),
+    publicUrl: text("public_url"),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    optimized: boolean("optimized").default(false).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("email_studio_assets_project_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    check(
+      "email_studio_assets_role_check",
+      sql`${table.role} in ('reference', 'asset')`,
+    ),
+    check(
+      "email_studio_assets_status_check",
+      sql`${table.status} in ('active', 'archived')`,
+    ),
+    check("email_studio_assets_size_check", sql`${table.sizeBytes} > 0`),
+  ],
+);
+
+export const emailStudioTemplates = pgTable(
+  "email_studio_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    sourceProjectId: uuid("source_project_id").references(
+      () => emailStudioProjects.id,
+      { onDelete: "set null" },
+    ),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => emailStudioAssets.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    alt: text("alt").default("").notNull(),
+    href: text("href"),
+    status: text("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("email_studio_templates_client_idx").on(
+      table.clientId,
+      table.status,
+      table.updatedAt,
+    ),
+    check(
+      "email_studio_templates_status_check",
+      sql`${table.status} in ('active', 'archived')`,
+    ),
+  ],
+);
+
+export const emailStudioElements = pgTable(
+  "email_studio_elements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => emailStudioProjects.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    position: integer("position").default(0).notNull(),
+    assetId: uuid("asset_id").references(() => emailStudioAssets.id, {
+      onDelete: "cascade",
+    }),
+    templateId: uuid("template_id").references(() => emailStudioTemplates.id, {
+      onDelete: "set null",
+    }),
+    label: text("label").notNull(),
+    content: text("content"),
+    href: text("href"),
+    alt: text("alt").default("").notNull(),
+    align: text("align").default("center").notNull(),
+    fontSize: integer("font_size").default(16).notNull(),
+    color: text("color").default("#333333").notNull(),
+    backgroundColor: text("background_color").default("#111111").notNull(),
+    padding: text("padding").default("16px 32px").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("email_studio_elements_project_idx").on(
+      table.projectId,
+      table.position,
+    ),
+    check(
+      "email_studio_elements_type_check",
+      sql`${table.type} in ('image', 'text', 'button', 'spacer', 'template')`,
+    ),
+    check("email_studio_elements_position_check", sql`${table.position} >= 0`),
+    check(
+      "email_studio_elements_align_check",
+      sql`${table.align} in ('left', 'center', 'right')`,
+    ),
+    check(
+      "email_studio_elements_font_size_check",
+      sql`${table.fontSize} between 1 and 72`,
+    ),
+  ],
+);
+
+export const emailStudioVariables = pgTable(
+  "email_studio_variables",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => emailStudioProjects.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    label: text("label").notNull(),
+    sample: text("sample").default("").notNull(),
+    required: boolean("required").default(true).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("email_studio_variables_project_key_unique").on(
+      table.projectId,
+      table.key,
+    ),
+  ],
+);
+
+export const emailStudioRevisions = pgTable(
+  "email_studio_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => emailStudioProjects.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    label: text("label").notNull(),
+    documentVersion: integer("document_version").notNull(),
+    generationMode: text("generation_mode"),
+    editorState: jsonb("editor_state").$type<unknown>().notNull(),
+    document: jsonb("document").$type<unknown>(),
+    ...timestamps,
+  },
+  (table) => [
+    index("email_studio_revisions_project_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    check(
+      "email_studio_revisions_kind_check",
+      sql`${table.kind} in ('checkpoint', 'generated', 'restored')`,
+    ),
+  ],
+);
+
+export const emailStudioAiRuns = pgTable(
+  "email_studio_ai_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => emailStudioProjects.id, { onDelete: "cascade" }),
+    status: text("status").default("running").notNull(),
+    model: text("model").notNull(),
+    assetCount: integer("asset_count").default(0).notNull(),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    durationMs: integer("duration_ms"),
+    responseId: text("response_id"),
+    failureCode: text("failure_code"),
+    ...timestamps,
+  },
+  (table) => [
+    index("email_studio_ai_runs_project_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    index("email_studio_ai_runs_actor_idx").on(
+      table.createdBy,
+      table.createdAt,
+    ),
+    check(
+      "email_studio_ai_runs_status_check",
+      sql`${table.status} in ('running', 'completed', 'failed')`,
+    ),
+  ],
+);
+
 // ── briefs (1:1 con project) ─────────────────────────────────
 export const briefs = pgTable(
   "briefs",
@@ -2073,6 +2323,14 @@ export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
+export type EmailStudioProject = typeof emailStudioProjects.$inferSelect;
+export type NewEmailStudioProject = typeof emailStudioProjects.$inferInsert;
+export type EmailStudioAsset = typeof emailStudioAssets.$inferSelect;
+export type EmailStudioElement = typeof emailStudioElements.$inferSelect;
+export type EmailStudioVariable = typeof emailStudioVariables.$inferSelect;
+export type EmailStudioTemplate = typeof emailStudioTemplates.$inferSelect;
+export type EmailStudioRevision = typeof emailStudioRevisions.$inferSelect;
+export type EmailStudioAiRun = typeof emailStudioAiRuns.$inferSelect;
 export type Brief = typeof briefs.$inferSelect;
 export type NewBrief = typeof briefs.$inferInsert;
 export type BriefMeeting = typeof briefMeetings.$inferSelect;

@@ -13,6 +13,7 @@ import {
   KanbanSquare,
   Landmark,
   Library,
+  Mail,
   MessageSquareText,
   Plug,
   ReceiptText,
@@ -77,6 +78,11 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Operaciones",
     icon: Workflow,
     children: [
+      {
+        href: "/email-studio",
+        label: "Email Studio",
+        icon: Mail,
+      },
       {
         href: "/solicitudes",
         label: "Solicitudes",
