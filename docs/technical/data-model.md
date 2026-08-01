@@ -43,6 +43,47 @@ No se eliminan → se marcan `Cerrado`.
 `status` (default Levantamiento), `commercial_stage` (default Nuevo lead), `priority`
 (default Media), `responsible_id` → team_members, `next_action`, `internal_notes`.
 
+### email_studio_projects
+
+Contenedores para desarrollos de correo: `name*`, `client_id*` → clients
+(RESTRICT), `noma_project_id` → projects (SET NULL), `description`, `status`
+(`active | archived`), asunto y preheader, ancho (560–720 px), colores de canvas,
+cuerpo y texto, `current_document jsonb`, `current_document_version`,
+`generation_mode`, `generated_at` y `last_opened_at`. Cada compilación incrementa
+la versión del blueprint; `updated_at > generated_at` indica que el editor debe
+regenerarse antes de exportar.
+
+### email_studio_assets
+
+Archivos de un desarrollo. `role` distingue la referencia aprobada
+(`reference`, privada) de los assets que debe consumir el HTML (`asset`,
+públicos). Guarda nombre original, ruta versionada en Storage, URL pública cuando
+corresponde, MIME, peso, dimensiones, optimización y estado (`active |
+archived`). Reemplazar un asset conserva su ID lógico pero publica una URL nueva;
+el objeto anterior permanece disponible para las entregas históricas.
+
+### email_studio_elements / email_studio_variables
+
+`email_studio_elements` es la estructura ordenada editable del correo. Admite
+imagen, texto, botón, espacio y plantilla; mantiene asset/plantilla asociados,
+contenido, enlace, texto alternativo, alineación y propiedades visuales seguras.
+`email_studio_variables` declara tokens únicos por proyecto en formato
+`{{clave}}`, con etiqueta, muestra y obligatoriedad.
+
+### email_studio_templates
+
+Biblioteca reutilizable por cliente. Cada plantilla liga un nombre y una
+configuración de enlace/alt a un asset público estable. Puede insertarse en
+varios correos del mismo cliente y archivarse sin eliminar sus usos existentes.
+
+### email_studio_revisions / email_studio_ai_runs
+
+`email_studio_revisions` guarda snapshots validados del editor y, cuando existe,
+el blueprint generado. Distingue checkpoints, generaciones y recuperaciones.
+`email_studio_ai_runs` conserva solo metadatos operacionales: estado, modelo,
+cantidad de assets, tokens, duración, ID de respuesta y código de falla. No
+persiste prompts, URLs firmadas ni respuestas del proveedor.
+
 ### retainers / retainer_periods
 
 `retainers` define una bolsa recurrente por proyecto y cliente: unidad
