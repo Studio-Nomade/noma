@@ -20,6 +20,12 @@ export const PEOPLE_BUCKET = "people";
 // Marca (logo animado, iconos): bucket PÚBLICO — los clientes de correo cargan
 // la imagen sin auth, así que un enlace firmado (que expira) no sirve.
 export const BRAND_BUCKET = "brand";
+// Fuentes aprobadas de Email Studio (PNG/PDF completos): privadas, porque son
+// material de trabajo del cliente y no forman parte del correo exportado.
+export const EMAIL_STUDIO_SOURCES_BUCKET = "email-studio-sources";
+// Assets finales de Email Studio: públicos y estables, porque el HTML se entrega
+// con estas URLs y los clientes de correo no pueden autenticarse.
+export const EMAIL_STUDIO_ASSETS_BUCKET = "email-studio-assets";
 
 let cached: StorageClient | null = null;
 
@@ -44,10 +50,15 @@ export async function uploadToStorage(
   path: string,
   body: ArrayBuffer | Buffer,
   contentType: string,
+  options: { cacheControl?: string; upsert?: boolean } = {},
 ): Promise<void> {
   const { error } = await storage()
     .from(bucket)
-    .upload(path, body, { contentType, upsert: true });
+    .upload(path, body, {
+      contentType,
+      cacheControl: options.cacheControl,
+      upsert: options.upsert ?? true,
+    });
   if (error) throw new Error(`No se pudo subir el archivo: ${error.message}`);
 }
 
@@ -92,7 +103,8 @@ export async function removeFromStorage(
   bucket: string,
   path: string,
 ): Promise<void> {
-  await storage().from(bucket).remove([path]);
+  const { error } = await storage().from(bucket).remove([path]);
+  if (error) throw new Error(`No se pudo retirar el archivo: ${error.message}`);
 }
 
 /** Crea los buckets si no existen (idempotente). Lo usa el script de setup. */
@@ -108,5 +120,24 @@ export async function ensureBuckets(): Promise<void> {
   }
   if (!names.has(BRAND_BUCKET)) {
     await s.createBucket(BRAND_BUCKET, { public: true });
+  }
+  if (!names.has(EMAIL_STUDIO_SOURCES_BUCKET)) {
+    await s.createBucket(EMAIL_STUDIO_SOURCES_BUCKET, {
+      public: false,
+      fileSizeLimit: 25 * 1024 * 1024,
+      allowedMimeTypes: [
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ],
+    });
+  }
+  if (!names.has(EMAIL_STUDIO_ASSETS_BUCKET)) {
+    await s.createBucket(EMAIL_STUDIO_ASSETS_BUCKET, {
+      public: true,
+      fileSizeLimit: 10 * 1024 * 1024,
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    });
   }
 }
