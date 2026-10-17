@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test $(find src scripts -name '*.test.ts' -not -path '*/node_modules/*')",
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
