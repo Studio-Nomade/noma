@@ -7,6 +7,7 @@ import {
   encodeBase64Url,
   encodeHeaderValue,
   htmlToText,
+  isAutomatedMessage,
   parseGmailMessage,
   stripHtmlQuote,
   type GmailMessage,
@@ -227,4 +228,21 @@ test("corta la cita HTML de Gmail y Outlook", () => {
     ),
     "Cambiar color",
   );
+});
+
+test("detecta respuestas automáticas", () => {
+  assert.equal(
+    isAutomatedMessage({ "auto-submitted": ["auto-replied"] }),
+    true,
+  );
+  assert.equal(isAutomatedMessage({ "auto-submitted": ["no"] }), false);
+  assert.equal(isAutomatedMessage({ precedence: ["bulk"] }), true);
+  assert.equal(isAutomatedMessage({ "x-autoreply": ["yes"] }), true);
+  assert.equal(
+    isAutomatedMessage({
+      "content-type": ["multipart/report; report-type=delivery-status"],
+    }),
+    true,
+  );
+  assert.equal(isAutomatedMessage({ subject: ["Hola"] }), false);
 });

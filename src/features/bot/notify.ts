@@ -84,3 +84,32 @@ export async function notifyUnknownWhatsAppSender(phone: string) {
     },
   ]);
 }
+
+function maskEmail(email: string) {
+  const [local = "", domain = ""] = email.split("@");
+  return `${local.slice(0, 2)}•••@${domain}`;
+}
+
+/** Correo a un alias desde un remitente no autorizado: queda en revisión. */
+export async function notifyUnknownEmailSender(input: {
+  alias: string;
+  fromEmail: string;
+  subject: string;
+  clientName?: string | null;
+}) {
+  return sendOperationsNotification("Correo de remitente no autorizado", [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          "*Correo en revisión (remitente no autorizado)*",
+          `Alias: \`${clean(input.alias)}\`${input.clientName ? ` · ${clean(input.clientName)}` : ""}`,
+          `Remitente: \`${clean(maskEmail(input.fromEmail))}\``,
+          `Asunto: ${clean(input.subject).slice(0, 160)}`,
+          "No se creó solicitud ni tarea. Si corresponde, agrega el dominio o el contacto y re-encola el evento.",
+        ].join("\n"),
+      },
+    },
+  ]);
+}

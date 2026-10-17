@@ -215,6 +215,21 @@ export function parseGmailMessage(message: GmailMessage): ParsedEmail {
   };
 }
 
+/**
+ * Respuestas automáticas (fuera de oficina, rebotes, listas): no deben
+ * comentar ni reabrir tareas (RFC 3834 Auto-Submitted + encabezados comunes).
+ */
+export function isAutomatedMessage(headers: Record<string, string[]>) {
+  const value = (name: string) => (headers[name]?.[0] ?? "").toLowerCase();
+  const autoSubmitted = value("auto-submitted");
+  if (autoSubmitted && autoSubmitted !== "no") return true;
+  if (headers["x-autoreply"] || headers["x-autorespond"]) return true;
+  if (/^(auto_reply|bulk|junk|list)$/.test(value("precedence").trim())) {
+    return true;
+  }
+  return value("content-type").includes("multipart/report");
+}
+
 // ── HTML → texto ─────────────────────────────────────────────
 const ENTITIES: Record<string, string> = {
   nbsp: " ",

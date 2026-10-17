@@ -1660,7 +1660,9 @@ export const requestDeliveries = pgTable(
       .default(sql`'{}'::text[]`)
       .notNull(),
     note: text("note"),
-    status: text("status").default("sending").notNull(), // sending | sent | failed
+    // sending | sent | failed (reintentable) | rejected (sin links) |
+    // unknown (corte ambiguo: revisar a mano antes de reenviar)
+    status: text("status").default("sending").notNull(),
     error: text("error"),
     sentGmailMessageId: text("sent_gmail_message_id"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
