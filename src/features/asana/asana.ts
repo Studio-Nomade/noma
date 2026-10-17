@@ -564,3 +564,7 @@ export async function listWebhooks(workspaceGid: string, resourceGid?: string) {
   if (resourceGid) params.set("resource", resourceGid);
   return asanaRequest<AsanaWebhookInfo[]>("GET", `/webhooks?${params}`);
 }
+
+export async function deleteWebhook(webhookGid: string) {
+  await asanaRequest("DELETE", `/webhooks/${encodeURIComponent(webhookGid)}`);
+}
