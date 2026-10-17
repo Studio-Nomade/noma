@@ -1359,6 +1359,55 @@ export const botAuthorizedSenders = pgTable(
   ],
 );
 
+// ── Canal de solicitudes por correo (alias por cliente) ─────
+// Cada alias (p. ej. cliente@studionomade.cl) es un alias de Gmail de la casilla
+// de servicio (NOMA_REQUESTS_MAILBOX). El alias define cliente, proyecto y el
+// proyecto de Asana donde se crean las tareas.
+export const emailChannels = pgTable(
+  "email_channels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    alias: text("alias").notNull().unique(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    asanaProjectGid: text("asana_project_gid").notNull(),
+    // 'month': sección del mes (se crea si falta) · 'fixed': fixed_section_gid.
+    sectionStrategy: text("section_strategy").default("month").notNull(),
+    fixedSectionGid: text("fixed_section_gid"),
+    monthSectionTemplate: text("month_section_template")
+      .default("{Mes} | {YYYY}")
+      .notNull(),
+    defaultAssigneeGid: text("default_assignee_gid"),
+    folioPrefix: text("folio_prefix").notNull().unique(),
+    allowedSenderDomains: text("allowed_sender_domains")
+      .array()
+      .default(sql`'{}'::text[]`)
+      .notNull(),
+    status: text("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("email_channels_client_idx").on(t.clientId),
+    index("email_channels_status_idx").on(t.status),
+    check(
+      "email_channels_alias_lowercase",
+      sql`${t.alias} = lower(${t.alias})`,
+    ),
+    check(
+      "email_channels_section_strategy_check",
+      sql`${t.sectionStrategy} in ('month', 'fixed')`,
+    ),
+    check(
+      "email_channels_fixed_section_check",
+      sql`${t.sectionStrategy} <> 'fixed' or ${t.fixedSectionGid} is not null`,
+    ),
+  ],
+);
+
 export const retainers = pgTable(
   "retainers",
   {
@@ -1456,9 +1505,30 @@ export const clientRequests = pgTable(
     asanaAttemptedAt: timestamp("asana_attempted_at", { withTimezone: true }),
     status: text("status").default("captured").notNull(),
     createdVia: text("created_via").default("bot").notNull(),
+    // ── Canal correo (channel = 'email'); nulos para WhatsApp ──
+    emailChannelId: uuid("email_channel_id").references(
+      () => emailChannels.id,
+      { onDelete: "set null" },
+    ),
+    emailThreadId: text("email_thread_id"), // threadId de Gmail
+    emailMessageId: text("email_message_id"), // Message-ID RFC 822 original
+    emailLastMessageId: text("email_last_message_id"), // último Message-ID del hilo
+    emailSubject: text("email_subject"),
+    emailAcknowledgedAt: timestamp("email_acknowledged_at", {
+      withTimezone: true,
+    }),
+    requesterEmail: text("requester_email"),
+    requesterName: text("requester_name"),
+    ccEmails: text("cc_emails").array(),
+    folio: text("folio"),
     ...timestamps,
   },
   (t) => [
+    uniqueIndex("client_requests_folio_unique")
+      .on(t.folio)
+      .where(sql`${t.folio} is not null`),
+    index("client_requests_email_thread_idx").on(t.emailThreadId),
+    index("client_requests_asana_task_idx").on(t.asanaTaskGid),
     uniqueIndex("client_requests_source_message_unique")
       .on(t.sourceMessageId)
       .where(sql`${t.sourceMessageId} is not null`),
@@ -1544,6 +1614,83 @@ export const whatsappInboundEvents = pgTable(
     index("whatsapp_inbound_events_status_idx").on(t.status, t.createdAt),
   ],
 );
+
+// ── Cola durable de correos entrantes (Gmail → solicitudes) ──
+// Igual que whatsapp_inbound_events: se reclama con FOR UPDATE SKIP LOCKED.
+// status: pending | processing | done | failed | ignored | review.
+export const emailInboundEvents = pgTable(
+  "email_inbound_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gmailMessageId: text("gmail_message_id").notNull().unique(),
+    gmailHistoryId: text("gmail_history_id"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("email_inbound_events_status_idx").on(t.status, t.createdAt)],
+);
+
+// Estado de la casilla de servicio: último historyId procesado y vigencia del
+// watch de Gmail (expira a los 7 días; el cron lo renueva).
+export const emailMailboxState = pgTable("email_mailbox_state", {
+  mailbox: text("mailbox").primaryKey(),
+  historyId: text("history_id"),
+  watchExpiresAt: timestamp("watch_expires_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ── Entregas enviadas al cliente (comentario "ENTREGA NN" en Asana) ──
+export const requestDeliveries = pgTable(
+  "request_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientRequestId: uuid("client_request_id")
+      .notNull()
+      .references(() => clientRequests.id, { onDelete: "cascade" }),
+    round: integer("round").notNull(),
+    // Idempotencia: un comentario de Asana produce a lo más un envío.
+    asanaStoryGid: text("asana_story_gid").notNull().unique(),
+    links: text("links")
+      .array()
+      .default(sql`'{}'::text[]`)
+      .notNull(),
+    note: text("note"),
+    status: text("status").default("sending").notNull(), // sending | sent | failed
+    error: text("error"),
+    sentGmailMessageId: text("sent_gmail_message_id"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("request_deliveries_request_idx").on(t.clientRequestId, t.round),
+  ],
+);
+
+// Folio correlativo por prefijo de cliente (EQ-0001, …). Incremento atómico.
+export const folioCounters = pgTable("folio_counters", {
+  prefix: text("prefix").primaryKey(),
+  lastNumber: integer("last_number").default(0).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// Webhooks de Asana por proyecto. `secret` (X-Hook-Secret) va cifrado con
+// NOMA_TOKEN_ENCRYPTION_KEY. status: pending | active | disabled.
+export const asanaWebhooks = pgTable("asana_webhooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  asanaProjectGid: text("asana_project_gid").notNull().unique(),
+  webhookGid: text("webhook_gid"),
+  secret: text("secret"),
+  status: text("status").default("pending").notNull(),
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+  ...timestamps,
+});
 
 // ── email_templates (mantenedor de plantillas de correo) ─────
 export const emailTemplates = pgTable("email_templates", {
@@ -2362,6 +2509,11 @@ export type ClientRequest = typeof clientRequests.$inferSelect;
 export type BotConversation = typeof botConversations.$inferSelect;
 export type BotMessage = typeof botMessages.$inferSelect;
 export type WhatsappInboundEvent = typeof whatsappInboundEvents.$inferSelect;
+export type EmailChannel = typeof emailChannels.$inferSelect;
+export type NewEmailChannel = typeof emailChannels.$inferInsert;
+export type EmailInboundEvent = typeof emailInboundEvents.$inferSelect;
+export type RequestDelivery = typeof requestDeliveries.$inferSelect;
+export type AsanaWebhook = typeof asanaWebhooks.$inferSelect;
 export type Sla = typeof slas.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
