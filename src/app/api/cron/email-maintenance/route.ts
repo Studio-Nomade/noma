@@ -4,6 +4,7 @@ import {
   reconcileAsanaDeliveries,
 } from "@/features/email/deliveries";
 import { processPendingEmails } from "@/features/email/processor";
+import { safeEqual } from "@/features/email/pubsub";
 import { renewMailboxWatch, syncMailboxHistory } from "@/features/email/sync";
 
 export const runtime = "nodejs";
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
       { status: 503 },
     );
   }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!safeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -51,9 +52,12 @@ export async function GET(request: Request) {
   await step("watch", () => renewMailboxWatch());
   await step("gmailSync", () => syncMailboxHistory());
   await step("queue", async () => {
+    // Se empiezan eventos solo en los primeros ~20 s: el que esté en curso
+    // alcanza a terminar y quedan pasos para entregas trabadas y Asana.
     const results = await processPendingEmails({
       limit: 25,
       includeFailed: true,
+      deadline: deadline - 30_000,
     });
     return {
       processed: results.length,

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   externalRecipients,
   isAllowedSenderDomain,
+  isPublicEmailDomain,
   matchAlias,
   parseAddressList,
   routingCandidates,
@@ -112,4 +113,30 @@ test("excluye casillas propias y duplicados del CC", () => {
     ),
     ["a@cliente.cl", "b@cliente.cl"],
   );
+});
+
+test("el nombre visible entre comillas no puede suplantar la dirección", () => {
+  assert.deepEqual(
+    parseAddressList('"Boss <boss@client.cl>" <attacker@evil.com>'),
+    [{ name: "Boss <boss@client.cl>", email: "attacker@evil.com" }],
+  );
+  assert.deepEqual(
+    parseAddressList('"a\\"b <x@client.cl>" <attacker@evil.com>'),
+    [{ name: 'a"b <x@client.cl>', email: "attacker@evil.com" }],
+  );
+  // Sin comillas: se usa el ÚLTIMO <...>.
+  assert.equal(
+    parseAddressList("Boss <boss@client.cl> <attacker@evil.com>")[0].email,
+    "attacker@evil.com",
+  );
+  // Dirección sin <...>: el texto entre comillas no cuenta.
+  assert.deepEqual(parseAddressList('"boss@client.cl" attacker@evil.com'), [
+    { name: null, email: "attacker@evil.com" },
+  ]);
+});
+
+test("dominios de correo público nunca son dominio autorizado", () => {
+  assert.equal(isAllowedSenderDomain("x@gmail.com", ["gmail.com"]), false);
+  assert.equal(isPublicEmailDomain("Outlook.com"), true);
+  assert.equal(isPublicEmailDomain("cliente.cl"), false);
 });

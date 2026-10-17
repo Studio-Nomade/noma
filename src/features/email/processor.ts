@@ -6,10 +6,12 @@ import { matchAlias, routingCandidates } from "./addresses";
 import { GmailApiError, getMessage, requestsMailbox } from "./inbox";
 import { isAutomatedMessage, parseGmailMessage } from "./mime";
 import { detectReply } from "./reply-detection";
+import { evaluateSenderAuth } from "./sender-auth";
 import {
   emailSourceKey,
   handleEmailReply,
   handleNewEmailRequest,
+  studioDomain,
   type EventProgress,
 } from "./requests";
 import {
@@ -36,13 +38,22 @@ import {
 export async function processPendingEmails({
   limit = 10,
   includeFailed = false,
-}: { limit?: number; includeFailed?: boolean } = {}) {
-  const events = await claimPendingEvents(
-    Math.max(1, Math.min(limit, 50)),
-    includeFailed,
-  );
+  deadline = Date.now() + 25_000,
+}: {
+  limit?: number;
+  includeFailed?: boolean;
+  /**
+   * Hora límite (ms epoch) para EMPEZAR un evento nuevo. Los eventos se
+   * reclaman de a uno: lo que no alcanza a empezar queda `pending` para el
+   * próximo push/cron en vez de quedar reclamado sin procesar.
+   */
+  deadline?: number;
+} = {}) {
+  const max = Math.max(1, Math.min(limit, 50));
   const results: { id: string; status: string }[] = [];
-  for (const event of events) {
+  while (results.length < max && Date.now() < deadline) {
+    const [event] = await claimPendingEvents(1, includeFailed);
+    if (!event) break;
     try {
       const outcome = await processEmailEvent(
         event.id,
@@ -105,6 +116,11 @@ async function processEmailEvent(
     return { status: "ignored", note: "Respuesta automática." };
   }
 
+  const auth = evaluateSenderAuth(email.rawHeaders, email.from.email, {
+    studioDomain: studioDomain(),
+    mode: process.env.NOMA_EMAIL_SENDER_AUTH,
+  });
+
   const sourceKey = emailSourceKey(email);
   const reply = await detectReply(
     {
@@ -133,6 +149,19 @@ async function processEmailEvent(
       ? (channels.find((item) => item.id === reply.request.emailChannelId) ??
         (await getChannel(reply.request.emailChannelId)))
       : null;
+    if (!auth.verified) {
+      await notifyUnknownEmailSender({
+        alias: channel?.alias ?? requestsMailbox() ?? "",
+        fromEmail: email.from.email,
+        subject: email.subject,
+        clientName: channel?.clientName,
+        reason: `Respuesta a ${reply.request.folio ?? "solicitud"} con remitente no verificado (${auth.reason}).`,
+      });
+      return {
+        status: "review",
+        note: `Respuesta a ${reply.request.folio} sin autenticar: ${auth.reason}.`,
+      };
+    }
     const result = await handleEmailReply({
       eventId,
       progress,
@@ -149,7 +178,7 @@ async function processEmailEvent(
   }
 
   const alias = matchAlias(
-    routingCandidates(email.headers),
+    routingCandidates(email.rawHeaders),
     channels.map((channel) => channel.alias),
   );
   const channel = alias
@@ -162,12 +191,17 @@ async function processEmailEvent(
     };
   }
 
-  if (!(await isTrustedSender(channel, email.from.email))) {
+  const trusted =
+    auth.verified && (await isTrustedSender(channel, email.from.email));
+  if (!trusted) {
     await notifyUnknownEmailSender({
       alias: channel.alias,
       fromEmail: email.from.email,
       subject: email.subject,
       clientName: channel.clientName,
+      reason: auth.verified
+        ? null
+        : `Remitente sin autenticar (${auth.reason}).`,
     });
     await logActivity({
       entityType: "email_inbound_event",
@@ -176,7 +210,9 @@ async function processEmailEvent(
     });
     return {
       status: "review",
-      note: `Remitente no autorizado para ${channel.alias}.`,
+      note: auth.verified
+        ? `Remitente no autorizado para ${channel.alias}.`
+        : `Remitente sin autenticar para ${channel.alias}: ${auth.reason}.`,
     };
   }
 
@@ -188,7 +224,7 @@ async function processEmailEvent(
     ownAddresses,
   });
   return {
-    status: "done",
+    status: result.needsReview ? "review" : "done",
     note:
       [
         `${result.created ? "Solicitud" : "Reanudada"} ${result.folio}`,

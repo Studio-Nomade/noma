@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { isPublicEmailDomain } from "./addresses";
 import { FOLIO_PREFIX_RE } from "./folio";
 
 const gid = z.string().regex(/^\d{1,32}$/, "gid de Asana inválido");
@@ -43,7 +44,13 @@ export const emailChannelConfigSchema = z
           .toLowerCase()
           .transform((value) => value.replace(/^@/, ""))
           .pipe(
-            z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "dominio inválido"),
+            z
+              .string()
+              .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "dominio inválido")
+              .refine((value) => !isPublicEmailDomain(value), {
+                message:
+                  "dominio de correo público: usa client_contacts con la dirección exacta",
+              }),
           ),
       )
       .default([]),

@@ -17,18 +17,26 @@ export function domainOf(email: string): string {
 }
 
 /**
- * Divide una lista de direcciones respetando comillas y `<...>`:
- * `"Pérez, Ana" <ana@x.cl>, b@y.cl` → 2 entradas.
+ * Divide un encabezado en entradas por `,`/`;` fuera de comillas y `<...>`.
+ * Respeta escapes `\"` dentro de comillas.
  */
-export function parseAddressList(
-  header: string | null | undefined,
-): EmailAddress[] {
-  if (!header) return [];
+function splitAddressHeader(header: string): string[] {
   const chunks: string[] = [];
   let current = "";
   let inQuotes = false;
   let inAngle = false;
+  let escaped = false;
   for (const char of header) {
+    if (escaped) {
+      escaped = false;
+      current += char;
+      continue;
+    }
+    if (char === "\\" && inQuotes) {
+      escaped = true;
+      current += char;
+      continue;
+    }
     if (char === '"' && !inAngle) inQuotes = !inQuotes;
     else if (char === "<" && !inQuotes) inAngle = true;
     else if (char === ">" && !inQuotes) inAngle = false;
@@ -40,17 +48,71 @@ export function parseAddressList(
     current += char;
   }
   chunks.push(current);
+  return chunks;
+}
 
+/**
+ * Último `<addr-spec>` que está FUERA de comillas (RFC 5322). Un nombre visible
+ * como `"Jefe <jefe@cliente.cl>" <otro@evil.com>` no puede suplantar la
+ * dirección real: se devuelve `otro@evil.com`.
+ */
+function angleAddressOutsideQuotes(
+  chunk: string,
+): { start: number; value: string } | null {
+  let inQuotes = false;
+  let escaped = false;
+  let open = -1;
+  let found: { start: number; value: string } | null = null;
+  for (let index = 0; index < chunk.length; index += 1) {
+    const char = chunk[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\" && inQuotes) {
+      escaped = true;
+      continue;
+    }
+    if (char === '"' && open === -1) {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (inQuotes) continue;
+    if (char === "<") open = index;
+    else if (char === ">" && open !== -1) {
+      found = { start: open, value: chunk.slice(open + 1, index) };
+      open = -1;
+    }
+  }
+  return found;
+}
+
+/** Texto fuera de comillas (para direcciones sin `<...>`). */
+function unquoted(chunk: string): string {
+  return chunk.replace(/"(?:[^"\\]|\\.)*"/g, " ");
+}
+
+/**
+ * Parsea una lista de direcciones: `"Pérez, Ana" <ana@x.cl>, b@y.cl` → 2
+ * entradas. La dirección siempre sale del `<...>` fuera de comillas (o, sin
+ * él, del texto fuera de comillas); el nombre visible nunca aporta dirección.
+ * Debe recibir el encabezado CRUDO: las encoded-words (RFC 2047) se decodifican
+ * después, solo en el nombre (ver `mime.ts`).
+ */
+export function parseAddressList(
+  header: string | null | undefined,
+): EmailAddress[] {
+  if (!header) return [];
   const result: EmailAddress[] = [];
-  for (const chunk of chunks) {
+  for (const chunk of splitAddressHeader(header)) {
     const trimmed = chunk.trim();
     if (!trimmed) continue;
-    const angle = trimmed.match(/<([^>]+)>/);
-    const candidate = angle ? angle[1] : trimmed;
+    const angle = angleAddressOutsideQuotes(trimmed);
+    const candidate = angle ? angle.value : unquoted(trimmed);
     const email = candidate.match(EMAIL_RE)?.[0];
     if (!email) continue;
-    const rawName = angle ? trimmed.slice(0, angle.index).trim() : "";
-    const name = rawName.replace(/^"|"$/g, "").replace(/\\"/g, '"').trim();
+    const rawName = angle ? trimmed.slice(0, angle.start).trim() : "";
+    const name = rawName.replace(/^"|"$/g, "").replace(/\\(.)/g, "$1").trim();
     result.push({ name: name || null, email: normalizeEmail(email) });
   }
   return result;
@@ -96,6 +158,41 @@ export function matchAlias(
 }
 
 /**
+ * Dominios de correo público: nunca valen como dominio autorizado de un
+ * cliente (cualquiera puede crear una cuenta). Para esos remitentes se usa
+ * `client_contacts` con la dirección exacta.
+ */
+export const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "outlook.com",
+  "outlook.cl",
+  "hotmail.com",
+  "hotmail.cl",
+  "hotmail.es",
+  "live.com",
+  "live.cl",
+  "msn.com",
+  "yahoo.com",
+  "yahoo.es",
+  "ymail.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "gmx.com",
+  "zoho.com",
+]);
+
+export function isPublicEmailDomain(domain: string) {
+  return PUBLIC_EMAIL_DOMAINS.has(
+    domain.trim().toLowerCase().replace(/^@/, ""),
+  );
+}
+
+/**
  * ¿El dominio del remitente está autorizado? Acepta coincidencia exacta o
  * subdominio (`mkt.cliente.cl` vale para `cliente.cl`).
  */
@@ -107,7 +204,7 @@ export function isAllowedSenderDomain(
   if (!domain) return false;
   return allowedDomains
     .map((value) => value.trim().toLowerCase().replace(/^@/, ""))
-    .filter(Boolean)
+    .filter((value) => value && !isPublicEmailDomain(value))
     .some((allowed) => domain === allowed || domain.endsWith(`.${allowed}`));
 }
 

@@ -246,3 +246,27 @@ test("detecta respuestas automáticas", () => {
   );
   assert.equal(isAutomatedMessage({ subject: ["Hola"] }), false);
 });
+
+test("From con encoded-word no puede inyectar otra dirección", () => {
+  const injected = Buffer.from("boss@client.cl,").toString("base64");
+  const parsed = parseGmailMessage({
+    id: "2",
+    threadId: "2",
+    payload: {
+      mimeType: "text/plain",
+      headers: [
+        { name: "From", value: `=?UTF-8?B?${injected}?= <attacker@evil.com>` },
+        {
+          name: "Reply-To",
+          value: '"Jefe <jefe@client.cl>" <otro@evil.com>',
+        },
+        { name: "To", value: "=?UTF-8?Q?P=C3=A9rez?= <ana@client.cl>" },
+      ],
+      body: { data: encodeBase64Url(Buffer.from("hola")) },
+    },
+  });
+  assert.equal(parsed.from?.email, "attacker@evil.com");
+  assert.equal(parsed.from?.name, "boss@client.cl,");
+  assert.equal(parsed.replyTo[0]?.email, "otro@evil.com");
+  assert.deepEqual(parsed.to, [{ name: "Pérez", email: "ana@client.cl" }]);
+});

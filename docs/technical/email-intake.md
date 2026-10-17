@@ -20,14 +20,21 @@ hilo con un folio correlativo y mantiene el ciclo entrega → ajustes en ese hil
    como título y resuelve fechas relativas ("lunes AM") contra la fecha del correo en
    America/Santiago.
 2. **Confirmación en el mismo hilo**: Noma responde desde el alias con `threadId` +
-   `In-Reply-To` + `References`, HTML + texto, asunto `Re: <asunto> [EQ-0142]`.
-3. **Entrega**: un comentario en la tarea que empieza con `ENTREGA 01` (cualquier número)
-   y trae link(s) envía al solicitante (y CC originales) la entrega en el hilo, registra
-   la ronda en `request_deliveries` (idempotente por story) y fija el campo `Estado` en
-   "Enviado a cliente" si esa opción existe. Sin links, Noma no envía y lo comenta.
+   `In-Reply-To` + `References`, HTML + texto, asunto `Re: <asunto> [EQ-0142]`. Sale
+   antes de subir los adjuntos a la tarea, para que un corte por tiempo no la retrase.
+   Destinatarios: el remitente (From). El `Reply-To` solo se usa si también es remitente
+   autorizado. Los demás To/Cc externos van en copia (máx. 10), salvo que el alias haya
+   llegado en copia oculta: entonces se responde solo al remitente.
+3. **Entrega**: un comentario en la tarea que empieza con `ENTREGA 01` **en mayúsculas**
+   (cualquier número 1–999) y trae link(s) envía al solicitante (y CC) la entrega en el
+   hilo, registra la ronda en `request_deliveries` (idempotente por story) y fija el campo
+   `Estado` en "Enviado a cliente" si esa opción existe. "Entrega 2 queda para mañana"
+   (minúsculas) es conversación interna y no dispara nada. Los links de Asana (menciones,
+   tareas) nunca se envían. El texto libre del comentario va como nota en el correo. Sin
+   links, Noma no envía y lo comenta.
 4. **Respuesta del cliente** (mismo `threadId`, `References` conocidas o folio en el
    asunto): se publica como **comentario** en la tarea original, sin el texto citado ni la
-   firma y con los adjuntos subidos. Si la tarea estaba completada se reabre y `Estado`
+   firma (el comentario avisa cuando se omitió algo) y con los adjuntos subidos. Si la tarea estaba completada se reabre y `Estado`
    pasa a "Con ajustes" si existe. Nunca crea una tarea nueva.
 5. **Sin loops**: lo que envía la propia casilla/alias se ignora; las respuestas
    automáticas (fuera de oficina, rebotes) se ignoran; los comentarios del usuario de
@@ -35,9 +42,21 @@ hilo con un folio correlativo y mantiene el ciclo entrega → ajustes en ese hil
    disparan correos. **Remitentes no autorizados** no crean tareas: el evento queda en
    `review` y se avisa a Slack (`SLACK_OPERATIONS_WEBHOOK_URL`).
 
-Un remitente está autorizado si su dominio está en `allowed_sender_domains` del canal
-(incluye subdominios) o si su correo está en `client_contacts` del cliente. En una
-respuesta detectada solo por folio, además se acepta al solicitante o CC originales.
+Un remitente está autorizado si **(a)** el From está autenticado y **(b)** su dominio está
+en `allowed_sender_domains` del canal (incluye subdominios) o su correo está en
+`client_contacts` del cliente. En una respuesta detectada solo por folio, además se
+acepta al solicitante o CC originales.
+
+- **Autenticación** (`sender-auth.ts`): se lee el primer `Authentication-Results` (el que
+  antepone `mx.google.com`) y se exige `dmarc=pass`, o `dkim=pass` / `spf=pass` alineados
+  con el dominio del From. Correo interno del Workspace sin ese encabezado solo vale si
+  el From es del dominio del estudio. Las respuestas en hilo sin autenticar también van a
+  `review`. `NOMA_EMAIL_SENDER_AUTH=off` la desactiva (solo diagnóstico).
+- **Direcciones**: se parsean sobre el encabezado crudo (RFC 5322: el `<…>` fuera de
+  comillas) y las encoded-words se decodifican solo en el nombre visible, así que un
+  nombre como `"Jefe <jefe@cliente.cl>" <x@otro.com>` no suplanta al cliente.
+- **Dominios públicos** (gmail.com, outlook.com…) no se aceptan en
+  `allowed_sender_domains`: esos remitentes van en `client_contacts` con la dirección.
 
 ## Arquitectura
 
@@ -81,21 +100,34 @@ Vercel Cron ──▶ GET /api/cron/email-maintenance
 ### Idempotencia y reintentos
 
 - Cola: único por `gmail_message_id`; fallidos se reintentan hasta 5 veces (cron).
+  Los eventos se reclaman de a uno y **por hilo**: mientras un mensaje de un `threadId`
+  está en proceso, otro del mismo hilo no se toma (evita dos folios para "la solicitud"
+  y "olvidé el adjunto"). Los reclamos se serializan con `pg_advisory_xact_lock`.
+- Tiempo: el push solo empieza eventos durante 20 s y el cron durante ~20 s (las
+  funciones se cortan a los 60 s). Lo que no alcanza queda `pending`; un evento cortado
+  a mitad queda `processing` y el cron lo retoma a los 15 min, reanudando desde el
+  progreso guardado (extracción, solicitud, confirmación, adjuntos subidos).
 - Solicitud: única por `source_message_id = email:<Message-ID>`; folio asignado en la
   misma transacción (upsert atómico de `folio_counters`), así un duplicado no consume
   número.
 - Asana y confirmación usan un reclamo previo (`asana_attempted_at`,
-  `email_acknowledged_at`). Si el proveedor rechaza con HTTP se libera y se reintenta;
-  si fue un corte de red ambiguo se conserva y queda para revisión manual (no duplicar).
+  `email_acknowledged_at`). Si el proveedor rechaza con **4xx** (incluido 429) se libera y
+  se reintenta. Un **5xx** o un corte de red es ambiguo (pudo completarse): se conserva el
+  reclamo y el evento queda en **`review`**, no en `done`, para que alguien confirme si la
+  tarea existe o si la confirmación llegó.
 - Respuestas: el `storyGid` publicado y los adjuntos subidos se guardan en el payload
   del evento para no repetirlos en un reintento.
-- Entregas: `request_deliveries.asana_story_gid` único. `failed` se reintenta;
-  `unknown` (envío ambiguo) y `rejected` (sin links) no.
+- Entregas: `request_deliveries.asana_story_gid` único. `failed` (4xx de Gmail) se
+  reintenta; `unknown` (5xx o corte: envío ambiguo) y `rejected` (sin links) no.
+- La reconciliación de entregas pagina todos los comentarios de la tarea (hasta 1.000).
+- Webhooks de Asana: las firmas solo se validan contra filas `active`. Si
+  `createWebhook` falla, el script deja la fila en `failed`.
 
 ### Estados de `email_inbound_events`
 
 `pending` · `processing` · `done` · `failed` · `ignored` (envío propio, automático, sin
-alias) · `review` (remitente no autorizado o respuesta sin tarea). Para aprobar un
+alias) · `review` (remitente no autorizado o sin autenticar, respuesta sin tarea, o tarea
+/ confirmación en estado ambiguo: revisar la nota del evento). Para aprobar un
 remitente: agregar el dominio al canal o el contacto al cliente y volver el evento a
 `pending`; el siguiente cron lo procesa.
 
@@ -106,8 +138,10 @@ Nuevas:
 - `NOMA_REQUESTS_MAILBOX` — casilla de servicio cuyos alias reciben solicitudes.
 - `NOMA_GMAIL_PUBSUB_TOPIC` — `projects/<proyecto>/topics/<topic>` para `users.watch`.
 - `NOMA_GMAIL_PUSH_TOKEN` — token compartido en la URL de la suscripción push.
-- `NOMA_GMAIL_PUSH_AUDIENCE` — opcional; activa la validación OIDC del push.
-- `NOMA_GMAIL_PUSH_SERVICE_ACCOUNT` — opcional; cuenta de servicio esperada en el OIDC.
+- `NOMA_GMAIL_PUSH_AUDIENCE` — opcional; activa la validación OIDC del push. Si se
+  define, `NOMA_GMAIL_PUSH_SERVICE_ACCOUNT` es obligatoria (si falta, el push responde 503).
+- `NOMA_GMAIL_PUSH_SERVICE_ACCOUNT` — cuenta de servicio esperada en el OIDC.
+- `NOMA_EMAIL_SENDER_AUTH` — opcional; `off` desactiva la verificación DMARC/DKIM/SPF.
 - `NOMA_GMAIL_WATCH_LABEL_ID` — opcional; limita watch/history a una etiqueta.
 - `NOMA_ASANA_BOT_USER_GID` — opcional; si falta se usa `users/me` del token central.
 
@@ -118,6 +152,13 @@ Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
 
 ## Puesta en marcha (checklist)
 
+0. **Antes del merge — crons y webhook de WhatsApp**: hasta ahora el middleware
+   redirigía a `/login` todas las llamadas sin sesión a `/api`, así que en producción
+   `/api/cron/whatsapp-drain`, `/api/cron/retainers-open` y `/api/webhooks/whatsapp`
+   nunca se ejecutaban. Al desplegar este cambio empiezan a correr. Revisar antes el
+   backlog (`select status, count(*) from whatsapp_inbound_events group by 1`) y que los
+   retainers activos sean los correctos (`ensureCurrentPeriod` es idempotente por
+   `retainer_periods_retainer_start_unique`).
 1. **Migración**: merge a `main` aplica `0048_email_intake` (GitHub Action) y re-aplica
    RLS. En local: `npm run db:deploy`.
 2. **Alias "Enviar como"**: en la casilla de servicio, Gmail → Configuración → Cuentas →
@@ -125,12 +166,14 @@ Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
 3. **OAuth**: en Google Cloud (mismo OAuth client de Supabase) habilitar Gmail API y
    agregar el scope `https://www.googleapis.com/auth/gmail.modify` en la pantalla de
    consentimiento (app Internal). Luego, con la casilla de servicio, entrar una vez a
-   `/login?mailbox=requests` y aceptar. El refresh token queda en `user_integrations`.
+   `/login?mailbox=requests` y aceptar (el middleware deja pasar esa URL con sesión
+   abierta solo a esa casilla). El refresh token queda en `user_integrations`.
 4. **Pub/Sub**: habilitar Cloud Pub/Sub; crear el topic; dar rol _Pub/Sub Publisher_ a
    `gmail-api-push@system.gserviceaccount.com` en el topic; crear una suscripción
    **push** a `https://<deploy>/api/webhooks/gmail?token=<NOMA_GMAIL_PUSH_TOKEN>`
-   (opcional: autenticación OIDC con una cuenta de servicio y audiencia =
-   `NOMA_GMAIL_PUSH_AUDIENCE`). Reintento con backoff exponencial.
+   (recomendado: autenticación OIDC con una cuenta de servicio; audiencia =
+   `NOMA_GMAIL_PUSH_AUDIENCE` y esa cuenta en `NOMA_GMAIL_PUSH_SERVICE_ACCOUNT`).
+   Reintento con backoff exponencial.
 5. **Asana**: `ASANA_ACCESS_TOKEN` debe ser de un **usuario bot dedicado** (p. ej.
    "Noma"), miembro de los proyectos. Sus comentarios nunca disparan correos, así que si
    el token fuera de una persona, esa persona no podría enviar entregas. Opcional: fijar
@@ -149,6 +192,7 @@ Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
    anteriores). Luego corre diario.
 9. **Prueba**: correo desde un dominio autorizado al alias piloto → tarea + confirmación;
    comentar `ENTREGA 01 <link>` → correo en el hilo; responder → comentario en Asana.
+   Probar también un correo desde una cuenta personal (debe quedar en `review`).
 
 ### Cron
 

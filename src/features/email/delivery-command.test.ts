@@ -4,10 +4,28 @@ import { parseDeliveryCommand } from "./delivery-command";
 
 test("reconoce ENTREGA con cualquier número y ceros a la izquierda", () => {
   assert.equal(parseDeliveryCommand("ENTREGA 01 https://x.cl")?.round, 1);
-  assert.equal(parseDeliveryCommand("  entrega 2: https://x.cl")?.round, 2);
-  assert.equal(parseDeliveryCommand("Entrega 012")?.round, 12);
+  assert.equal(parseDeliveryCommand("  ENTREGA 2: https://x.cl")?.round, 2);
+  assert.equal(parseDeliveryCommand("ENTREGA 012")?.round, 12);
   assert.equal(parseDeliveryCommand("ENTREGA03")?.round, 3);
   assert.equal(parseDeliveryCommand("ENTREGA 999")?.round, 999);
+});
+
+test("solo en MAYÚSCULAS: conversación interna no dispara entregas", () => {
+  for (const text of [
+    "Entrega 2 queda para mañana, borrador interno https://drive.google.com/x",
+    "entrega 01 https://x.cl",
+    "Entrega 012",
+  ]) {
+    assert.equal(parseDeliveryCommand(text), null, text);
+  }
+});
+
+test("no envía links internos de Asana (menciones, tareas)", () => {
+  const parsed = parseDeliveryCommand(
+    "ENTREGA 03 https://www.canva.com/design/abc https://app.asana.com/0/profile/1203 revisado por https://app.asana.com/0/123/456",
+  );
+  assert.deepEqual(parsed?.links, ["https://www.canva.com/design/abc"]);
+  assert.equal(parsed?.note, "revisado por");
 });
 
 test("ignora comentarios que no son entregas", () => {

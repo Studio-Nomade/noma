@@ -193,8 +193,9 @@ export async function saveWatch(
     .onConflictDoUpdate({
       target: emailMailboxState.mailbox,
       // El historyId existente se conserva: el watch no debe saltarse correos
-      // pendientes de sincronizar.
-      set: { watchExpiresAt: input.expiration, updatedAt: new Date() },
+      // pendientes de sincronizar. `updatedAt` tampoco se toca: marca la
+      // última sincronización real y define la ventana del backfill.
+      set: { watchExpiresAt: input.expiration },
     });
 }
 
@@ -225,34 +226,51 @@ export async function enqueueMessages(
   return inserted.length;
 }
 
+/**
+ * Un hilo se procesa de a un evento a la vez: si otro worker tiene un mensaje
+ * del mismo threadId en curso (lease < 15 min), este no se reclama. Evita que
+ * "la solicitud" y "olvidé el adjunto" del mismo hilo creen dos folios.
+ */
+const threadNotBusy = sql`not exists (
+  select 1 from email_inbound_events busy
+  where busy.id <> ${emailInboundEvents.id}
+    and busy.status = 'processing'
+    and busy.updated_at > now() - interval '15 minutes'
+    and busy.payload->>'threadId' = ${emailInboundEvents.payload}->>'threadId'
+)`;
+
 export async function claimPendingEvents(
   limit: number,
   includeFailed: boolean,
 ) {
   return db.transaction(async (tx) => {
+    // Serializa los reclamos (lock de transacción, compatible con pooler en
+    // modo transacción) para que dos workers no tomen el mismo hilo a la vez.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('noma:email-inbound-claim'))`,
+    );
+    const statusFilter = includeFailed
+      ? or(
+          eq(emailInboundEvents.status, "pending"),
+          and(
+            eq(emailInboundEvents.status, "failed"),
+            lt(emailInboundEvents.attempts, 5),
+          ),
+          // Reclamos huérfanos (proceso caído a mitad de camino).
+          and(
+            eq(emailInboundEvents.status, "processing"),
+            lt(emailInboundEvents.attempts, 5),
+            lt(
+              emailInboundEvents.updatedAt,
+              sql`now() - interval '15 minutes'`,
+            ),
+          ),
+        )
+      : eq(emailInboundEvents.status, "pending");
     const events = await tx
       .select()
       .from(emailInboundEvents)
-      .where(
-        includeFailed
-          ? or(
-              eq(emailInboundEvents.status, "pending"),
-              and(
-                eq(emailInboundEvents.status, "failed"),
-                lt(emailInboundEvents.attempts, 5),
-              ),
-              // Reclamos huérfanos (proceso caído a mitad de camino).
-              and(
-                eq(emailInboundEvents.status, "processing"),
-                lt(emailInboundEvents.attempts, 5),
-                lt(
-                  emailInboundEvents.updatedAt,
-                  sql`now() - interval '15 minutes'`,
-                ),
-              ),
-            )
-          : eq(emailInboundEvents.status, "pending"),
-      )
+      .where(and(statusFilter, threadNotBusy))
       .orderBy(asc(emailInboundEvents.createdAt))
       .limit(limit)
       .for("update", { skipLocked: true });

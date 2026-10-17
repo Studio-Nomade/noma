@@ -29,6 +29,12 @@ export async function POST(request: Request) {
   }
 
   const audience = process.env.NOMA_GMAIL_PUSH_AUDIENCE?.trim();
+  const serviceAccount = process.env.NOMA_GMAIL_PUSH_SERVICE_ACCOUNT?.trim();
+  // OIDC sin cuenta de servicio aceptaría cualquier token de Google con esa
+  // audiencia: se exige configurar ambas.
+  if (audience && !serviceAccount) {
+    return new Response("Not configured", { status: 503 });
+  }
   if (audience) {
     const authorization = request.headers.get("authorization") ?? "";
     const jwt = authorization.startsWith("Bearer ")
@@ -38,8 +44,7 @@ export async function POST(request: Request) {
       jwt &&
       (await verifyGoogleOidcToken(jwt, {
         audience,
-        serviceAccountEmail:
-          process.env.NOMA_GMAIL_PUSH_SERVICE_ACCOUNT?.trim() || null,
+        serviceAccountEmail: serviceAccount ?? null,
       }));
     if (!valid) return new Response("Forbidden", { status: 403 });
   }
@@ -56,11 +61,17 @@ export async function POST(request: Request) {
     return new Response(null, { status: 204 });
   }
 
+  const startedAt = Date.now();
   try {
     const result = await syncMailboxHistory(notification.historyId);
     if (result.enqueued > 0) {
       after(async () => {
-        await processPendingEmails({ limit: 10 }).catch((error) => {
+        // Solo se EMPIEZAN eventos en los primeros 20 s: uno con IA, Asana y
+        // adjuntos puede tomar ~35 s y la función se corta a los 60 s.
+        await processPendingEmails({
+          limit: 5,
+          deadline: startedAt + 20_000,
+        }).catch((error) => {
           console.error("[email:webhook:process]", error);
         });
       });

@@ -43,7 +43,10 @@ export type ParsedEmail = {
   threadId: string;
   labelIds: string[];
   historyId: string | null;
+  /** Encabezados con encoded-words decodificadas (solo para mostrar). */
   headers: Record<string, string[]>;
+  /** Encabezados tal como llegaron: direcciones, ruteo y autenticación. */
+  rawHeaders: Record<string, string[]>;
   messageId: string | null;
   inReplyTo: string | null;
   references: string[];
@@ -193,6 +196,15 @@ export function parseGmailMessage(message: GmailMessage): ParsedEmail {
   for (const [key, values] of Object.entries(headers)) {
     decodedHeaders[key] = values.map(decodeMimeWords);
   }
+  // Las direcciones se parsean sobre el encabezado CRUDO y solo el nombre se
+  // decodifica: una encoded-word no puede inyectar comas, comillas ni `<...>`.
+  const addresses = (values: string[] | undefined) =>
+    (values ?? []).flatMap((value) =>
+      parseAddressList(value).map((address) => ({
+        ...address,
+        name: address.name ? decodeMimeWords(address.name) : null,
+      })),
+    );
 
   return {
     gmailId: message.id,
@@ -200,14 +212,19 @@ export function parseGmailMessage(message: GmailMessage): ParsedEmail {
     labelIds: message.labelIds ?? [],
     historyId: message.historyId ?? null,
     headers: decodedHeaders,
+    rawHeaders: headers,
     messageId: parseMessageIds(first(headers, "message-id"))[0] ?? null,
     inReplyTo: parseMessageIds(first(headers, "in-reply-to"))[0] ?? null,
     references: parseMessageIds(first(headers, "references")),
     subject: decoded("subject") ?? "",
-    from: parseAddressList(decoded("from"))[0] ?? null,
-    replyTo: parseAddressList(decoded("reply-to")),
-    to: (decodedHeaders.to ?? []).flatMap((value) => parseAddressList(value)),
-    cc: (decodedHeaders.cc ?? []).flatMap((value) => parseAddressList(value)),
+    // Un From con varias direcciones es ambiguo: se rechaza (sin remitente).
+    from: (() => {
+      const list = addresses(headers.from?.slice(0, 1));
+      return list.length === 1 ? list[0] : null;
+    })(),
+    replyTo: addresses(headers["reply-to"]?.slice(0, 1)),
+    to: addresses(headers.to),
+    cc: addresses(headers.cc),
     date,
     text: text ?? (html ? htmlToText(html) : ""),
     html,

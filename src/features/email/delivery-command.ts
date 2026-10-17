@@ -1,9 +1,23 @@
 /**
- * Comando de entrega en comentarios de Asana: `ENTREGA 01` (cualquier número
- * 1–999) al inicio del comentario + link(s). Módulo puro.
+ * Comando de entrega en comentarios de Asana: `ENTREGA 01` (en MAYÚSCULAS,
+ * número 1–999) al inicio del comentario + link(s). Las mayúsculas son el
+ * gatillo explícito: "Entrega 2 queda para mañana…" es conversación interna y
+ * nunca sale al cliente. Los links internos de Asana (menciones, tareas) no
+ * se envían. Módulo puro.
  */
 
-export const DELIVERY_COMMAND_RE = /^\s*ENTREGA\s*0*(\d{1,3})\b/i;
+export const DELIVERY_COMMAND_RE =
+  /^\s*ENTREGA\s*0*(\d{1,3})(?=$|[\s:·\-–—.,;])/;
+
+/** Links que nunca se mandan al cliente (menciones y tareas de Asana). */
+export function isInternalLink(url: string) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "asana.com" || host.endsWith(".asana.com");
+  } catch {
+    return true;
+  }
+}
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 
@@ -25,7 +39,13 @@ export function extractUrls(...sources: (string | null | undefined)[]) {
     const plain = source.match(URL_RE) ?? [];
     for (const raw of [...hrefs, ...plain]) {
       const url = cleanUrl(raw.replace(/&amp;/g, "&"));
-      if (/^https?:\/\//i.test(url) && !links.includes(url)) links.push(url);
+      if (
+        /^https?:\/\//i.test(url) &&
+        !isInternalLink(url) &&
+        !links.includes(url)
+      ) {
+        links.push(url);
+      }
     }
   }
   return links;

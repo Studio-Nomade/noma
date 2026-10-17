@@ -80,6 +80,8 @@ export function buildReplyStoryHtml(input: {
   fromEmail: string;
   receivedAt: Date;
   text: string;
+  /** Se descartó texto citado/firma del correo (puede faltar contenido). */
+  quoteOmitted?: boolean;
   attachmentNames: string[];
 }): string {
   const author = input.fromName
@@ -90,6 +92,9 @@ export function buildReplyStoryHtml(input: {
     "<body>",
     `<strong>Respuesta del cliente por correo</strong> · ${escapeHtml(author)} · ${escapeHtml(input.receivedAt.toISOString())}\n`,
     escapeHtml(body.slice(0, 15_000)),
+    input.quoteOmitted
+      ? "\n\n<em>Se omitió el texto citado y la firma del correo; si falta algo, revisa el hilo en Gmail.</em>"
+      : "",
     input.attachmentNames.length
       ? `\n\n<em>Adjuntos subidos a la tarea:</em> ${escapeHtml(input.attachmentNames.join(", "))}`
       : "",

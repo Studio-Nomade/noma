@@ -17,7 +17,12 @@ import { formatRound, parseDeliveryCommand } from "./delivery-command";
 import { replySubject } from "./folio";
 import { GmailApiError, sendReply } from "./inbox";
 import { buildReplyThreadHeaders } from "./mime";
-import { ESTADO_FIELD, ESTADO_SENT, STUDIO_SENDER_NAME } from "./requests";
+import {
+  ESTADO_FIELD,
+  ESTADO_SENT,
+  STUDIO_SENDER_NAME,
+  isDefiniteRejection,
+} from "./requests";
 import { getChannel } from "./store";
 import { renderDeliveryEmail } from "./templates";
 
@@ -144,10 +149,9 @@ export async function processAsanaStory(
       references: thread.references,
     });
   } catch (error) {
+    // Solo un 4xx garantiza que no salió; 5xx/red pudo haber salido.
     const definite =
-      error instanceof GmailApiError &&
-      error.status !== null &&
-      error.status !== 0;
+      error instanceof GmailApiError && isDefiniteRejection(error.status);
     await db
       .update(requestDeliveries)
       .set({

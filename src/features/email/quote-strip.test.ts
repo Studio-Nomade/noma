@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { stripQuotedReply } from "./quote-strip";
+import { stripQuotedReply, stripQuotedReplyDetailed } from "./quote-strip";
 
 test("Gmail en español con atribución en dos líneas", () => {
   const body = [
@@ -78,4 +78,35 @@ test("no corta frases que empiezan con 'El' sin atribución", () => {
 
 test("mensaje solo citado devuelve vacío", () => {
   assert.equal(stripQuotedReply("> solo cita\n> nada nuevo"), "");
+});
+
+test("no corta texto del cliente que parece encabezado de Outlook", () => {
+  const body = "Hola, cambios:\nDe: logo antiguo\nPara: logo nuevo\nGracias";
+  assert.equal(stripQuotedReply(body), body);
+});
+
+test("no corta una atribución sin fecha ni dirección", () => {
+  const body =
+    "El texto del header dice:\n'Bienvenidos'\nque Juan escribió:\nEso es todo.";
+  assert.equal(stripQuotedReply(body), body);
+});
+
+test("una línea -- con mucho texto después no es firma", () => {
+  const body = [
+    "Primer punto.",
+    "--",
+    ...Array.from({ length: 10 }, (_, i) => `Punto ${i + 2}.`),
+  ].join("\n");
+  assert.equal(stripQuotedReply(body), body);
+});
+
+test("informa cuando se omitió contenido", () => {
+  assert.deepEqual(stripQuotedReplyDetailed("Ok.\n\n-- \nAna"), {
+    text: "Ok.",
+    omitted: true,
+  });
+  assert.deepEqual(stripQuotedReplyDetailed("Ok.\n> cita"), {
+    text: "Ok.",
+    omitted: false,
+  });
 });

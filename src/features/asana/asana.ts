@@ -241,11 +241,25 @@ export class AsanaApiError extends Error {
   }
 }
 
+type AsanaEnvelope<T> = {
+  data: T;
+  next_page?: { offset: string } | null;
+};
+
 async function asanaRequest<T>(
   method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   options: { body?: unknown; form?: FormData; timeoutMs?: number } = {},
 ): Promise<T> {
+  const envelope = await asanaRequestEnvelope<T>(method, path, options);
+  return envelope?.data as T;
+}
+
+async function asanaRequestEnvelope<T>(
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  path: string,
+  options: { body?: unknown; form?: FormData; timeoutMs?: number } = {},
+): Promise<AsanaEnvelope<T> | undefined> {
   const token = asanaToken();
   if (!token) {
     throw new AsanaApiError(
@@ -282,9 +296,8 @@ async function asanaRequest<T>(
       res.status,
     );
   }
-  if (res.status === 204) return undefined as T;
-  const json = (await res.json()) as { data: T };
-  return json.data;
+  if (res.status === 204) return undefined;
+  return (await res.json()) as AsanaEnvelope<T>;
 }
 
 // ── Usuario del token (bot de Noma) ──────────────────────────
@@ -501,11 +514,25 @@ export async function getStory(storyGid: string) {
   );
 }
 
-export async function listTaskStories(taskGid: string) {
-  return asanaRequest<AsanaStory[]>(
-    "GET",
-    `/tasks/${encodeURIComponent(taskGid)}/stories?opt_fields=${STORY_FIELDS}&limit=100`,
-  );
+/** Todas las stories de la tarea (paginado; tope de seguridad 1.000). */
+export async function listTaskStories(taskGid: string, maxPages = 10) {
+  const stories: AsanaStory[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      opt_fields: STORY_FIELDS,
+      limit: "100",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<AsanaStory[]>(
+      "GET",
+      `/tasks/${encodeURIComponent(taskGid)}/stories?${params}`,
+    );
+    stories.push(...(envelope?.data ?? []));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return stories;
 }
 
 export async function getTaskState(taskGid: string) {

@@ -140,6 +140,8 @@ type HistoryResponse = {
   nextPageToken?: string;
 };
 
+const MAX_HISTORY_PAGES = 20;
+
 /**
  * Mensajes agregados desde `startHistoryId`. Lanza GmailApiError 404 si el
  * historyId expiró (Gmail guarda ~1 semana): el llamador hace backfill.
@@ -151,7 +153,8 @@ export async function listHistory(
   const messages = new Map<string, HistoryMessage>();
   let pageToken: string | undefined;
   let latest = startHistoryId;
-  for (let page = 0; page < 20; page += 1) {
+  let lastEntryId: string | null = null;
+  for (let page = 0; page < MAX_HISTORY_PAGES; page += 1) {
     const params = new URLSearchParams({
       startHistoryId,
       historyTypes: "messageAdded",
@@ -161,6 +164,7 @@ export async function listHistory(
     if (pageToken) params.set("pageToken", pageToken);
     const res = await gmailFetch<HistoryResponse>(`/history?${params}`);
     for (const entry of res.history ?? []) {
+      lastEntryId = String(entry.id);
       for (const added of entry.messagesAdded ?? []) {
         messages.set(added.message.id, {
           id: added.message.id,
@@ -170,8 +174,13 @@ export async function listHistory(
       }
     }
     if (res.historyId) latest = String(res.historyId);
-    if (!res.nextPageToken) break;
     pageToken = res.nextPageToken;
+    if (!pageToken) break;
+  }
+  // Quedaron páginas sin leer: se avanza solo hasta el último registro leído
+  // para que la próxima sincronización continúe desde ahí (sin perder correos).
+  if (pageToken && lastEntryId) {
+    return { messages: [...messages.values()], historyId: lastEntryId };
   }
   return { messages: [...messages.values()], historyId: latest };
 }

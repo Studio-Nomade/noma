@@ -30,6 +30,7 @@ import {
 } from "@/features/asana/asana";
 import {
   completeRegistration,
+  failRegistration,
   listRegisteredWebhooks,
   prepareRegistration,
 } from "@/features/asana/webhook-store";
@@ -113,7 +114,13 @@ async function main() {
       console.log(`  - eliminado webhook previo ${hook.gid}`);
     }
     await prepareRegistration(projectGid);
-    const created = await createWebhook(projectGid, target);
+    let created: Awaited<ReturnType<typeof createWebhook>>;
+    try {
+      created = await createWebhook(projectGid, target);
+    } catch (error) {
+      await failRegistration(projectGid);
+      throw error;
+    }
     await completeRegistration(projectGid, created.gid);
     console.log(`  ✓ webhook ${created.gid} activo`);
   }

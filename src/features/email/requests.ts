@@ -39,8 +39,9 @@ import {
   type EmailAttachmentRef,
   type ParsedEmail,
 } from "./mime";
-import { stripQuotedReply } from "./quote-strip";
+import { stripQuotedReplyDetailed, type StrippedReply } from "./quote-strip";
 import {
+  isTrustedSender,
   nextFolio,
   patchEventPayload,
   type EmailRequestRow,
@@ -55,6 +56,12 @@ export type EventProgress = {
   extraction?: EmailExtraction;
   extractionSource?: "llm" | "fallback";
   requestId?: string;
+  /** Este evento insertó la solicitud (y es dueño de su confirmación). */
+  createdRequest?: boolean;
+  /** La confirmación salió (Gmail respondió OK) en este evento. */
+  confirmationSent?: boolean;
+  /** Adjuntos del correo original ya procesados en la tarea. */
+  attachmentsDone?: boolean;
   storyGid?: string;
   uploaded?: string[];
 };
@@ -70,12 +77,14 @@ const PRIORITY_FIELD = "Prioridad";
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_ATTACHMENTS = 10;
 const MIN_INLINE_IMAGE_BYTES = 20 * 1024; // logos de firma
+/** Tope de destinatarios en copia de confirmaciones y entregas. */
+export const MAX_REPLY_CC = 10;
 
 export function emailSourceKey(email: ParsedEmail) {
   return `email:${email.messageId ?? `gmail:${email.gmailId}`}`;
 }
 
-function studioDomain() {
+export function studioDomain() {
   return (
     process.env.NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase() ||
     "studionomade.cl"
@@ -87,11 +96,18 @@ function structuredGenerator(): StructuredGenerator | null {
   return (input) => getLLMProvider().generateStructured(input);
 }
 
-/** Cuerpo nuevo de una respuesta, sin citas ni firma. */
-export function replyBody(email: ParsedEmail) {
-  const fromText = stripQuotedReply(email.text);
-  if (fromText || !email.html) return fromText;
-  return stripQuotedReply(htmlToText(stripHtmlQuote(email.html)));
+/**
+ * Cuerpo nuevo de una respuesta, sin citas ni firma. `omitted` avisa que se
+ * descartó texto, para que el comentario en Asana lo indique y nadie asuma
+ * que eso era todo lo que escribió el cliente.
+ */
+export function replyBody(email: ParsedEmail): StrippedReply {
+  const fromText = stripQuotedReplyDetailed(email.text);
+  if (fromText.text || !email.html) return fromText;
+  const fromHtml = stripQuotedReplyDetailed(
+    htmlToText(stripHtmlQuote(email.html)),
+  );
+  return { text: fromHtml.text, omitted: true };
 }
 
 function selectAttachments(refs: EmailAttachmentRef[]) {
@@ -150,11 +166,23 @@ async function uploadEmailAttachments(
   };
 }
 
+/**
+ * ¿El servicio rechazó la operación de forma definitiva (no ocurrió)? Solo los
+ * 4xx (incluido 429) y la falta de configuración (0). Un 5xx o un corte de red
+ * es ambiguo: la operación pudo completarse igual, así que no se reintenta a
+ * ciegas (evita tareas/correos duplicados).
+ */
+export function isDefiniteRejection(status: number | null | undefined) {
+  return (
+    status === 0 ||
+    (typeof status === "number" && status >= 400 && status < 500)
+  );
+}
+
 function isDefinite(error: unknown) {
   return (
     (error instanceof AsanaApiError || error instanceof GmailApiError) &&
-    error.status !== null &&
-    error.status !== 0
+    isDefiniteRejection(error.status)
   );
 }
 
@@ -166,7 +194,39 @@ export type NewEmailRequestResult = {
   folio: string;
   created: boolean;
   warnings: string[];
+  /** Quedó algo sin confirmar (tarea o correo): el evento va a revisión. */
+  needsReview: boolean;
 };
+
+/**
+ * Destinatarios de las respuestas. El solicitante es el From (ya autenticado);
+ * el Reply-To solo se usa si también es remitente autorizado del canal. Si el
+ * alias llegó en copia oculta (no figura en To/Cc) se responde solo al
+ * solicitante, para no revelar el alias ni reenviar entregas a terceros.
+ */
+async function resolveRecipients(
+  email: ParsedEmail,
+  channel: ResolvedEmailChannel,
+  ownAddresses: string[],
+) {
+  const from = email.from!;
+  const replyTo = email.replyTo[0];
+  const requester =
+    replyTo &&
+    replyTo.email !== from.email &&
+    (await isTrustedSender(channel, replyTo.email))
+      ? replyTo
+      : from;
+  const visible = [...email.to, ...email.cc].map((address) => address.email);
+  const aliasVisible = visible.includes(channel.alias.toLowerCase());
+  const cc = aliasVisible
+    ? externalRecipients(visible, [...ownAddresses, requester.email]).slice(
+        0,
+        MAX_REPLY_CC,
+      )
+    : [];
+  return { requester, cc, aliasVisible };
+}
 
 export async function handleNewEmailRequest(input: {
   eventId: string;
@@ -214,11 +274,14 @@ export async function handleNewEmailRequest(input: {
       summary: `${extraction.title}. ${extraction.summary}`,
       date: email.date,
     });
-    const replyTo = email.replyTo[0] ?? from;
-    const cc = externalRecipients(
-      [...email.to, ...email.cc].map((address) => address.email),
-      [...input.ownAddresses, replyTo.email],
+    const recipients = await resolveRecipients(
+      email,
+      channel,
+      input.ownAddresses,
     );
+    if (!recipients.aliasVisible) {
+      warnings.push("Alias en copia oculta: se responde solo al remitente.");
+    }
     const outcome = await db
       .transaction(async (tx) => {
         const folio = await nextFolio(tx, channel.folioPrefix);
@@ -247,9 +310,9 @@ export async function handleNewEmailRequest(input: {
             emailMessageId: email.messageId,
             emailLastMessageId: email.messageId,
             emailSubject: email.subject.slice(0, 500),
-            requesterEmail: replyTo.email,
-            requesterName: replyTo.name ?? from.name,
-            ccEmails: cc,
+            requesterEmail: recipients.requester.email,
+            requesterName: recipients.requester.name ?? from.name,
+            ccEmails: recipients.cc,
             folio,
           })
           .onConflictDoNothing()
@@ -271,6 +334,7 @@ export async function handleNewEmailRequest(input: {
     request = outcome.row;
     created = outcome.inserted;
     progress.requestId = request.id;
+    if (created) progress.createdRequest = true;
     await patchEventPayload(input.eventId, progress);
 
     if (created) {
@@ -304,38 +368,73 @@ export async function handleNewEmailRequest(input: {
 
   // 3) Tarea en Asana (un único intento externo reclamado).
   let asanaError: unknown = null;
+  let needsReview = false;
   if (!request.asanaTaskGid && !request.asanaAttemptedAt) {
     try {
       request = await createAsanaTaskForRequest(request, {
         email,
         channel,
         extraction,
-        progress,
-        eventId: input.eventId,
-        warnings,
       });
     } catch (error) {
       asanaError = error;
       warnings.push(
         `Asana: ${error instanceof Error ? error.message : "error desconocido"}`,
       );
+      // Corte ambiguo (5xx/red): la tarea pudo crearse. No se reintenta.
+      if (!isDefinite(error)) needsReview = true;
     }
   } else if (!request.asanaTaskGid) {
+    needsReview = true;
     warnings.push(
-      "Asana: intento previo sin confirmar; queda pendiente de revisión manual.",
+      "Asana: intento previo sin confirmar; revisar si la tarea existe.",
     );
   }
 
-  // 4) Confirmación en el mismo hilo (aunque Asana haya fallado).
+  // 4) Confirmación en el mismo hilo (aunque Asana haya fallado), ANTES de
+  //    subir adjuntos para que un corte por tiempo no la retrase.
   if (!request.emailAcknowledgedAt) {
-    request = await sendConfirmation(request, {
-      channel,
-      title: extraction.title,
-      dueDate: extraction.requested_due_date,
-    });
+    try {
+      request = await sendConfirmation(request, {
+        channel,
+        title: extraction.title,
+        dueDate: extraction.requested_due_date,
+      });
+      progress.confirmationSent = true;
+      await patchEventPayload(input.eventId, progress);
+    } catch (error) {
+      if (isDefinite(error)) throw error; // se libera y se reintenta
+      needsReview = true;
+      warnings.push(
+        `Confirmación sin confirmar (${error instanceof Error ? error.message : "corte"}); revisar si llegó al cliente.`,
+      );
+    }
+  } else if (progress.createdRequest && !progress.confirmationSent) {
+    // Este evento reclamó la confirmación pero no vio la respuesta de Gmail
+    // (proceso cortado o timeout): puede no haber salido.
+    needsReview = true;
+    warnings.push("Confirmación reclamada sin respuesta de Gmail; revisar.");
   }
 
-  // 5) Espejo en Slack (degradable).
+  // 5) Adjuntos del correo original (reanudable por clave de adjunto).
+  if (request.asanaTaskGid && !progress.attachmentsDone) {
+    const uploads = await uploadEmailAttachments(
+      email,
+      request.asanaTaskGid,
+      progress.uploaded,
+      async (keys) => {
+        progress.uploaded = keys;
+        await patchEventPayload(input.eventId, progress);
+      },
+    );
+    if (uploads.skipped.length) {
+      warnings.push(`Adjuntos no subidos: ${uploads.skipped.join(", ")}`);
+    }
+    progress.attachmentsDone = true;
+    await patchEventPayload(input.eventId, progress);
+  }
+
+  // 6) Espejo en Slack (degradable).
   if (created) {
     await notifyNewClientRequest({
       requestId: request.id,
@@ -355,6 +454,7 @@ export async function handleNewEmailRequest(input: {
     folio: request.folio ?? "",
     created,
     warnings,
+    needsReview,
   };
 }
 
@@ -366,9 +466,6 @@ async function createAsanaTaskForRequest(
     email: ParsedEmail;
     channel: ResolvedEmailChannel;
     extraction: EmailExtraction;
-    progress: EventProgress;
-    eventId: string;
-    warnings: string[];
   },
 ): Promise<EmailRequestRow> {
   const { channel, extraction, email } = ctx;
@@ -436,8 +533,8 @@ async function createAsanaTaskForRequest(
       customFields,
     });
   } catch (error) {
-    // Rechazo definitivo (HTTP de Asana): la tarea no existe → se libera el
-    // reclamo para reintentar. Falla de red ambigua: queda para revisión.
+    // Rechazo definitivo (4xx de Asana): la tarea no existe → se libera el
+    // reclamo para reintentar. 5xx o falla de red ambigua: queda en revisión.
     if (isDefinite(error)) {
       await db
         .update(clientRequests)
@@ -457,19 +554,6 @@ async function createAsanaTaskForRequest(
     })
     .where(eq(clientRequests.id, request.id))
     .returning();
-
-  const uploads = await uploadEmailAttachments(
-    email,
-    task.gid,
-    ctx.progress.uploaded,
-    async (keys) => {
-      ctx.progress.uploaded = keys;
-      await patchEventPayload(ctx.eventId, ctx.progress);
-    },
-  );
-  if (uploads.skipped.length) {
-    ctx.warnings.push(`Adjuntos no subidos: ${uploads.skipped.join(", ")}`);
-  }
   return updated ?? claimed;
 }
 
@@ -525,8 +609,8 @@ async function sendConfirmation(
       .returning();
     return updated ?? claimed;
   } catch (error) {
-    // Gmail rechazó el envío: se libera para reintentar. Si fue un corte de
-    // red ambiguo se conserva la marca para no duplicar la confirmación.
+    // Gmail rechazó el envío (4xx): se libera para reintentar. Si fue un 5xx
+    // o un corte de red se conserva la marca para no duplicar la confirmación.
     if (isDefinite(error)) {
       await db
         .update(clientRequests)
@@ -572,13 +656,15 @@ export async function handleEmailReply(input: {
     if (uploads.skipped.length) {
       notes.push(`Adjuntos no subidos: ${uploads.skipped.join(", ")}`);
     }
+    const body = replyBody(email);
     const story = await addStory(
       taskGid,
       buildReplyStoryHtml({
         fromName: from.name,
         fromEmail: from.email,
         receivedAt: email.date,
-        text: replyBody(email),
+        text: body.text,
+        quoteOmitted: body.omitted,
         attachmentNames: uploads.names,
       }),
     );
