@@ -1,11 +1,11 @@
 # ADR-006 — Estrategia de deploy y dominio
 
-**Estado:** Aceptado · **Fecha:** 2026-06-29
+**Estado:** Aceptado, actualizado 2026-10-20 · **Fecha:** 2026-06-29
 
 ## Contexto
 
 La app debe correr local en desarrollo, tener un **deploy de prueba rápido** para testear el
-prototipo, y producción en **`app.studionomade.cl`**. El estudio tiene servidor propio en
+prototipo, y producción en **`noma.studionomade.cl`**. El estudio tiene servidor propio en
 **SiteGround**.
 
 ## Decisión
@@ -13,10 +13,11 @@ prototipo, y producción en **`app.studionomade.cl`**. El estudio tiene servidor
 - **Alojar la app en Vercel.** Next.js con SSR/Server Actions requiere un runtime Node
   persistente; Vercel es el camino de menor fricción y aporta preview deployments (el "deploy
   rápido" para testear cada rama/PR).
-- **Producción:** `app.studionomade.cl` apuntado hacia Vercel mediante un **CNAME** en el
-  DNS actual del dominio (**Bluehosting**, `*.dnsmisitio.net`). No se mueve el DNS.
-- El **hosting compartido actual** (Bluehosting/SiteGround) sigue sirviendo el sitio público
-  `studionomade.cl` (no la app, que requiere Node/SSR).
+- **Producción:** `noma.studionomade.cl` apuntado hacia Vercel mediante un **CNAME**.
+- **Actualización 2026-10-20:** el sitio público `studionomade.cl` (WordPress) se migra de
+  Bluehosting a **SiteGround**, y el **DNS del dominio pasa a SiteGround** (nameservers en
+  NIC Chile). El CNAME de `noma` se crea primero en el DNS de Bluehosting y se replica en la
+  zona de SiteGround antes del cambio de nameservers. La app no se aloja en SiteGround.
 - **GitHub** (repo de Studio Nomade) como remoto y respaldo; Vercel despliega desde GitHub.
 
 ## Por qué no SiteGround para la app
