@@ -115,7 +115,7 @@ export async function createImportDraft(formData: FormData): Promise<void> {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { rows } = await parseFile(buffer, file.name);
+  const { rows, meta } = await parseFile(buffer, file.name);
 
   // Mapeo: plantilla seleccionada o el default del tipo
   let mapping = DEFAULT_MAPPINGS[type];
@@ -135,6 +135,11 @@ export async function createImportDraft(formData: FormData): Promise<void> {
       throw new Error("Selecciona la cuenta bancaria de destino.");
     }
     const { valid, rejected, warnings } = mapTransactions(rows, mapping);
+    if (meta?.layout === "BCI_CARTOLA") {
+      warnings.unshift(
+        `Cartola BCI detectada${meta.periodo ? ` · período ${meta.periodo}` : ""}. Carga mensual: revisa que el período no se haya importado antes.`,
+      );
+    }
 
     // Dedup contra la BD (misma cuenta, fecha, monto, glosa)
     const existing = await db
@@ -143,18 +148,21 @@ export async function createImportDraft(formData: FormData): Promise<void> {
         monto: bankTransactions.monto,
         glosa: bankTransactions.glosa,
         tipo: bankTransactions.tipo,
+        saldo: bankTransactions.saldo,
       })
       .from(bankTransactions)
       .where(eq(bankTransactions.bankAccountId, bankAccountId));
+    const saldoKey = (v: unknown) =>
+      v === null || v === undefined ? "" : String(Math.round(Number(v)));
     const existingKeys = new Set(
       existing.map(
         (t) =>
-          `${t.fecha.slice(0, 10)}|${t.tipo}|${Math.round(Number(t.monto))}|${t.glosa}`,
+          `${t.fecha.slice(0, 10)}|${t.tipo}|${Math.round(Number(t.monto))}|${t.glosa}|${saldoKey(t.saldo)}`,
       ),
     );
     let dupes = 0;
     for (const t of valid) {
-      const key = `${t.fecha.slice(0, 10)}|${t.tipo}|${t.monto}|${t.glosa}`;
+      const key = `${t.fecha.slice(0, 10)}|${t.tipo}|${t.monto}|${t.glosa}|${saldoKey(t.saldo)}`;
       if (t.isDuplicate || existingKeys.has(key)) {
         t.isDuplicate = true;
         dupes++;
@@ -180,7 +188,11 @@ export async function createImportDraft(formData: FormData): Promise<void> {
   } else {
     const direction: DocumentDirection =
       type === "NUBOX_VENTAS" ? "VENTA" : "COMPRA";
-    const { valid, rejected, warnings } = mapDocuments(rows, mapping, direction);
+    const { valid, rejected, warnings } = mapDocuments(
+      rows,
+      mapping,
+      direction,
+    );
 
     // Dedup contra la BD (dirección, tipo, folio, rut del contacto)
     const folios = valid.map((v) => v.folio);

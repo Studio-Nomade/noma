@@ -49,6 +49,7 @@ export function CobranzaComposer({
   senderName,
   senderEmail,
   prefill,
+  transferText = "",
 }: {
   clients: ComposerClient[];
   templates: Template[];
@@ -56,6 +57,8 @@ export function CobranzaComposer({
   senderName: string;
   senderEmail: string;
   prefill?: Prefill;
+  /** Datos de transferencia del estudio (desde configuración del servidor). */
+  transferText?: string;
 }) {
   const [clientId, setClientId] = useState(prefill?.clientId ?? "");
   const [projectId, setProjectId] = useState(prefill?.projectId ?? "");
@@ -96,8 +99,14 @@ export function CobranzaComposer({
       anio: String(now.getFullYear()),
       estudio: studioName,
       remitente: senderName,
+      servicio: project?.name ?? "",
+      datos_transferencia: transferText,
+      total_pendiente: invoice ? formatMoney(invoice.total, "CLP") : "",
+      tabla_facturas: invoice
+        ? `• Factura N° ${invoice.folio ?? "—"} · total ${formatMoney(invoice.total, "CLP")}`
+        : "",
     };
-  }, [client, project, invoice, studioName, senderName]);
+  }, [client, project, invoice, studioName, senderName, transferText]);
 
   // Al elegir cliente, precarga el correo destinatario.
   useEffect(() => {

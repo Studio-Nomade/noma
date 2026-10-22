@@ -2290,6 +2290,36 @@ export const cobranzaMessages = pgTable(
   ],
 );
 
+// ── cobranza_cases (estado del seguimiento de cobranza por factura) ──
+// Un registro por documento de venta. Guarda lo que el seguimiento a 7 días
+// necesita para decidir si envía un P3 o lo suprime (ver
+// `features/finance/cobranza/followup.ts`).
+export const cobranzaCases = pgTable(
+  "cobranza_cases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .unique()
+      .references(() => finDocuments.id, { onDelete: "cascade" }),
+    // Envío de la factura al cliente (P1/P2). Si falta, se usa la emisión.
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    lastFollowupAt: timestamp("last_followup_at", { withTimezone: true }),
+    followupCount: integer("followup_count").default(0).notNull(),
+    // Fecha de pago comprometida por el cliente en el hilo.
+    committedPaymentDate: date("committed_payment_date"),
+    // Cesión a factoring: entidad y fecha.
+    factoringEntity: text("factoring_entity"),
+    factoringAt: date("factoring_at"),
+    // Derivada a cobranza legal (legal@).
+    legalAt: date("legal_at"),
+    paused: boolean("paused").default(false).notNull(),
+    note: text("note"),
+    ...timestamps,
+  },
+  (t) => [index("cobranza_cases_last_followup_idx").on(t.lastFollowupAt)],
+);
+
 // ── payment_reports (cliente informa un pago desde su portal) ──
 // Punto de extensión para una futura pasarela: hoy registra la declaración del
 // cliente y la deja pendiente de validación por Finanzas.

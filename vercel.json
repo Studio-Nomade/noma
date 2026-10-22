@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/retainers-open",
       "schedule": "5 3 1 * *"
+    },
+    {
+      "path": "/api/cron/cobranza-seguimiento",
+      "schedule": "0 13 * * 1-5"
     }
   ]
 }
