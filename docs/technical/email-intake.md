@@ -150,15 +150,34 @@ Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
 `GOOGLE_CLIENT_SECRET`, `CRON_SECRET`, `SLACK_OPERATIONS_WEBHOOK_URL`,
 `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN`, `NEXT_PUBLIC_SITE_URL`, `NOMA_DATA_DIR`.
 
+## Crons y banderas
+
+El middleware deja pasar `/api/webhooks/*` y `/api/cron/*` sin sesión
+(`src/lib/self-authenticated-paths.ts`); cada handler valida su propia credencial.
+Los crons, además, tienen una bandera y **parten apagados** (`src/lib/cron.ts`):
+sin la bandera en `true` responden `200 {"ok":true,"skipped":…}` y no hacen nada.
+La credencial se valida antes que la bandera (sin `CRON_SECRET` → 503; Bearer
+incorrecto → 401).
+
+| Cron (`vercel.json`) | Horario (UTC) | Bandera | Qué hace al encenderlo |
+|---|---|---|---|
+| `/api/cron/whatsapp-drain` | 04:15 diario | `CRON_WHATSAPP_DRAIN_ENABLED` | Procesa la cola de mensajes entrantes de WhatsApp, incluidos fallidos: crea solicitudes y tareas en Asana, consume horas de bolsa y **responde por WhatsApp** al remitente (confirmación o aviso de número no autorizado). |
+| `/api/cron/retainers-open` | 03:05 día 1 | `CRON_RETAINERS_OPEN_ENABLED` | Abre el período del mes de cada bolsa activa y aplica el arrastre de horas. Idempotente por `retainer_periods_retainer_start_unique`. |
+| `/api/cron/email-maintenance` | 10:40 diario | `CRON_EMAIL_MAINTENANCE_ENABLED` | Renueva el watch de Gmail, recupera correos perdidos, procesa la cola del canal correo (crea tareas y **responde al cliente**), marca entregas trabadas y reconcilia comentarios «ENTREGA NN» de Asana (**puede enviar la entrega al cliente**). |
+
+Orden sugerido para encender: `retainers-open` (solo base de datos) →
+`email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
+(después de revisar el backlog).
+
 ## Puesta en marcha (checklist)
 
-0. **Antes del merge — crons y webhook de WhatsApp**: hasta ahora el middleware
-   redirigía a `/login` todas las llamadas sin sesión a `/api`, así que en producción
-   `/api/cron/whatsapp-drain`, `/api/cron/retainers-open` y `/api/webhooks/whatsapp`
-   nunca se ejecutaban. Al desplegar este cambio empiezan a correr. Revisar antes el
-   backlog (`select status, count(*) from whatsapp_inbound_events group by 1`) y que los
-   retainers activos sean los correctos (`ensureCurrentPeriod` es idempotente por
-   `retainer_periods_retainer_start_unique`).
+0. **Antes de encender los crons**: hasta ahora el middleware redirigía a `/login`
+   todas las llamadas sin sesión a `/api`, así que en producción los crons y
+   `/api/webhooks/whatsapp` nunca se ejecutaban. Con las banderas apagadas el merge
+   no cambia nada para los crons; el webhook de WhatsApp sí empieza a recibir (solo
+   encola). Antes de encender `CRON_WHATSAPP_DRAIN_ENABLED`, revisar el backlog
+   (`select status, count(*) from whatsapp_inbound_events group by 1`); antes de
+   `CRON_RETAINERS_OPEN_ENABLED`, que los retainers activos sean los correctos.
 1. **Migración**: merge a `main` aplica `0048_email_intake` (GitHub Action) y re-aplica
    RLS. En local: `npm run db:deploy`.
 2. **Alias "Enviar como"**: en la casilla de servicio, Gmail → Configuración → Cuentas →
@@ -186,7 +205,7 @@ Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
 7. **Webhooks de Asana**: con el deploy arriba, `npm run asana:register-webhooks --
 --base-url https://<deploy>` (dry-run) y luego con `--apply`. Usa la misma
    `DATABASE_URL` que el deploy.
-8. **Watch de Gmail**: llamar una vez al cron
+8. **Watch de Gmail**: con `CRON_EMAIL_MAINTENANCE_ENABLED=true`, llamar una vez al cron
    (`curl -H "Authorization: Bearer $CRON_SECRET" https://<deploy>/api/cron/email-maintenance`)
    para crear el watch y fijar el `historyId` inicial (no hay backfill de correos
    anteriores). Luego corre diario.

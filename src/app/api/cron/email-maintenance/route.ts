@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { gateCronRequest } from "@/lib/cron";
 import {
   flagStuckDeliveries,
   reconcileAsanaDeliveries,
 } from "@/features/email/deliveries";
 import { processPendingEmails } from "@/features/email/processor";
-import { safeEqual } from "@/features/email/pubsub";
 import { renewMailboxWatch, syncMailboxHistory } from "@/features/email/sync";
 
 export const runtime = "nodejs";
@@ -21,16 +21,8 @@ export const maxDuration = 60;
  * En Hobby corre una vez al día; en Pro conviene cada 10 min.
  */
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) {
-    return NextResponse.json(
-      { ok: false, error: "Cron no configurado." },
-      { status: 503 },
-    );
-  }
-  if (!safeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) {
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
+  const gate = gateCronRequest(request, "email-maintenance");
+  if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
 
   const deadline = Date.now() + 50_000;
   const report: Record<string, unknown> = {};
