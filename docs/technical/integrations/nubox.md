@@ -38,7 +38,7 @@ Tabla `invoices` (FKs a `client`, `project`, `proposal`):
 5. `nubox.createInvoiceDraft(draft)` → `status='Borrador creado en Nubox'`,
    guardar `nuboxId`.
 6. Emisión manual en Nubox → al confirmar, `status='Emitido'` (+ `issuedAt`, `folio`).
-7. Seguimiento de pago vía Chipax → `Pagado` / `Vencido`.
+7. Seguimiento de pago en Noma: la cartola BCI conciliada marca la factura como pagada; el seguimiento a 7 días (P3) cubre las impagas.
 8. `logSync({ integration:'nubox', action:'create', ... })` en cada paso.
 
 ## Consideraciones
