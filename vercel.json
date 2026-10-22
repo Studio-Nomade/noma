@@ -9,6 +9,10 @@
       "schedule": "5 3 1 * *"
     },
     {
+      "path": "/api/cron/email-maintenance",
+      "schedule": "40 10 * * *"
+    },
+    {
       "path": "/api/cron/cobranza-seguimiento",
       "schedule": "0 13 * * 1-5"
     }
