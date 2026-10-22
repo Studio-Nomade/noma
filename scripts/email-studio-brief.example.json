@@ -1,0 +1,49 @@
+{
+  "client": "Studio Nomade",
+  "event": {
+    "name": "Prueba assets",
+    "date": "2026-10-21"
+  },
+  "send": {
+    "number": 1,
+    "date": "2026-10-21",
+    "name": "Prueba"
+  },
+  "subject": "Así se ve un mailing generado por brief",
+  "preheader": "Hola {{nombre}}, esto es una prueba del generador",
+  "variables": [
+    {
+      "key": "nombre",
+      "label": "Nombre",
+      "sample": "Ana"
+    },
+    {
+      "key": "link_cta",
+      "label": "Enlace del botón",
+      "sample": "https://studionomade.cl",
+      "emblueField": "LINK_CTA"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "image",
+      "file": "isotipo-blanco.png",
+      "alt": "Studio Nomade",
+      "width": 160
+    },
+    {
+      "type": "text",
+      "content": "Hola {{nombre}}:\nEste correo se armó desde un brief y sus imágenes apuntan a assets.studionomade.cl.",
+      "fontSize": 16
+    },
+    {
+      "type": "button",
+      "label": "Ir al sitio",
+      "href": "{{link_cta}}"
+    },
+    {
+      "type": "spacer",
+      "height": 24
+    }
+  ]
+}
