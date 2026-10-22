@@ -19,8 +19,8 @@
     "data:import-services": "tsx scripts/data/import_services.ts",
     "data:import-services-extra": "tsx scripts/data/import_services_extra.ts",
     "data:import-plan-cuentas": "tsx scripts/data/import_plan_cuentas.ts",
-    "email-studio:check": "tsx src/features/email-studio/check.ts",
     "email-studio:brief": "tsx scripts/email-studio-brief.ts",
+    "email-studio:check": "tsx src/features/email-studio/check.ts",
     "rates:sync": "tsx scripts/sync-rates.ts"
   },
   "dependencies": {
