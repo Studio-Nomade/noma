@@ -1,3 +1,4 @@
+import { COBRANZA_PLAYBOOK } from "./cobranza/playbook";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -174,7 +175,9 @@ export async function seedFinance() {
   for (const service of catalogServices) {
     await ensureServiceLedgerAccount(service.id);
   }
-  console.log(`✓ ${catalogServices.length} servicios vinculados al plan de cuentas`);
+  console.log(
+    `✓ ${catalogServices.length} servicios vinculados al plan de cuentas`,
+  );
 
   // ── Cuenta bancaria por defecto (BCI) ──────────────────────
   const [bank] = await db
@@ -252,7 +255,17 @@ export async function seedFinance() {
   console.log(`✓ ${signatures.length} firmas de correo por rol`);
 
   // ── Plantillas de cobranza (correos al cliente) ────────────
-  for (const t of COBRANZA_TEMPLATES) {
+  // Base histórica + playbook P1–P8 (se insertan solo si no existen por nombre,
+  // así no se pisan ediciones hechas desde Noma).
+  const playbookTemplates = COBRANZA_PLAYBOOK.map((t) => ({
+    name: t.name,
+    moment: t.moment,
+    subject: t.subject,
+    body: t.body,
+    isDefault: t.code === "P1" || t.code === "P3",
+  }));
+  const allCobranza = [...COBRANZA_TEMPLATES, ...playbookTemplates];
+  for (const t of allCobranza) {
     const [existing] = await db
       .select({ id: cobranzaTemplates.id })
       .from(cobranzaTemplates)
@@ -262,7 +275,7 @@ export async function seedFinance() {
       await db.insert(cobranzaTemplates).values(t);
     }
   }
-  console.log(`✓ ${COBRANZA_TEMPLATES.length} plantillas de cobranza`);
+  console.log(`✓ ${allCobranza.length} plantillas de cobranza (incluye P1–P8)`);
 }
 
 // Variables disponibles: {cliente} {contacto} {proyecto} {monto} {folio}

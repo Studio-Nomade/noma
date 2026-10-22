@@ -36,6 +36,19 @@ const FIELD_ALIASES: Record<string, string[]> = {
   neto: ["monto neto", "neto"],
   iva: ["monto iva", "monto iva recuperable", "iva"],
   total: ["monto total", "total"],
+  // Cartola bancaria (BCI: "Cheques y otros cargos", "Depósitos y Abono", …)
+  fecha: ["fecha", "fecha movimiento"],
+  glosa: ["descripcion", "glosa", "detalle"],
+  cargo: ["cheques y otros cargos", "cargos", "cargo"],
+  abono: ["depositos y abono", "depositos y abonos", "abonos", "abono"],
+  saldo: ["saldo diario", "saldo"],
+  documento: [
+    "n° documento",
+    "nº documento",
+    "n documento",
+    "nro documento",
+    "numero documento",
+  ],
 };
 
 /**
@@ -186,7 +199,11 @@ export function mapTransactions(
       return;
     }
 
-    const glosa = pick(row, mapping, "glosa").trim() || "(sin glosa)";
+    const documento = pick(row, mapping, "documento").trim();
+    const descripcion = pick(row, mapping, "glosa").trim() || "(sin glosa)";
+    // El N° de documento del banco distingue movimientos iguales del mismo día
+    // (p. ej. dos transferencias del mismo cliente por el mismo monto).
+    const glosa = documento ? `${descripcion} · doc ${documento}` : descripcion;
     let monto = 0;
     let tipo: BankTxnType;
 
@@ -212,7 +229,9 @@ export function mapTransactions(
     const saldoRaw = pick(row, mapping, "saldo");
     const saldo = saldoRaw ? parseChileanNumber(saldoRaw) : null;
 
-    const dupKey = `${fecha.toISOString()}|${tipo}|${Math.round(monto)}|${glosa}`;
+    // El saldo diario distingue dos movimientos idénticos el mismo día (la
+    // cartola BCI repite N° de documento en pagos de tarjeta, por ejemplo).
+    const dupKey = `${fecha.toISOString()}|${tipo}|${Math.round(monto)}|${glosa}|${saldo !== null ? Math.round(saldo) : ""}`;
     const isDuplicate = seen.has(dupKey);
     seen.add(dupKey);
 
