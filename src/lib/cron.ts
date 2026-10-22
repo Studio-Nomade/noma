@@ -18,11 +18,15 @@ import { timingSafeEqual } from "node:crypto";
  *   procesa la cola del canal correo (crea tareas y responde al cliente),
  *   marca entregas trabadas y reconcilia comentarios «ENTREGA NN» de Asana
  *   (puede enviar la entrega al cliente).
+ * - `cobranza-seguimiento`: seguimiento de cobranza a 7 días (P3). Con la
+ *   bandera encendida deja borradores; además envía solo si
+ *   `NOMA_COBRANZA_AUTOSEND=true`.
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
   "retainers-open": "CRON_RETAINERS_OPEN_ENABLED",
   "email-maintenance": "CRON_EMAIL_MAINTENANCE_ENABLED",
+  "cobranza-seguimiento": "CRON_COBRANZA_SEGUIMIENTO_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;
@@ -43,8 +47,7 @@ function safeEqual(a: string | null, b: string) {
 }
 
 export type CronGate =
-  | { ok: true }
-  | { ok: false; status: number; body: Record<string, unknown> };
+  { ok: true } | { ok: false; status: number; body: Record<string, unknown> };
 
 /**
  * Autoriza una llamada de Vercel Cron:

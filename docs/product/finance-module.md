@@ -94,6 +94,7 @@ Los datos bancarios del estudio no están en el repositorio: la variable
 | `NOMA_COBRANZA_DATOS_TRANSFERENCIA` | Datos bancarios del estudio para las plantillas (texto; `\n` para saltos de línea). |
 | `NOMA_COBRANZA_AUTOSEND` | `true` activa el envío automático del seguimiento a 7 días. Sin ella, solo borradores. |
 | `CRON_SECRET` | Protege los endpoints de cron. |
+| `CRON_COBRANZA_SEGUIMIENTO_ENABLED` | `true` enciende el cron del seguimiento a 7 días (apagado por defecto, como los demás crons). |
 
 ## Documentación técnica
 
