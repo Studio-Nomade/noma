@@ -72,6 +72,12 @@ Los enlaces de Asana admiten dos modelos operativos: una oportunidad puede vincu
 dashboard detecta el tipo por la URL, consulta el recurso correspondiente y muestra solo
 avance/cierre; no replica las tareas en Noma.
 
+## Correo de solicitudes
+
+Los alias por cliente de una casilla de servicio crean solicitudes y tareas en Asana,
+confirman en el mismo hilo y reciben entregas (`ENTREGA NN`) y ajustes. Ver
+[`email-intake.md`](email-intake.md).
+
 ## WhatsApp Business
 
 El canal usa la Cloud API oficial de Meta con un único número del estudio. Cada proyecto

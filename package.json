@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test $(find src scripts -name '*.test.ts' -not -path '*/node_modules/*')",
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -20,6 +21,8 @@
     "data:import-services-extra": "tsx scripts/data/import_services_extra.ts",
     "data:import-plan-cuentas": "tsx scripts/data/import_plan_cuentas.ts",
     "email-studio:check": "tsx src/features/email-studio/check.ts",
+    "email:seed-channels": "tsx scripts/email-channels-seed.ts",
+    "asana:register-webhooks": "tsx --conditions=react-server scripts/asana-register-webhooks.ts",
     "rates:sync": "tsx scripts/sync-rates.ts"
   },
   "dependencies": {
