@@ -1,6 +1,8 @@
 import "server-only";
 
 import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
+import type { z } from "zod";
 import type {
   ResponseInput,
   ResponseOutputItem,
@@ -30,12 +32,22 @@ export type GenerateAgentResponseResult = {
   outputText: string;
 };
 
+/** Salida estructurada (JSON Schema estricto) validada con Zod. */
+export type GenerateStructuredInput<T> = {
+  instructions: string;
+  input: string;
+  schema: z.ZodType<T>;
+  schemaName: string;
+  maxOutputTokens?: number;
+};
+
 /** Interfaz intercambiable de proveedor de IA (Anthropic, OpenAI, …). */
 export interface LLMProvider {
   generateProposal(input: GenerateProposalInput): Promise<ProposalSections>;
   generateAgentResponse(
     input: GenerateAgentResponseInput,
   ): Promise<GenerateAgentResponseResult>;
+  generateStructured<T>(input: GenerateStructuredInput<T>): Promise<T>;
 }
 
 /**
@@ -52,6 +64,11 @@ export const stubProvider: LLMProvider = {
   async generateAgentResponse() {
     throw new Error(
       "El agente no está disponible porque OPENAI_API_KEY no está configurada.",
+    );
+  },
+  async generateStructured() {
+    throw new Error(
+      "La extracción con IA no está disponible porque OPENAI_API_KEY no está configurada.",
     );
   },
 };
@@ -88,6 +105,33 @@ const openAIProvider: LLMProvider = {
       );
     }
     return { output: response.output, outputText: response.output_text };
+  },
+  async generateStructured<T>(input: GenerateStructuredInput<T>) {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) return stubProvider.generateStructured(input);
+
+    const client = new OpenAI({ apiKey, timeout: 30_000, maxRetries: 1 });
+    const response = await client.responses.parse(
+      {
+        model: process.env.OPENAI_MODEL?.trim() || "gpt-5.6-sol",
+        instructions: input.instructions,
+        input: input.input,
+        text: { format: zodTextFormat(input.schema, input.schemaName) },
+        reasoning: { effort: "low" },
+        max_output_tokens: input.maxOutputTokens ?? 1_500,
+        store: false,
+      },
+      { signal: AbortSignal.timeout(30_000) },
+    );
+    if (response.status === "failed" || response.error) {
+      throw new Error(
+        response.error?.message ?? "OpenAI no pudo completar la respuesta.",
+      );
+    }
+    if (response.output_parsed == null) {
+      throw new Error("OpenAI no devolvió una salida estructurada.");
+    }
+    return input.schema.parse(response.output_parsed);
   },
 };
 
