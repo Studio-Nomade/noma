@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/email-maintenance",
       "schedule": "40 10 * * *"
+    },
+    {
+      "path": "/api/cron/sync-rates",
+      "schedule": "10 12 * * *"
     }
   ]
 }

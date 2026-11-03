@@ -63,6 +63,7 @@ function normalize(values: ServiceFormValues) {
       name: d.name,
       area: d.area,
       subarea: emptyToNull(d.subarea),
+      unit: emptyToNull(d.unit),
       description: start.description,
       methodology: start.methodology,
       deliverables: start.deliverables,
