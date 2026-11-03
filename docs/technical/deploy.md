@@ -133,5 +133,8 @@ percent-encodearlos (`@` → `%40`, `#` → `%23`, …).
 
 ## 6. Sync de tasas (cron)
 
-Configurar **Vercel Cron** para `npm run rates:sync` (o un route handler
-`/api/rates/sync`) una vez al día. Ver [ADR-005](../decisions/ADR-005-moneda-uf.md).
+`vercel.json` programa `GET /api/cron/sync-rates` todos los días a las 12:10 UTC
+(09:10 Chile). El handler llama a `syncRates()` y guarda UF y dólar del día en
+`exchange_rates`; exige el header `Authorization: Bearer $CRON_SECRET`, igual que
+los demás crons. En local, el equivalente es `npm run rates:sync`.
+Ver [ADR-005](../decisions/ADR-005-moneda-uf.md).
