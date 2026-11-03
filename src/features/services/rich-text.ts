@@ -299,6 +299,11 @@ function blockWeight(block: RichTextBlock): number {
   return 0.6 + lines * 0.8;
 }
 
+/** Peso tipográfico total de una lista de bloques (mismas unidades que la paginación). */
+export function richTextBlocksWeight(blocks: RichTextBlock[]): number {
+  return blocks.reduce((sum, block) => sum + blockWeight(block), 0);
+}
+
 export function paginateRichTextBlocks(
   blocks: RichTextBlock[],
   maxWeight = 16,
