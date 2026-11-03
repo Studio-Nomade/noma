@@ -1,9 +1,16 @@
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
+import {
+  cellToString,
+  detectStatementLayout,
+  tableFromMatrix,
+} from "./bank-statement";
 
 export interface ParsedTable {
   headers: string[];
   rows: Record<string, string>[];
+  /** Presente cuando se reconoce un formato bancario conocido (cartola BCI). */
+  meta?: { layout: "BCI_CARTOLA"; periodo: string | null };
 }
 
 /** Decodifica un buffer intentando UTF-8 y cayendo a latin1 si hay caracteres inválidos. */
@@ -31,32 +38,33 @@ function parseCsv(buffer: Buffer): ParsedTable {
 async function parseXlsx(buffer: Buffer): Promise<ParsedTable> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ArrayBuffer);
-  const ws = wb.worksheets[0];
+  // La cartola BCI viene en la hoja "CartolaHistorica"; si no, la primera.
+  const ws =
+    wb.worksheets.find(
+      (w) => w.name.trim().toLowerCase() === "cartolahistorica",
+    ) ?? wb.worksheets[0];
   if (!ws) return { headers: [], rows: [] };
 
-  const headers: string[] = [];
-  const headerRow = ws.getRow(1);
-  headerRow.eachCell((cell, col) => {
-    headers[col - 1] = String(cell.value ?? "").trim();
-  });
-
-  const rows: Record<string, string>[] = [];
-  ws.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const obj: Record<string, string> = {};
-    let hasValue = false;
+  const matrix: string[][] = [];
+  ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    const cells: string[] = [];
     row.eachCell({ includeEmpty: true }, (cell, col) => {
-      const key = headers[col - 1];
-      if (!key) return;
-      const val = cell.value;
-      const str = val === null || val === undefined ? "" : String(val);
-      obj[key] = str.trim();
-      if (str.trim() !== "") hasValue = true;
+      cells[col - 1] = cellToString(cell.value).trim();
     });
-    if (hasValue) rows.push(obj);
+    matrix[rowNumber - 1] = Array.from(cells, (c) => c ?? "");
   });
+  for (let i = 0; i < matrix.length; i++) matrix[i] = matrix[i] ?? [];
 
-  return { headers: headers.filter(Boolean), rows };
+  const layout = detectStatementLayout(matrix);
+  const { headers, rows } = tableFromMatrix(matrix, layout.headerIndex);
+  return {
+    headers,
+    rows,
+    meta:
+      layout.layout === "BCI_CARTOLA"
+        ? { layout: layout.layout, periodo: layout.periodo }
+        : undefined,
+  };
 }
 
 /** Detecta el tipo de archivo por extensión y lo parsea a tabla. */
