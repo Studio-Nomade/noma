@@ -88,6 +88,19 @@ const UNIT_OPTIONS = [
   "Por jornada",
 ] as const;
 const UNIT_NONE = "__none";
+const UNIT_NONE_LABEL = "Sin definir";
+
+/** Opciones del selector; Base UI usa `items` para mostrar la etiqueta (no el valor crudo). */
+function buildUnitItems(current: string) {
+  const options = (UNIT_OPTIONS as readonly string[]).concat(
+    current && !(UNIT_OPTIONS as readonly string[]).includes(current)
+      ? [current]
+      : [],
+  );
+  return [{ value: UNIT_NONE, label: UNIT_NONE_LABEL }].concat(
+    options.map((unit) => ({ value: unit, label: unit })),
+  );
+}
 
 function emptyVariant(tier: ServiceTier): VariantDraft {
   return {
@@ -194,6 +207,7 @@ export function ServiceDialog({
     () => subareas.filter((item) => item.area === draft.area),
     [draft.area, subareas],
   );
+  const unitItems = useMemo(() => buildUnitItems(draft.unit), [draft.unit]);
 
   function resetDraft() {
     setDraft(buildDraft(service));
@@ -560,6 +574,7 @@ export function ServiceDialog({
             <FormField label="Unidad / cadencia">
               <Select
                 value={draft.unit === "" ? UNIT_NONE : draft.unit}
+                items={unitItems}
                 onValueChange={(value) =>
                   setDraft((current) => ({
                     ...current,
@@ -568,24 +583,14 @@ export function ServiceDialog({
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sin definir" />
+                  <SelectValue placeholder={UNIT_NONE_LABEL} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UNIT_NONE}>Sin definir</SelectItem>
-                  {(UNIT_OPTIONS as readonly string[])
-                    .concat(
-                      draft.unit &&
-                        !(UNIT_OPTIONS as readonly string[]).includes(
-                          draft.unit,
-                        )
-                        ? [draft.unit]
-                        : [],
-                    )
-                    .map((unit) => (
-                      <SelectItem key={unit} value={unit}>
-                        {unit}
-                      </SelectItem>
-                    ))}
+                  {unitItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FormField>
