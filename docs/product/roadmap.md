@@ -37,9 +37,8 @@ Tasa de cierre por área · valor promedio de propuesta · tiempo promedio de co
 
 ## v2/v3 — Módulo Finanzas / Facturación
 
-Integración con **Chipax** (visualización financiera del cliente: facturas, saldos,
-vencimientos, días promedio de pago) y **Nubox** (creación de factura desde propuesta
-aprobada, como borrador para revisión — sin emisión automática). La arquitectura de datos
-ya está preparada en V1 (campos tributarios en cliente, tabla `invoices`,
-`integration_sync_log`, capa `src/integrations/{chipax,nubox}`).
+**Nubox** como único facturador (Noma nunca emite), carga manual mensual de la
+cartola BCI con conciliación propuesta, cobranza desde sales@ con el playbook P1–P8
+y seguimiento automático a 7 días (en modo borrador hasta activarlo). Pendiente: API
+de Nubox (PDF/XML por documento) y lectura del SII.
 Ver [finance-module.md](finance-module.md).

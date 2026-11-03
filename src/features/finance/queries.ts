@@ -30,6 +30,7 @@ import type {
   FinDocumentStatus,
   LedgerAccountType,
 } from "@/types/enums";
+import { scoreMatch } from "./reconcile-match";
 import { toNum } from "./helpers";
 
 const OPEN_DOC: FinDocumentStatus[] = ["EMITIDA", "PARCIAL", "VENCIDA"];
@@ -149,7 +150,8 @@ export interface Suggestion {
 
 /**
  * Sugerencias de conciliación: empareja movimientos pendientes con documentos
- * abiertos por monto exacto y cercanía de fecha / RUT en glosa.
+ * abiertos por monto exacto, ventana de fechas y RUT/nombre en la glosa
+ * (ver `reconcile-match.ts`). Los abonos de factoring se dejan fuera.
  */
 export async function getSuggestions(
   bankAccountId: string,
@@ -182,16 +184,10 @@ export async function getSuggestions(
     let bestScore = 0;
 
     for (const d of pool) {
-      if (Math.round(d.saldo) !== Math.round(monto)) continue; // monto exacto
-      let score = 60;
-      const days = Math.abs(
-        (new Date(t.fecha).getTime() - new Date(d.fechaEmision).getTime()) /
-          86400000,
+      const score = scoreMatch(
+        { fecha: t.fecha, glosa: t.glosa, monto, tipo: t.tipo },
+        d,
       );
-      if (days <= 45) score += 20;
-      const glosa = t.glosa.toLowerCase();
-      const rutNum = (d.contactRut ?? "").split("-")[0];
-      if (rutNum && glosa.includes(rutNum)) score += 20;
       if (score > bestScore) {
         bestScore = score;
         best = d;

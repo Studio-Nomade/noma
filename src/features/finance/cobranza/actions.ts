@@ -2,8 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
-import { cobranzaMessages, cobranzaTemplates } from "@/db/schema";
+import {
+  cobranzaCases,
+  cobranzaMessages,
+  cobranzaTemplates,
+} from "@/db/schema";
 import { requireFinance } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
@@ -11,6 +16,8 @@ import { sendGmail } from "@/features/email/gmail";
 import type { CobranzaMoment } from "@/types/enums";
 import { resolveCobranzaSender } from "./sender";
 import { appendTextSignature } from "@/features/email/signatures";
+import { markInvoiceSent, runCobranzaFollowup } from "./followup-run";
+import { playbookCodeFromName } from "./playbook";
 
 function parseEmails(raw: string): string[] {
   return raw
@@ -95,6 +102,19 @@ export async function sendCobranza(input: {
       sentByEmail: user.email,
       sentAt,
     });
+
+    // Un P1/P2 enviado marca el inicio del plazo de 7 días del seguimiento.
+    if (status === "ENVIADO" && input.invoiceId && input.templateId) {
+      const [tpl] = await db
+        .select({ name: cobranzaTemplates.name })
+        .from(cobranzaTemplates)
+        .where(eq(cobranzaTemplates.id, input.templateId))
+        .limit(1);
+      const code = playbookCodeFromName(tpl?.name);
+      if (code === "P1" || code === "P2") {
+        await markInvoiceSent(input.invoiceId, sentAt ?? new Date());
+      }
+    }
 
     await logActivity({
       entityType: "cobranza_message",
@@ -200,4 +220,72 @@ export async function deleteCobranzaTemplate(
   const id = formData.get("id") as string;
   await db.delete(cobranzaTemplates).where(eq(cobranzaTemplates.id, id));
   revalidateTemplates();
+}
+
+// ── Seguimiento a 7 días (casos por factura) ─────────────────
+
+const caseSchema = z.object({
+  documentId: z.string().uuid(),
+  committedPaymentDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .or(z.literal(""))
+    .optional(),
+  factoringEntity: z.string().max(120).optional(),
+  factoringAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .or(z.literal(""))
+    .optional(),
+  legal: z.enum(["on"]).optional(),
+  paused: z.enum(["on"]).optional(),
+  note: z.string().max(500).optional(),
+});
+
+/** Guarda los datos que suprimen o reanudan el seguimiento de una factura. */
+export async function updateCobranzaCase(formData: FormData): Promise<void> {
+  const user = await requireFinance();
+  const parsed = caseSchema.parse({
+    documentId: formData.get("documentId"),
+    committedPaymentDate: formData.get("committedPaymentDate") ?? undefined,
+    factoringEntity: (formData.get("factoringEntity") as string) || undefined,
+    factoringAt: formData.get("factoringAt") ?? undefined,
+    legal: formData.get("legal") ?? undefined,
+    paused: formData.get("paused") ?? undefined,
+    note: (formData.get("note") as string) || undefined,
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  const values = {
+    committedPaymentDate: parsed.committedPaymentDate || null,
+    factoringEntity: parsed.factoringEntity?.trim() || null,
+    factoringAt:
+      parsed.factoringAt || (parsed.factoringEntity?.trim() ? today : null),
+    legalAt: parsed.legal ? today : null,
+    paused: parsed.paused === "on",
+    note: parsed.note?.trim() || null,
+    updatedAt: new Date(),
+  };
+  await db
+    .insert(cobranzaCases)
+    .values({ documentId: parsed.documentId, ...values })
+    .onConflictDoUpdate({ target: cobranzaCases.documentId, set: values });
+  await logActivity({
+    entityType: "cobranza_case",
+    entityId: parsed.documentId,
+    action: "cobranza_case_updated",
+    actorId: user.id,
+  });
+  revalidate();
+}
+
+/** Corre el seguimiento a mano (mismo modo que el cron: borrador por defecto). */
+export async function runFollowupNow(): Promise<void> {
+  const user = await requireFinance();
+  const result = await runCobranzaFollowup();
+  await logActivity({
+    entityType: "cobranza_message",
+    action: `cobranza_followup_${result.mode}`,
+    actorId: user.id,
+  });
+  revalidate();
 }
