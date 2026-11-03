@@ -90,7 +90,17 @@ export async function updateSession(request: NextRequest) {
     return res;
   }
 
-  if (user && pathname === "/login") {
+  // La casilla de solicitudes (NOMA_REQUESTS_MAILBOX) puede volver a
+  // /login?mailbox=requests con sesión abierta para conceder gmail.modify; a
+  // cualquier otro usuario con sesión se lo manda al inicio.
+  const requestsMailbox =
+    process.env.NOMA_REQUESTS_MAILBOX?.trim().toLowerCase();
+  const isMailboxGrant =
+    request.nextUrl.searchParams.get("mailbox") === "requests" &&
+    Boolean(requestsMailbox) &&
+    user?.email?.toLowerCase() === requestsMailbox;
+
+  if (user && pathname === "/login" && !isMailboxGrant) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";

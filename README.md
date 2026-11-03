@@ -17,7 +17,7 @@ un solo sistema, con estética editorial boutique.
 - Auth: **Google Workspace SSO** (Supabase Auth)
 - Moneda: **CLP / USD / UF** con conversor diario (mindicador.cl)
 - IA de propuestas: arquitectura lista (interfaz `LLMProvider`), activable en fase futura
-- Deploy: **Vercel** → `app.studionomade.cl` · DNS **Cloudflare**
+- Deploy: **Vercel** → `noma.studionomade.cl` · DNS **SiteGround** (ver ADR-006)
 
 Decisiones detalladas en [`/docs/decisions`](docs/decisions).
 

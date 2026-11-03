@@ -19,10 +19,14 @@ import type { ProposalTemplateData } from "./templates/types";
 import { getAreaCover, getHeaderLogo, pdfAssetPath } from "./templates/assets";
 import type { Area } from "@/types/enums";
 import type { StructuredContentItem } from "./structured-content";
+import type { RichTextBlock } from "@/features/services/rich-text";
 import {
-  paginateRichTextColumns,
-  type RichTextBlock,
-} from "@/features/services/rich-text";
+  paginateColumns,
+  paginateTextBlocks,
+  parseProposalText,
+  textBlocksWeight,
+  type TextBlock,
+} from "./templates/text-layout";
 
 export type ProposalPdfData = ProposalTemplateData;
 
@@ -138,7 +142,9 @@ function DeckPage({
           src={pdfAssetPath(getHeaderLogo(area, dark ? "dark" : "light"))}
         />
       )}
-      <View style={s.body}>{children}</View>
+      <View style={s.body} wrap={false}>
+        {children}
+      </View>
       {chrome && <Text style={s.footer}>Studio Nomade®</Text>}
     </Page>
   );
@@ -221,25 +227,16 @@ function OpeningClosingPage({ accent }: { accent: string }) {
 
 function BankPdfPage({ accent }: { accent: string }) {
   const studioAreas = [
-    {
-      label: "Audiovisual",
-      icon: "/assets/areas/aa-white.png",
-    },
-    {
-      label: "Arquitectura",
-      icon: "/assets/areas/ad-white.png",
-    },
-    {
-      label: "Web Design",
-      icon: "/assets/areas/wd-white.png",
-    },
-    { label: "Branding", icon: "/assets/areas/bd-white.png" },
+    { label: "Audiovisual", icon: "/assets/areas/aa-badge.png" },
+    { label: "Arquitectura", icon: "/assets/areas/ad-badge.png" },
+    { label: "Web Design", icon: "/assets/areas/wd-badge.png" },
+    { label: "Branding", icon: "/assets/areas/bd-badge.png" },
   ];
 
   return (
     <DeckPage dark accent={accent}>
-      <View style={[s.grid, { gap: 70 }]}>
-        <View style={{ width: "43%", color: proposalTheme.paper }}>
+      <View style={[s.grid, { gap: 60 }]}>
+        <View style={{ width: "40%", color: proposalTheme.paper }}>
           <Text style={{ fontSize: 15, fontWeight: 600 }}>
             RUT 77.333.406-4
           </Text>
@@ -303,45 +300,28 @@ function BankPdfPage({ accent }: { accent: string }) {
             Santa Beatriz 100, Of. 1101
           </Link>
         </View>
-        <View style={{ width: "57%", paddingLeft: 10 }}>
+        <View style={{ width: "60%" }}>
           <Text style={s.eyebrow}>Studio Nomade</Text>
           <Text style={[s.display, { fontSize: 28, lineHeight: 1 }]}>
             INFORMACIÓN BANCARIA.
           </Text>
           <View
             style={{
-              marginTop: 30,
+              marginTop: 18,
               flexDirection: "row",
               flexWrap: "wrap",
-              gap: 18,
             }}
           >
             {studioAreas.map((area) => (
               <View
                 key={area.label}
-                style={{
-                  width: "45%",
-                  height: 92,
-                  paddingTop: 10,
-                  alignItems: "center",
-                }}
+                style={{ width: "50%", height: 136, alignItems: "center" }}
               >
                 {/* eslint-disable-next-line jsx-a11y/alt-text */}
                 <Image
                   src={pdfAssetPath(area.icon)}
-                  style={{ width: 88, height: 52, objectFit: "contain" }}
+                  style={{ width: 128, height: 128, objectFit: "contain" }}
                 />
-                <Text
-                  style={{
-                    marginTop: 7,
-                    fontFamily: "Cook Gothif",
-                    fontSize: 9,
-                    color: proposalTheme.white,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {area.label}
-                </Text>
               </View>
             ))}
           </View>
@@ -355,7 +335,105 @@ function pdfImageSource(src: string): string {
   return src.startsWith("/") ? pdfAssetPath(src) : src;
 }
 
-function TextPage({
+function PdfTextRuns({ runs }: { runs: TextBlock["runs"] }) {
+  return (
+    <>
+      {runs.map((run, index) => (
+        <Text
+          key={index}
+          style={run.bold ? { fontFamily: "San Diego", fontWeight: 600 } : {}}
+        >
+          {run.text}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Bloques de texto con jerarquía: subtítulos en el color del área, párrafos
+ * con aire entre sí y viñetas. `tone` ajusta los grises según el fondo.
+ */
+function PdfTextBlocks({
+  blocks,
+  accent,
+  tone = "light",
+  size = 12,
+}: {
+  blocks: TextBlock[];
+  accent: string;
+  tone?: "light" | "dark";
+  size?: number;
+}) {
+  const muted = tone === "dark" ? "#d6d6d3" : "#3d3d3b";
+  return (
+    <View>
+      {blocks.map((block, index) => {
+        if (block.kind === "heading") {
+          return (
+            <Text
+              key={index}
+              style={{
+                marginTop: index ? size * 0.9 : 0,
+                marginBottom: size * 0.35,
+                fontSize: size * 0.92,
+                lineHeight: 1.3,
+                fontWeight: 600,
+                color: accent,
+                letterSpacing: 0.2,
+                textTransform: "uppercase",
+              }}
+            >
+              <PdfTextRuns runs={block.runs} />
+            </Text>
+          );
+        }
+        if (block.kind === "bullet") {
+          return (
+            <View
+              key={index}
+              style={{ flexDirection: "row", marginTop: size * 0.3 }}
+            >
+              <Text style={{ width: 14, fontSize: size, color: accent }}>
+                •
+              </Text>
+              <Text
+                style={{
+                  flex: 1,
+                  fontSize: size,
+                  lineHeight: 1.45,
+                  color: muted,
+                }}
+              >
+                <PdfTextRuns runs={block.runs} />
+              </Text>
+            </View>
+          );
+        }
+        return (
+          <Text
+            key={index}
+            style={{
+              marginTop: index ? size * 0.55 : 0,
+              fontSize: size,
+              lineHeight: 1.5,
+              color: muted,
+            }}
+          >
+            <PdfTextRuns runs={block.runs} />
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * Lámina de texto libre (contexto, objetivo, alcance, condiciones…). Si el
+ * texto no cabe, continúa en láminas siguientes manteniendo el título al
+ * costado y un indicador 01 / 02.
+ */
+function TextPages({
   title,
   value,
   accent,
@@ -364,16 +442,42 @@ function TextPage({
   value: string;
   accent: string;
 }) {
+  const blocks = parseProposalText(value);
+  const pages = paginateTextBlocks(
+    blocks,
+    TEXT_PAGE_LINES,
+    TEXT_CHARS_PER_LINE,
+  );
   return (
-    <DeckPage accent={accent}>
-      <Text style={[s.eyebrow, { color: accent }]}>{title}</Text>
-      <View style={s.grid}>
-        <Text style={[s.display, s.half, { fontSize: titleSize(title) }]}>
-          {title}
-        </Text>
-        <Text style={[s.copy, s.half]}>{value}</Text>
-      </View>
-    </DeckPage>
+    <>
+      {pages.map((pageBlocks, index) => (
+        <DeckPage key={`${title}-${index}`} accent={accent}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}
+          >
+            <Text style={[s.eyebrow, { color: accent }]}>{title}</Text>
+            {pages.length > 1 && (
+              <Text style={{ fontSize: 7, color: "#8f8f8c" }}>
+                {String(index + 1).padStart(2, "0")} /{" "}
+                {String(pages.length).padStart(2, "0")}
+              </Text>
+            )}
+          </View>
+          <View style={s.grid}>
+            <Text style={[s.display, s.half, { fontSize: titleSize(title) }]}>
+              {title}
+            </Text>
+            <View style={s.half}>
+              <PdfTextBlocks blocks={pageBlocks} accent={accent} />
+            </View>
+          </View>
+        </DeckPage>
+      ))}
+    </>
   );
 }
 
@@ -447,6 +551,89 @@ function PdfRichTextRuns({ block }: { block: RichTextBlock }) {
   );
 }
 
+/** Lámina de texto: líneas disponibles y caracteres por línea (12 pt, media lámina). */
+const TEXT_PAGE_LINES = 19;
+const TEXT_CHARS_PER_LINE = 64;
+/** Metodología/entregables a 3 columnas (9.6 pt): líneas por columna y ancho. */
+const RICH_COLUMN_LINES = 16;
+const RICH_CHARS_PER_LINE = 50;
+/** Lámina combinada (2 columnas a 11 pt): si cada bloque cabe, van juntos. */
+const COMBINED_COLUMN_LINES = 16;
+const COMBINED_CHARS_PER_LINE = 68;
+
+function PdfRichTextColumn({
+  blocks,
+  accent,
+  size = 9.6,
+}: {
+  blocks: RichTextBlock[];
+  accent: string;
+  size?: number;
+}) {
+  return (
+    <View>
+      {blocks.map((block, index) => {
+        if (block.kind === "heading") {
+          return (
+            <Text
+              key={index}
+              style={{
+                marginTop: index ? size * 0.9 : 0,
+                marginBottom: size * 0.4,
+                fontSize: size * 1.08,
+                lineHeight: 1.3,
+                color: accent,
+                fontWeight: 600,
+              }}
+            >
+              <PdfRichTextRuns block={block} />
+            </Text>
+          );
+        }
+        const listPrefix =
+          block.kind === "ordered"
+            ? `${block.ordinal}.`
+            : block.kind === "bullet"
+              ? "•"
+              : "";
+        return (
+          <View
+            key={index}
+            style={{
+              flexDirection: "row",
+              marginTop: index ? size * 0.55 : 0,
+              paddingLeft: block.level * 8,
+            }}
+          >
+            {listPrefix && (
+              <Text
+                style={{
+                  width: size * 1.7,
+                  fontSize: size,
+                  fontWeight: 600,
+                  color: accent,
+                }}
+              >
+                {listPrefix}
+              </Text>
+            )}
+            <Text
+              style={{
+                flex: 1,
+                fontSize: size,
+                lineHeight: 1.45,
+                color: block.kind === "paragraph" ? "#d0d0cd" : "#f5f5f3",
+              }}
+            >
+              <PdfRichTextRuns block={block} />
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function ServiceRichTextPdfPage({
   serviceName,
   title,
@@ -488,7 +675,7 @@ function ServiceRichTextPdfPage({
       </View>
       <View
         style={{
-          marginTop: 18,
+          marginTop: 22,
           flexDirection: "row",
           alignItems: "flex-start",
           gap: 14,
@@ -504,63 +691,70 @@ function ServiceRichTextPdfPage({
               borderLeftColor: "#4a4a48",
             }}
           >
-            {blocks.map((block, index) => {
-              if (block.kind === "heading") {
-                return (
-                  <Text
-                    key={index}
-                    style={{
-                      marginTop: index ? 6 : 0,
-                      marginBottom: 3,
-                      fontSize: 8.7,
-                      lineHeight: 1.25,
-                      color: accent,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <PdfRichTextRuns block={block} />
-                  </Text>
-                );
-              }
-              const listPrefix =
-                block.kind === "ordered"
-                  ? `${block.ordinal}.`
-                  : block.kind === "bullet"
-                    ? "•"
-                    : "";
-              return (
-                <View
-                  key={index}
-                  style={{
-                    flexDirection: "row",
-                    marginTop: 2.5,
-                    paddingLeft: block.level * 8,
-                  }}
-                >
-                  {listPrefix && (
-                    <Text
-                      style={{
-                        width: 11,
-                        fontSize: 7.4,
-                        color: "#9b9b98",
-                      }}
-                    >
-                      {listPrefix}
-                    </Text>
-                  )}
-                  <Text
-                    style={{
-                      flex: 1,
-                      fontSize: 7.7,
-                      lineHeight: 1.35,
-                      color: block.kind === "paragraph" ? "#d0d0cd" : "#f5f5f3",
-                    }}
-                  >
-                    <PdfRichTextRuns block={block} />
-                  </Text>
-                </View>
-              );
-            })}
+            <PdfRichTextColumn blocks={blocks} accent={accent} size={10.5} />
+          </View>
+        ))}
+      </View>
+    </DeckPage>
+  );
+}
+
+/** Proceso e incluye en una misma lámina, cada uno en su columna. */
+function ServiceProcessPdfPage({
+  serviceName,
+  methodology,
+  deliverables,
+  accent,
+  area,
+}: {
+  serviceName: string;
+  methodology: RichTextBlock[];
+  deliverables: RichTextBlock[];
+  accent: string;
+  area: Area;
+}) {
+  const columns = [
+    { title: "Proceso / metodología", blocks: methodology },
+    { title: "Incluye", blocks: deliverables },
+  ];
+  return (
+    <DeckPage dark accent={accent} area={area}>
+      <Text style={s.eyebrow}>{serviceName}</Text>
+      <Text style={[s.display, { fontSize: 34 }]}>CÓMO LO HACEMOS.</Text>
+      <View
+        style={{
+          marginTop: 22,
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 28,
+        }}
+      >
+        {columns.map((column, index) => (
+          <View
+            key={column.title}
+            style={{
+              width: "50%",
+              paddingLeft: index ? 24 : 0,
+              borderLeftWidth: index ? 0.5 : 0,
+              borderLeftColor: "#4a4a48",
+            }}
+          >
+            <Text
+              style={{
+                marginBottom: 12,
+                fontSize: 8,
+                letterSpacing: 2,
+                textTransform: "uppercase",
+                color: accent,
+              }}
+            >
+              {column.title}
+            </Text>
+            <PdfRichTextColumn
+              blocks={column.blocks}
+              accent={accent}
+              size={11}
+            />
           </View>
         ))}
       </View>
@@ -687,12 +881,16 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
       {textSlides
         .filter((entry) => Boolean(entry[1]))
         .map(([title, value]) => (
-          <TextPage key={title} title={title} value={value!} accent={accent} />
+          <TextPages key={title} title={title} value={value!} accent={accent} />
         ))}
       <DeckPage accent={accent}>
-        <Text style={s.eyebrow}>Servicios seleccionados</Text>
+        <Text style={[s.eyebrow, { color: accent }]}>
+          Resumen de la propuesta
+        </Text>
         <View style={[s.grid, { alignItems: "center" }]}>
-          <Text style={[s.display, { width: "34%" }]}>ALCANCE.</Text>
+          <Text style={[s.display, { width: "34%", fontSize: 50 }]}>
+            QUÉ{"\n"}HAREMOS.
+          </Text>
           <View
             style={{
               width: "66%",
@@ -711,10 +909,12 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                   paddingVertical: 8,
                 }}
               >
-                <Text style={{ width: 28, color: accent, fontSize: 10 }}>
+                <Text style={{ width: 28, color: accent, fontSize: 11 }}>
                   {String(index + 1).padStart(2, "0")}
                 </Text>
-                <Text style={{ fontSize: 10 }}>{service.name}</Text>
+                <Text style={{ flex: 1, fontSize: 11, lineHeight: 1.35 }}>
+                  {service.name}
+                </Text>
               </View>
             ))}
           </View>
@@ -777,48 +977,86 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                     </Text>
                   </View>
                   <View style={s.half}>
-                    <Text style={s.copy}>
-                      {service.description ??
-                        "Servicio seleccionado para esta propuesta."}
-                    </Text>
+                    <PdfTextBlocks
+                      blocks={parseProposalText(
+                        service.description ??
+                          "Servicio seleccionado para esta propuesta.",
+                        { maxParagraphChars: 180 },
+                      )}
+                      accent={proposalAreaAccent[service.area]}
+                      tone="dark"
+                      size={11.5}
+                    />
                   </View>
                 </View>
               </DeckPage>,
             ];
-            const methodologyPages = paginateRichTextColumns(
+            const methodologyWeight = textBlocksWeight(
               service.methodology,
+              COMBINED_CHARS_PER_LINE,
             );
-            serviceSlides.push(
-              ...methodologyPages.map((columns, index) => (
-                <ServiceRichTextPdfPage
-                  key={`${service.id}-methodology-${index}`}
-                  serviceName={service.name}
-                  title="Proceso / metodología"
-                  columns={columns}
-                  accent={proposalAreaAccent[service.area]}
-                  area={service.area}
-                  page={index + 1}
-                  totalPages={methodologyPages.length}
-                />
-              )),
-            );
-            const deliverablePages = paginateRichTextColumns(
+            const deliverablesWeight = textBlocksWeight(
               service.deliverables,
+              COMBINED_CHARS_PER_LINE,
             );
-            serviceSlides.push(
-              ...deliverablePages.map((columns, index) => (
-                <ServiceRichTextPdfPage
-                  key={`${service.id}-deliverables-${index}`}
+            const canCombine =
+              service.methodology.length > 0 &&
+              service.deliverables.length > 0 &&
+              methodologyWeight <= COMBINED_COLUMN_LINES &&
+              deliverablesWeight <= COMBINED_COLUMN_LINES;
+            if (canCombine) {
+              serviceSlides.push(
+                <ServiceProcessPdfPage
+                  key={`${service.id}-process`}
                   serviceName={service.name}
-                  title="Incluye"
-                  columns={columns}
+                  methodology={service.methodology}
+                  deliverables={service.deliverables}
                   accent={proposalAreaAccent[service.area]}
                   area={service.area}
-                  page={index + 1}
-                  totalPages={deliverablePages.length}
-                />
-              )),
-            );
+                />,
+              );
+            } else {
+              const methodologyPages = paginateColumns(
+                service.methodology,
+                3,
+                RICH_COLUMN_LINES,
+                RICH_CHARS_PER_LINE,
+              );
+              serviceSlides.push(
+                ...methodologyPages.map((columns, index) => (
+                  <ServiceRichTextPdfPage
+                    key={`${service.id}-methodology-${index}`}
+                    serviceName={service.name}
+                    title="Proceso / metodología"
+                    columns={columns}
+                    accent={proposalAreaAccent[service.area]}
+                    area={service.area}
+                    page={index + 1}
+                    totalPages={methodologyPages.length}
+                  />
+                )),
+              );
+              const deliverablePages = paginateColumns(
+                service.deliverables,
+                3,
+                RICH_COLUMN_LINES,
+                RICH_CHARS_PER_LINE,
+              );
+              serviceSlides.push(
+                ...deliverablePages.map((columns, index) => (
+                  <ServiceRichTextPdfPage
+                    key={`${service.id}-deliverables-${index}`}
+                    serviceName={service.name}
+                    title="Incluye"
+                    columns={columns}
+                    accent={proposalAreaAccent[service.area]}
+                    area={service.area}
+                    page={index + 1}
+                    totalPages={deliverablePages.length}
+                  />
+                )),
+              );
+            }
             if (service.exclusions.length > 0) {
               serviceSlides.push(
                 <DeckPage
@@ -831,7 +1069,7 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                   <Text style={[s.display, { fontSize: 52 }]}>NO INCLUYE.</Text>
                   <View
                     style={{
-                      marginTop: "auto",
+                      marginTop: 28,
                       flexDirection: "row",
                       flexWrap: "wrap",
                     }}
@@ -843,14 +1081,15 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                           width: "50%",
                           borderTopWidth: 0.5,
                           borderTopColor: "#777",
-                          paddingVertical: 8,
-                          paddingRight: 14,
+                          paddingVertical: 11,
+                          paddingRight: 24,
                         }}
                       >
                         <Text
                           style={{
-                            fontSize: 10,
-                            fontFamily: "Helvetica-Bold",
+                            fontSize: 11.5,
+                            lineHeight: 1.35,
+                            fontWeight: 600,
                           }}
                         >
                           {item.title}
@@ -859,7 +1098,8 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
                           <Text
                             style={{
                               marginTop: 3,
-                              fontSize: 8,
+                              fontSize: 9.5,
+                              lineHeight: 1.4,
                               color: "#bdbdbd",
                             }}
                           >
@@ -1237,21 +1477,21 @@ function ProposalPdf({ data }: { data: ProposalTemplateData }) {
         </View>
       </DeckPage>
       {data.sections.commercialConditions && (
-        <TextPage
+        <TextPages
           title="Condiciones"
           value={data.sections.commercialConditions}
           accent={accent}
         />
       )}
       {data.sections.exclusions && (
-        <TextPage
+        <TextPages
           title="No considera"
           value={data.sections.exclusions}
           accent={accent}
         />
       )}
       {data.sections.nextSteps && (
-        <TextPage
+        <TextPages
           title="Próximos pasos"
           value={data.sections.nextSteps}
           accent={accent}

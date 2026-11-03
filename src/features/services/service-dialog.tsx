@@ -70,10 +70,24 @@ type ServiceDraft = {
   name: string;
   area: Area;
   subarea: string;
+  unit: string;
   requirements: string;
   status: ServiceStatus;
   variants: Record<ServiceTier, VariantDraft>;
 };
+
+/** Cadencias sugeridas. El PDF agrupa como recurrente lo que contenga "mes"/"mensual" o "trimes". */
+const UNIT_OPTIONS = [
+  "Único",
+  "Mensual",
+  "Trimestral",
+  "Anual",
+  "Por pieza",
+  "Por unidad",
+  "Por hora",
+  "Por jornada",
+] as const;
+const UNIT_NONE = "__none";
 
 function emptyVariant(tier: ServiceTier): VariantDraft {
   return {
@@ -148,6 +162,7 @@ function buildDraft(service?: ServiceWithVariants | null): ServiceDraft {
     name: service?.name ?? "",
     area: service?.area ?? "B&D",
     subarea: service?.subarea ?? "",
+    unit: service?.unit ?? "",
     requirements: service?.requirements ?? "",
     status: service?.status ?? "Activo",
     variants,
@@ -268,6 +283,7 @@ export function ServiceDialog({
       name: draft.name,
       area: draft.area,
       subarea: draft.subarea,
+      unit: draft.unit,
       requirements: draft.requirements,
       status: draft.status,
       variants: SERVICE_TIERS.map((tier) => {
@@ -528,7 +544,7 @@ export function ServiceDialog({
             />
           </fieldset>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+          <div className="grid gap-4 sm:grid-cols-[1fr_12rem_12rem]">
             <FormField label="Requisitos generales para iniciar">
               <Textarea
                 rows={2}
@@ -540,6 +556,38 @@ export function ServiceDialog({
                   }))
                 }
               />
+            </FormField>
+            <FormField label="Unidad / cadencia">
+              <Select
+                value={draft.unit === "" ? UNIT_NONE : draft.unit}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    unit: value && value !== UNIT_NONE ? value : "",
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNIT_NONE}>Sin definir</SelectItem>
+                  {(UNIT_OPTIONS as readonly string[])
+                    .concat(
+                      draft.unit &&
+                        !(UNIT_OPTIONS as readonly string[]).includes(
+                          draft.unit,
+                        )
+                        ? [draft.unit]
+                        : [],
+                    )
+                    .map((unit) => (
+                      <SelectItem key={unit} value={unit}>
+                        {unit}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </FormField>
             <FormField label="Estado">
               <Select

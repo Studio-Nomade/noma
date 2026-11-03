@@ -14,7 +14,7 @@ Ejecución por fases:
 - **Fase 4** — Propuestas/cotizaciones.
 - **Fase 5** — Dashboard operativo.
 - **Fase 6** — Onboarding interno + Contexto/Documentación.
-- **Fase 7** — Producción (app.studionomade.cl) y preparación de integraciones.
+- **Fase 7** — Producción (noma.studionomade.cl) y preparación de integraciones.
 
 ## v1.1 — Seguimiento
 

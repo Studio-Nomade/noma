@@ -1534,9 +1534,10 @@ export function EmailStudioWorkspace({
                   <div>
                     <p className="text-sm font-medium">Generar documento</p>
                     <p className="text-muted-foreground text-xs">
-                      La asistencia visual envía temporalmente a OpenAI la
-                      referencia privada y hasta 12 assets. La respuesta no se
-                      almacena; la compilación manual respeta esta estructura.
+                      La asistencia visual envía temporalmente al proveedor de
+                      IA configurado (Claude u OpenAI) la referencia privada y
+                      hasta 12 assets. La respuesta no se almacena; la
+                      compilación manual respeta esta estructura.
                     </p>
                   </div>
                   <GenerationButton

@@ -78,10 +78,31 @@ archivos de clientes no se versionan en el repositorio.
 
 ## IA y degradación
 
-La llamada usa `OPENAI_API_KEY` exclusivamente server-side y el modelo
-`EMAIL_STUDIO_OPENAI_MODEL` (default `gpt-5.6`). PNG/JPG/WEBP se envían como
-imágenes y PDF como archivo con imágenes de página. La respuesta usa Structured
-Outputs, se valida otra vez con Zod y se solicita con `store: false`.
+El proveedor es configurable (ADR-008, modifica ADR-004 solo para Email Studio):
+
+| Variable | Default | Uso |
+|---|---|---|
+| `EMAIL_STUDIO_AI_PROVIDER` | `anthropic` | `anthropic` (Claude) u `openai`. Otro valor deja la IA apagada. |
+| `ANTHROPIC_API_KEY` | — | Key central del estudio, solo server-side. |
+| `EMAIL_STUDIO_ANTHROPIC_MODEL` | `claude-opus-5-5` | Modelo de Claude. |
+| `OPENAI_API_KEY` / `EMAIL_STUDIO_OPENAI_MODEL` | — / `gpt-5.6` | Modo `openai`. |
+
+`src/features/email-studio/ai-config.ts` resuelve la configuración; si el
+proveedor elegido no tiene key, Email Studio **no cambia de proveedor**: cae al
+armado manual. Ambos proveedores reciben el mismo prompt
+(`generation-request.ts`) y devuelven el mismo plan, validado con Zod:
+
+- **Claude:** Messages API con la herramienta `email_studio_plan` forzada
+  (`tool_choice`), cuyo `input_schema` sale del schema Zod del plan. La
+  referencia va como imagen o documento PDF por URL firmada; los assets, como
+  imágenes por URL pública.
+- **OpenAI:** Responses API con Structured Outputs y `store: false`. PNG/JPG/WEBP
+  se envían como imágenes y PDF como archivo con imágenes de página.
+
+Se envían como máximo 12 assets por generación. `email_studio_ai_runs.model`
+guarda el modelo que respondió (identifica al proveedor). Registrar
+`provider` e `iterations` en columnas propias queda para la migración del
+orquestador con tool use.
 
 Si falta la llave, la referencia o una respuesta válida, el editor no pierde
 datos: muestra una advertencia y compila la estructura manual configurada.
@@ -90,6 +111,31 @@ en memoria. Cada intento registra estado, modelo, duración y tokens, nunca el
 prompt ni la respuesta. El límite por usuario se configura con
 `EMAIL_STUDIO_AI_MAX_RUNS_PER_HOUR` y se serializa en Postgres para evitar
 carreras concurrentes.
+
+## Generador por brief (assets.studionomade.cl)
+
+Para la etapa 1 (chats de Claude) y como base de la ventana conversacional,
+`npm run email-studio:brief -- <brief.json> [--out <carpeta>] [--assets <carpeta>]`
+arma un mailing desde un brief JSON (ejemplo en
+`scripts/email-studio-brief.example.json`):
+
+- **Entrada:** cliente, evento (nombre y fecha), envío (número, fecha y nombre),
+  asunto, preheader, variables y bloques (`image`, `text`, `button`, `spacer`).
+- **Ruta de assets:** `mailings/<cliente>/<AAAAMMDD_evento>/<NN_AAAAMMDD_envio>/<archivo>`
+  en `https://assets.studionomade.cl` (`mailing-assets.ts`), con nombres en
+  minúsculas y sin tildes. Nunca se sobrescribe: `nextVersionFilename` entrega
+  `-v2`, `-v3`…
+- **Validación:** png/jpg/gif/pdf/ics; imágenes de menos de 300 KB y hasta
+  1200 px de ancho (con `--assets` se leen peso y ancho reales); alt obligatorio;
+  enlaces `https:`, `mailto:`, `tel:` o `{{variable}}`; aviso si asunto o
+  preheader superan 100 caracteres.
+- **Salida:** `index.html` (variables `{{clave}}`), `emblue.html` (variables
+  `${{CAMPO}}`; el campo se declara con `emblueField` o es la clave en
+  mayúsculas), `blueprint.json` y `manifest.json` con cada pieza y su URL final.
+
+El script no sube archivos: en la etapa 1 las piezas se publican en el repo
+`mailings-assets` con la ruta del manifest; en la etapa 2 Noma subirá al bucket
+con la misma nomenclatura y la URL no cambia.
 
 ## Versiones y exportación
 
@@ -104,6 +150,7 @@ responden `409` hasta volver a compilar.
 
 ```bash
 npm run email-studio:check
+npm run email-studio:brief -- scripts/email-studio-brief.example.json --out /tmp/brief
 npm run typecheck
 npm run lint
 ```

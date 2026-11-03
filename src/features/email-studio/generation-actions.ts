@@ -19,7 +19,8 @@ import { buildEmailDocument } from "./document-builder";
 import { compileEmailDocument } from "./compiler.server";
 import { emailDocumentSchema } from "./document";
 import { emailStudioHrefSchema, emailStudioIdSchema } from "./editor-schema";
-import { generateEmailPlanWithOpenAI } from "./generation.server";
+import { emailStudioProviderLabel, resolveEmailStudioAi } from "./ai-config";
+import { generateEmailPlan } from "./generation.server";
 import type { EmailStudioGenerationPlan } from "./generation-plan";
 import {
   createEmailStudioEditorSnapshot,
@@ -29,7 +30,7 @@ import {
 type GenerationMode = "ai" | "manual";
 
 function aiModel(): string {
-  return process.env.EMAIL_STUDIO_OPENAI_MODEL?.trim() || "gpt-5.6";
+  return resolveEmailStudioAi().model;
 }
 
 function aiHourlyLimit(): number {
@@ -276,7 +277,8 @@ export async function generateEmailStudioDocument(
       (asset) => asset.role === "asset" && asset.publicUrl,
     );
 
-    if (useAi && process.env.OPENAI_API_KEY?.trim() && reference) {
+    const aiConfig = resolveEmailStudioAi();
+    if (useAi && aiConfig.configured && reference) {
       let aiRunId: string | null = null;
       const aiStartedAt = Date.now();
       try {
@@ -292,7 +294,7 @@ export async function generateEmailStudioDocument(
           60 * 15,
         );
         if (!referenceUrl) throw new Error("No se pudo leer la referencia.");
-        const generated = await generateEmailPlanWithOpenAI({
+        const generated = await generateEmailPlan({
           projectName: project.name,
           reference: {
             url: referenceUrl,
@@ -363,7 +365,7 @@ export async function generateEmailStudioDocument(
       }
     } else if (useAi) {
       warning = reference
-        ? "OpenAI no está configurado; se compiló la estructura configurada manualmente."
+        ? `${aiConfig.reason ?? `${emailStudioProviderLabel(aiConfig.provider)} no está configurado.`} Se compiló la estructura configurada manualmente.`
         : "Carga una referencia para usar generación asistida; se compiló la estructura configurada manualmente.";
     }
 

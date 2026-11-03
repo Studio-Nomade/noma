@@ -31,6 +31,9 @@ export const serviceSchema = z
     name: z.string().trim().min(1, "El nombre es obligatorio"),
     area: z.enum(AREAS),
     subarea: optionalText,
+    // Unidad / cadencia de cobro ("Único", "Mensual", "Trimestral", "Por pieza"…).
+    // El PDF separa valores únicos de recurrentes a partir de este campo.
+    unit: optionalText,
     requirements: optionalText,
     status: z.enum(SERVICE_STATUSES),
     variants: z.array(serviceVariantSchema).length(SERVICE_TIERS.length),

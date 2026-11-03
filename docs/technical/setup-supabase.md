@@ -46,7 +46,7 @@ npm run rates:sync     # carga UF y dólar del día
 3. En Supabase **Authentication → Providers → Google**: pegar Client ID y Client Secret,
    habilitar.
 4. En **Authentication → URL Configuration**: agregar `http://localhost:3001` y
-   `https://app.studionomade.cl` a Site URL / Redirect URLs.
+   `https://noma.studionomade.cl` a Site URL / Redirect URLs.
 5. (Opcional) restringir el dominio con `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAIN` (validado en
    `/auth/callback`).
 

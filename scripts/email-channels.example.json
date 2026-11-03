@@ -1,0 +1,25 @@
+{
+  "channels": [
+    {
+      "alias": "cliente-a@studionomade.cl",
+      "asana_project_gid": "1200000000000001",
+      "section_strategy": "month",
+      "month_section_template": "{Mes} | {YYYY}",
+      "folio_prefix": "CA",
+      "allowed_sender_domains": ["cliente-a.example"],
+      "domains_to_confirm": true
+    },
+    {
+      "alias": "cliente-b@studionomade.cl",
+      "client_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000002",
+      "asana_project_gid": "1200000000000002",
+      "section_strategy": "fixed",
+      "fixed_section_gid": "1200000000000099",
+      "default_assignee_gid": "1200000000000500",
+      "folio_prefix": "CB",
+      "folio_start": 100,
+      "allowed_sender_domains": ["cliente-b.example"]
+    }
+  ]
+}

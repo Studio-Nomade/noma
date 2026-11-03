@@ -95,6 +95,21 @@ bloqueo transaccional para impedir sobreconsumo concurrente. `client_requests`
 referencia el período, las unidades estimadas y la fecha efectiva de descuento,
 lo que hace idempotentes los reintentos del agente.
 
+### Canal correo de solicitudes (email_channels y relacionadas)
+
+Ver `docs/technical/email-intake.md`. `email_channels` mapea cada alias de Gmail
+(minúsculas, único) a cliente, proyecto, proyecto de Asana, estrategia de
+sección (`month | fixed`), prefijo de folio y dominios autorizados.
+`email_inbound_events` es la cola durable de mensajes de Gmail (única por
+`gmail_message_id`, reclamada con `FOR UPDATE SKIP LOCKED`) y
+`email_mailbox_state` guarda el último `historyId` y la vigencia del watch.
+`client_requests` suma columnas nulas del hilo (`email_thread_id`,
+`email_message_id`, `email_last_message_id`, `email_subject`, solicitante, CC y
+`folio` único) con `channel = 'email'`. `request_deliveries` registra cada ronda
+enviada, idempotente por `asana_story_gid`. `folio_counters` entrega el
+correlativo por prefijo con un upsert atómico y `asana_webhooks` guarda el
+secreto del handshake cifrado con `NOMA_TOKEN_ENCRYPTION_KEY`.
+
 ### briefs (1:1 con project)
 
 `project_id*` (único) → projects, `client_id` → clients, `area*`, `project_name`,

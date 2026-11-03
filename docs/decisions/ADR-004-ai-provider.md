@@ -1,6 +1,6 @@
 # ADR-004 — Proveedores de IA centralizados
 
-**Estado:** Aceptado · **Fecha:** 2026-07-30
+**Estado:** Aceptado, modificado por [ADR-008](ADR-008-claude-email-studio.md) · **Fecha:** 2026-07-30
 
 ## Contexto
 
@@ -15,7 +15,7 @@ generar/editar propuestas a mano.
 - Las cuentas API habilitables son **OpenAI** y **Gemini**, centralizadas a nivel Studio Nomade
   mediante `OPENAI_API_KEY` y `GEMINI_API_KEY`.
 - No se conectan cuentas personales: una suscripción ChatGPT/Gemini no incluye cuota API.
-- Anthropic queda fuera por decisión de producto.
+- Anthropic queda fuera por decisión de producto, salvo en Email Studio (ver ADR-008).
 - El contrato de salida es el `response_json_schema` con las 12 secciones de la propuesta
   (context, diagnosis, main_objective, specific_objectives, scope, work_stages, deliverables,
   timeline, client_requirements, exclusions, team, commercial_conditions).
