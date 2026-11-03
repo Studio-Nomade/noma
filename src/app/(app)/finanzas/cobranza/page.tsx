@@ -18,6 +18,12 @@ import { CobranzaComposer } from "@/features/finance/cobranza/cobranza-composer"
 import { resendCobranza } from "@/features/finance/cobranza/actions";
 import { formatDate } from "@/features/finance/helpers";
 import { UrlPagination } from "@/components/shared/url-pagination";
+import { FollowupPanel } from "@/features/finance/cobranza/followup-panel";
+import { transferDetails } from "@/features/finance/cobranza/playbook";
+import {
+  followupAutosendEnabled,
+  getFollowupCandidates,
+} from "@/features/finance/cobranza/followup-run";
 
 export default async function CobranzaPage({
   searchParams,
@@ -36,15 +42,23 @@ export default async function CobranzaPage({
   const pageSize = [20, 50, 100, 200].includes(Number(sp.pageSize))
     ? Number(sp.pageSize)
     : 20;
-  const [clients, templates, sugeridos, messagePage, cfg, paymentReports] =
-    await Promise.all([
-      getComposerContext(),
-      getCobranzaTemplates(),
-      getSugeridos(),
-      getCobranzaMessages({ page, pageSize }),
-      db.select().from(studioConfig).limit(1),
-      getPendingPaymentReports(),
-    ]);
+  const [
+    clients,
+    templates,
+    sugeridos,
+    messagePage,
+    cfg,
+    paymentReports,
+    followups,
+  ] = await Promise.all([
+    getComposerContext(),
+    getCobranzaTemplates(),
+    getSugeridos(),
+    getCobranzaMessages({ page, pageSize }),
+    db.select().from(studioConfig).limit(1),
+    getPendingPaymentReports(),
+    getFollowupCandidates(),
+  ]);
   const mensajes = messagePage.rows;
 
   const studioName = cfg[0]?.studioName ?? "Studio Nomade";
@@ -63,7 +77,7 @@ export default async function CobranzaPage({
     <>
       <PageHeader
         title="Cobranza"
-        description={`Correos automáticos al cliente desde ${senderEmail} · inicio y término de proyectos`}
+        description={`Correos al cliente desde ${senderEmail} · envío de facturas (P1–P8) y seguimiento a 7 días`}
         action={
           <Link
             href="/finanzas/cobranza/plantillas"
@@ -143,6 +157,11 @@ export default async function CobranzaPage({
         </section>
       )}
 
+      <FollowupPanel
+        candidates={followups}
+        autosend={followupAutosendEnabled()}
+      />
+
       {/* Compositor */}
       <section className="mb-10">
         <h2 className="font-heading mb-3 text-base font-medium">
@@ -161,6 +180,7 @@ export default async function CobranzaPage({
           senderName="Equipo Comercial"
           senderEmail={senderEmail}
           prefill={prefill}
+          transferText={transferDetails()}
         />
       </section>
 
