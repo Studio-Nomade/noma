@@ -130,3 +130,35 @@ export async function notifyUnknownEmailSender(input: {
     },
   ]);
 }
+
+/**
+ * Correo a un alias que la IA no reconoció como solicitud (felicitación,
+ * comentario, respuesta a un comunicado…): no se creó tarea ni se respondió.
+ */
+export async function notifyEmailWithoutRequest(input: {
+  alias: string;
+  fromEmail: string;
+  fromName?: string | null;
+  subject: string;
+  clientName?: string | null;
+  reason: string;
+}) {
+  const who = input.fromName
+    ? `${clean(input.fromName)} (${clean(input.fromEmail)})`
+    : clean(input.fromEmail);
+  return sendOperationsNotification("Correo sin solicitud", [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          `💬 *Correo sin solicitud*${input.clientName ? ` · ${clean(input.clientName)}` : ""}`,
+          `De: ${who}`,
+          `Asunto: ${clean(input.subject).slice(0, 160)}`,
+          `Lectura: ${clean(input.reason).slice(0, 200)}`,
+          `No se creó tarea ni se respondió. Está en la casilla \`${clean(input.alias)}\`; si era un pedido, reenvíenlo al alias como correo nuevo.`,
+        ].join("\n"),
+      },
+    },
+  ]);
+}

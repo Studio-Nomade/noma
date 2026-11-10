@@ -79,6 +79,8 @@ test("usa la salida del modelo y la normaliza", async () => {
   assert.equal(result.source, "llm");
   assert.deepEqual(calls, ["email_request_extraction"]);
   assert.deepEqual(result.extraction, {
+    is_request: true,
+    not_request_reason: null,
     title: "Banner Cyber para home",
     summary: "Banner para home de la campaña Cyber.",
     details: ["1200x400"],
@@ -144,4 +146,39 @@ test("sin IA configurada también usa la heurística", async () => {
   assert.equal(result.source, "fallback");
   assert.equal(result.extraction.priority, "urgente");
   assert.equal(result.extraction.requested_due_date, "2026-10-17");
+});
+
+test("distingue correos que no son solicitudes (felicitación, comentario)", async () => {
+  const generate: StructuredGenerator = async <T>() =>
+    completeExtraction({
+      is_request: false,
+      not_request_reason: "  Felicitación por la mejora del canal  ",
+      title: "Comentario sobre el canal de solicitudes",
+      summary: "Agradecen la mejora.",
+    }) as T;
+  const result = await extractEmailRequest(
+    {
+      ...INPUT,
+      subject: "Re: Canal de Solicitudes - Mejora en el flujo de correos",
+      body: "Hola!! Muy buena noticia, chicos. Muchas gracias!",
+    },
+    generate,
+  );
+  assert.equal(result.source, "llm");
+  assert.equal(result.extraction.is_request, false);
+  assert.equal(
+    result.extraction.not_request_reason,
+    "Felicitación por la mejora del canal",
+  );
+});
+
+test("sin IA o con extracciones antiguas se asume solicitud", async () => {
+  assert.equal(
+    completeExtraction({ title: "x", summary: "y" }).is_request,
+    true,
+  );
+  const result = await extractEmailRequest(INPUT, null);
+  assert.equal(result.source, "fallback");
+  assert.equal(result.extraction.is_request, true);
+  assert.equal(result.extraction.not_request_reason, null);
 });
