@@ -9,6 +9,24 @@ import { z } from "zod";
 import { isPublicEmailDomain } from "./addresses";
 import { FOLIO_PREFIX_RE } from "./folio";
 
+/** Solo variables de webhooks de Slack: el nombre viene de un archivo editable. */
+export const SLACK_WEBHOOK_ENV_RE = /^SLACK_[A-Z0-9_]{1,60}_WEBHOOK_URL$/;
+
+/**
+ * Webhook de un aviso: el del canal (variable SLACK_…_WEBHOOK_URL de su
+ * configuración) o, si no está definida, el operativo general.
+ */
+export function resolveSlackWebhook(
+  webhookEnv: string | null | undefined,
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const own =
+    webhookEnv && SLACK_WEBHOOK_ENV_RE.test(webhookEnv)
+      ? env[webhookEnv]?.trim()
+      : null;
+  return own || env.SLACK_OPERATIONS_WEBHOOK_URL?.trim() || null;
+}
+
 const gid = z.string().regex(/^\d{1,32}$/, "gid de Asana inválido");
 
 export const emailChannelConfigSchema = z
@@ -68,6 +86,30 @@ export const emailChannelConfigSchema = z
       )
       .max(5)
       .default([]),
+    /**
+     * Remitentes exactos que el canal ignora sin pasar por IA ni avisar (p. ej.
+     * un flujo de servicio al cliente que comparte dominio con el cliente).
+     */
+    ignored_senders: z
+      .array(
+        z
+          .string()
+          .trim()
+          .toLowerCase()
+          .pipe(z.email({ message: "correo inválido" })),
+      )
+      .max(50)
+      .default([]),
+    /**
+     * Variable de entorno con el webhook de Slack del canal (la URL es secreta
+     * y vive en Vercel). Sin valor se usa SLACK_OPERATIONS_WEBHOOK_URL.
+     */
+    slack_webhook_env: z
+      .string()
+      .trim()
+      .regex(SLACK_WEBHOOK_ENV_RE, "debe ser SLACK_…_WEBHOOK_URL")
+      .nullable()
+      .optional(),
     /** Marca de revisión humana: dominios aún sin confirmar con el cliente. */
     domains_to_confirm: z.boolean().default(false),
     status: z.enum(["active", "paused"]).default("active"),

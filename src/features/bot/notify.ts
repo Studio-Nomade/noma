@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveSlackWebhook } from "@/features/email/channel-config";
 
 const TIMEOUT_MS = 5_000;
 
@@ -10,8 +11,9 @@ type SlackBlock = {
 async function sendOperationsNotification(
   text: string,
   blocks: SlackBlock[],
+  webhookEnv?: string | null,
 ): Promise<{ connected: boolean; reason?: string }> {
-  const webhookUrl = process.env.SLACK_OPERATIONS_WEBHOOK_URL?.trim();
+  const webhookUrl = resolveSlackWebhook(webhookEnv);
   if (!webhookUrl) {
     return { connected: false, reason: "Slack operativo no configurado." };
   }
@@ -53,6 +55,8 @@ export async function notifyNewClientRequest(input: {
   dueDate?: string | null;
   requester?: string | null;
   assigned?: boolean;
+  /** Variable con el webhook de Slack del canal (si tiene uno propio). */
+  slackWebhookEnv?: string | null;
 }) {
   // Por ahora solo Asana: es donde el equipo se asigna y trabaja la tarea.
   const links = input.asanaUrl ? `<${input.asanaUrl}|Abrir en Asana>` : null;
@@ -81,6 +85,7 @@ export async function notifyNewClientRequest(input: {
       ? `Nueva solicitud ${input.folio}`
       : "Nueva solicitud de cliente",
     [{ type: "section", text: { type: "mrkdwn", text: body } }],
+    input.slackWebhookEnv,
   );
 }
 
@@ -110,25 +115,30 @@ export async function notifyUnknownEmailSender(input: {
   clientName?: string | null;
   /** Motivo (p. ej. remitente sin autenticación DMARC/DKIM/SPF). */
   reason?: string | null;
+  slackWebhookEnv?: string | null;
 }) {
-  return sendOperationsNotification("Correo de remitente no autorizado", [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: [
-          "*Correo en revisión (remitente no autorizado)*",
-          `Alias: \`${clean(input.alias)}\`${input.clientName ? ` · ${clean(input.clientName)}` : ""}`,
-          `Remitente: \`${clean(maskEmail(input.fromEmail))}\``,
-          `Asunto: ${clean(input.subject).slice(0, 160)}`,
-          ...(input.reason
-            ? [`Motivo: ${clean(input.reason).slice(0, 200)}`]
-            : []),
-          "No se creó solicitud ni tarea. Si corresponde, agrega el dominio o el contacto y re-encola el evento.",
-        ].join("\n"),
+  return sendOperationsNotification(
+    "Correo de remitente no autorizado",
+    [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: [
+            "*Correo en revisión (remitente no autorizado)*",
+            `Alias: \`${clean(input.alias)}\`${input.clientName ? ` · ${clean(input.clientName)}` : ""}`,
+            `Remitente: \`${clean(maskEmail(input.fromEmail))}\``,
+            `Asunto: ${clean(input.subject).slice(0, 160)}`,
+            ...(input.reason
+              ? [`Motivo: ${clean(input.reason).slice(0, 200)}`]
+              : []),
+            "No se creó solicitud ni tarea. Si corresponde, agrega el dominio o el contacto y re-encola el evento.",
+          ].join("\n"),
+        },
       },
-    },
-  ]);
+    ],
+    input.slackWebhookEnv,
+  );
 }
 
 /**
@@ -142,23 +152,28 @@ export async function notifyEmailWithoutRequest(input: {
   subject: string;
   clientName?: string | null;
   reason: string;
+  slackWebhookEnv?: string | null;
 }) {
   const who = input.fromName
     ? `${clean(input.fromName)} (${clean(input.fromEmail)})`
     : clean(input.fromEmail);
-  return sendOperationsNotification("Correo sin solicitud", [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: [
-          `💬 *Correo sin solicitud*${input.clientName ? ` · ${clean(input.clientName)}` : ""}`,
-          `De: ${who}`,
-          `Asunto: ${clean(input.subject).slice(0, 160)}`,
-          `Lectura: ${clean(input.reason).slice(0, 200)}`,
-          `No se creó tarea ni se respondió. Está en la casilla \`${clean(input.alias)}\`; si era un pedido, reenvíenlo al alias como correo nuevo.`,
-        ].join("\n"),
+  return sendOperationsNotification(
+    "Correo sin solicitud",
+    [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: [
+            `💬 *Correo sin solicitud*${input.clientName ? ` · ${clean(input.clientName)}` : ""}`,
+            `De: ${who}`,
+            `Asunto: ${clean(input.subject).slice(0, 160)}`,
+            `Lectura: ${clean(input.reason).slice(0, 200)}`,
+            `No se creó tarea ni se respondió. Está en la casilla \`${clean(input.alias)}\`; si era un pedido, reenvíenlo al alias como correo nuevo.`,
+          ].join("\n"),
+        },
       },
-    },
-  ]);
+    ],
+    input.slackWebhookEnv,
+  );
 }

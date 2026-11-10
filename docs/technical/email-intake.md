@@ -96,6 +96,18 @@ acepta al solicitante o CC originales.
   todos los correos del hilo (confirmación, consultas, entregas, acuses), p. ej. la
   supervisora del cliente. Se agregan primero, sin duplicar al solicitante, y se guardan
   en `client_requests.cc_emails` al crear la solicitud.
+- **Correo redirigido** (regla de enrutamiento del administrador desde otra casilla, sin
+  el alias en To/Cc/Delivered-To/X-Original-To/X-Forwarded-To): el canal se resuelve por
+  el dominio del remitente, solo si pertenece a **un único** canal activo. Como el alias
+  no es visible se responde al remitente y a las copias permanentes.
+- **Remitentes ignorados** (`ignored_senders` del canal): direcciones exactas que se
+  descartan antes de la IA y sin aviso (p. ej. un flujo de servicio al cliente que
+  comparte dominio con el cliente). El evento queda `ignored`.
+- **Slack por canal** (`slack_webhook_env`): nombre de una variable
+  `SLACK_<CANAL>_WEBHOOK_URL` definida en Vercel; los avisos del canal (solicitud nueva,
+  remitente no autorizado, correo sin solicitud) van a ese webhook. Sin variable, o si
+  no está definida, se usa `SLACK_OPERATIONS_WEBHOOK_URL`. La URL nunca va en el
+  archivo de canales.
 
 ## Arquitectura
 

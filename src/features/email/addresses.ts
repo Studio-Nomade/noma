@@ -209,6 +209,34 @@ export function isAllowedSenderDomain(
 }
 
 /**
+ * Canal por dominio del remitente, para correo redirigido a la casilla sin que
+ * ningún encabezado nombre el alias (p. ej. una regla de enrutamiento del
+ * administrador desde otra casilla). Solo si el dominio pertenece a un único
+ * canal; si hay ambigüedad no se adivina.
+ */
+export function channelBySenderDomain<
+  T extends { allowedSenderDomains: readonly string[] },
+>(channels: readonly T[], senderEmail: string): T | null {
+  const matches = channels.filter((channel) =>
+    isAllowedSenderDomain(senderEmail, channel.allowedSenderDomains),
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/** ¿El remitente está en la lista de ignorados de algún canal? */
+export function isIgnoredSender(
+  channels: readonly { ignoredSenders: readonly string[] }[],
+  senderEmail: string,
+): boolean {
+  const sender = normalizeEmail(senderEmail);
+  return channels.some((channel) =>
+    channel.ignoredSenders.some(
+      (ignored) => normalizeEmail(ignored) === sender,
+    ),
+  );
+}
+
+/**
  * Quita de una lista las casillas propias (alias, casilla de servicio) y
  * duplicados, para armar el CC de una respuesta.
  */

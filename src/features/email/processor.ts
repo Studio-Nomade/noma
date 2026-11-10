@@ -5,7 +5,12 @@ import {
   notifyUnknownEmailSender,
 } from "@/features/bot/notify";
 import { logActivity } from "@/lib/activity";
-import { matchAlias, routingCandidates } from "./addresses";
+import {
+  channelBySenderDomain,
+  isIgnoredSender,
+  matchAlias,
+  routingCandidates,
+} from "./addresses";
 import { GmailApiError, getMessage, requestsMailbox } from "./inbox";
 import { isAutomatedMessage, parseGmailMessage } from "./mime";
 import { detectReply } from "./reply-detection";
@@ -118,6 +123,11 @@ async function processEmailEvent(
   if (isAutomatedMessage(email.headers)) {
     return { status: "ignored", note: "Respuesta automática." };
   }
+  // Flujos que comparten dominio con el cliente pero no son solicitudes (p. ej.
+  // servicio al cliente): se ignoran antes de la IA y sin aviso.
+  if (isIgnoredSender(channels, email.from.email)) {
+    return { status: "ignored", note: "Remitente excluido del canal." };
+  }
 
   const auth = evaluateSenderAuth(email.rawHeaders, email.from.email, {
     studioDomain: studioDomain(),
@@ -158,6 +168,7 @@ async function processEmailEvent(
         fromEmail: email.from.email,
         subject: email.subject,
         clientName: channel?.clientName,
+        slackWebhookEnv: channel?.slackWebhookEnv,
         reason: `Respuesta a ${reply.request.folio ?? "solicitud"} con remitente no verificado (${auth.reason}).`,
       });
       return {
@@ -184,9 +195,11 @@ async function processEmailEvent(
     routingCandidates(email.rawHeaders),
     channels.map((channel) => channel.alias),
   );
+  // Sin alias en los encabezados (correo redirigido por una regla del
+  // administrador desde otra casilla): canal por dominio del remitente.
   const channel = alias
     ? channels.find((item) => item.alias === alias)
-    : undefined;
+    : (channelBySenderDomain(channels, email.from.email) ?? undefined);
   if (!channel) {
     return {
       status: "ignored",
@@ -202,6 +215,7 @@ async function processEmailEvent(
       fromEmail: email.from.email,
       subject: email.subject,
       clientName: channel.clientName,
+      slackWebhookEnv: channel.slackWebhookEnv,
       reason: auth.verified
         ? null
         : `Remitente sin autenticar (${auth.reason}).`,
@@ -234,6 +248,7 @@ async function processEmailEvent(
       subject: email.subject,
       clientName: channel.clientName,
       reason: result.notRequest,
+      slackWebhookEnv: channel.slackWebhookEnv,
     });
     await logActivity({
       entityType: "email_inbound_event",
