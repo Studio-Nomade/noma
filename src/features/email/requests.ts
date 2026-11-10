@@ -129,11 +129,13 @@ const CHANNEL_OPTIONS: Record<RequestChannel, string[]> = {
 /**
  * Campos de la tarea nueva por nombre: Prioridad, Ingreso Solicitud, Canal
  * (multi), Cliente final (en proyectos de agencias el campo local "Cliente" guarda el
- * cliente final) y Folio NOMA. Lo que no exista en el proyecto se omite.
+ * cliente final), Folio NOMA, Correo de contacto, Estado (Por revisar) y
+ * ¿Ticket Activo? (Si). Lo que no exista en el proyecto se omite.
  */
 export function taskFieldWishes(
   extraction: EmailExtraction,
   folio: string,
+  requesterEmail?: string | null,
 ): CustomFieldWish[] {
   const channelOptions = extraction.channels.flatMap(
     (channel) => CHANNEL_OPTIONS[channel] ?? [],
@@ -164,6 +166,18 @@ export function taskFieldWishes(
         ]
       : []),
     { kind: "text", fields: ["Folio NOMA", "Folio"], value: folio },
+    ...(requesterEmail
+      ? [
+          {
+            kind: "text" as const,
+            fields: ["Correo de contacto", "Contacto"],
+            value: requesterEmail,
+          },
+        ]
+      : []),
+    // Estado inicial del tablero y ticket abierto (columnas del proyecto).
+    { kind: "enum", fields: [ESTADO_FIELD], options: ESTADO_REVIEW },
+    { kind: "enum", fields: [TICKET_FIELD], options: ["Si", "Sí"] },
   ];
 }
 
@@ -578,7 +592,11 @@ async function createAsanaTaskForRequest(
         ).gid;
   const customFields = await resolveCustomFieldValues(
     channel.asanaProjectGid,
-    taskFieldWishes(extraction, request.folio ?? ""),
+    taskFieldWishes(
+      extraction,
+      request.folio ?? "",
+      request.requesterEmail ?? email.from?.email ?? null,
+    ),
   ).catch(() => ({}));
 
   const [claimed] = await db
