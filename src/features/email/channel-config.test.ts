@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { emailChannelsFileSchema } from "./channel-config";
+import {
+  emailChannelConfigSchema,
+  emailChannelsFileSchema,
+  resolveSlackWebhook,
+} from "./channel-config";
 
 test("el ejemplo de canales es válido y se normaliza", () => {
   const parsed = emailChannelsFileSchema.parse(
@@ -49,4 +53,57 @@ test("normaliza alias, prefijo y dominios; rechaza duplicados", () => {
     ],
   });
   assert.equal(fixedWithoutSection.success, false);
+});
+
+const base = {
+  alias: "canal@studio.cl",
+  asana_project_gid: "123",
+  folio_prefix: "ABC",
+};
+
+test("slack_webhook_env solo acepta variables SLACK_…_WEBHOOK_URL", () => {
+  assert.equal(
+    emailChannelConfigSchema.safeParse({
+      ...base,
+      slack_webhook_env: "SLACK_CLIENTE_WEBHOOK_URL",
+    }).success,
+    true,
+  );
+  for (const bad of ["DATABASE_URL", "SLACK_CLIENTE", "slack_x_webhook_url"]) {
+    assert.equal(
+      emailChannelConfigSchema.safeParse({ ...base, slack_webhook_env: bad })
+        .success,
+      false,
+      bad,
+    );
+  }
+});
+
+test("ignored_senders se normaliza a minúsculas", () => {
+  const parsed = emailChannelConfigSchema.parse({
+    ...base,
+    ignored_senders: [" Servicio@Cliente.com "],
+  });
+  assert.deepEqual(parsed.ignored_senders, ["servicio@cliente.com"]);
+});
+
+test("webhook del canal con respaldo al operativo", () => {
+  const env = {
+    SLACK_OPERATIONS_WEBHOOK_URL: "https://hooks.example/ops",
+    SLACK_CLIENTE_WEBHOOK_URL: " https://hooks.example/cliente ",
+    DATABASE_URL: "postgres://secreto",
+  };
+  assert.equal(
+    resolveSlackWebhook("SLACK_CLIENTE_WEBHOOK_URL", env),
+    "https://hooks.example/cliente",
+  );
+  assert.equal(
+    resolveSlackWebhook("SLACK_FALTA_WEBHOOK_URL", env),
+    "https://hooks.example/ops",
+  );
+  assert.equal(
+    resolveSlackWebhook("DATABASE_URL", env),
+    "https://hooks.example/ops",
+  );
+  assert.equal(resolveSlackWebhook(null, {}), null);
 });

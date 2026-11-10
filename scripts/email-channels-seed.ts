@@ -120,6 +120,8 @@ async function main() {
       folioPrefix: channel.folio_prefix,
       allowedSenderDomains: channel.allowed_sender_domains,
       alwaysCc: channel.always_cc,
+      ignoredSenders: channel.ignored_senders,
+      slackWebhookEnv: channel.slack_webhook_env ?? null,
       status: channel.status,
       updatedAt: new Date(),
     };

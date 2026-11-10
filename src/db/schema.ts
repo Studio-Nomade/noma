@@ -1392,6 +1392,14 @@ export const emailChannels = pgTable(
       .array()
       .default(sql`'{}'::text[]`)
       .notNull(),
+    // Remitentes que el canal ignora sin IA ni aviso (flujos que no son solicitudes).
+    ignoredSenders: text("ignored_senders")
+      .array()
+      .default(sql`'{}'::text[]`)
+      .notNull(),
+    // Nombre de la variable de entorno con el webhook de Slack del canal
+    // (nunca la URL). Null → SLACK_OPERATIONS_WEBHOOK_URL.
+    slackWebhookEnv: text("slack_webhook_env"),
     status: text("status").default("active").notNull(),
     ...timestamps,
   },
