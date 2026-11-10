@@ -1,6 +1,9 @@
 import "server-only";
 
-import { notifyUnknownEmailSender } from "@/features/bot/notify";
+import {
+  notifyEmailWithoutRequest,
+  notifyUnknownEmailSender,
+} from "@/features/bot/notify";
 import { logActivity } from "@/lib/activity";
 import { matchAlias, routingCandidates } from "./addresses";
 import { GmailApiError, getMessage, requestsMailbox } from "./inbox";
@@ -223,6 +226,25 @@ async function processEmailEvent(
     channel,
     ownAddresses,
   });
+  if (result.notRequest) {
+    await notifyEmailWithoutRequest({
+      alias: channel.alias,
+      fromEmail: email.from.email,
+      fromName: email.from.name,
+      subject: email.subject,
+      clientName: channel.clientName,
+      reason: result.notRequest,
+    });
+    await logActivity({
+      entityType: "email_inbound_event",
+      entityId: eventId,
+      action: "email_not_request",
+    });
+    return {
+      status: "ignored",
+      note: `Sin solicitud (no se creó tarea): ${result.notRequest}`,
+    };
+  }
   return {
     status: result.needsReview ? "review" : "done",
     note:

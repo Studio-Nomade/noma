@@ -302,6 +302,11 @@ export type NewEmailRequestResult = {
   warnings: string[];
   /** Quedó algo sin confirmar (tarea o correo): el evento va a revisión. */
   needsReview: boolean;
+  /**
+   * La IA determinó que el correo no pide trabajo (felicitación, comentario,
+   * respuesta a un comunicado…): no se crea solicitud, tarea ni confirmación.
+   */
+  notRequest?: string;
 };
 
 /**
@@ -372,6 +377,26 @@ export async function handleNewEmailRequest(input: {
     await patchEventPayload(input.eventId, progress);
   }
   const extraction = completeExtraction(progress.extraction);
+
+  // 1b) ¿Es una solicitud? Solo se descarta con lectura de IA y si aún no
+  // existe la solicitud (un reintento de un evento ya creado sigue su curso).
+  if (
+    !extraction.is_request &&
+    progress.extractionSource === "llm" &&
+    !(await db.query.clientRequests.findFirst({
+      where: eq(clientRequests.sourceMessageId, sourceKey),
+      columns: { id: true },
+    }))
+  ) {
+    return {
+      requestId: "",
+      folio: "",
+      created: false,
+      warnings,
+      needsReview: false,
+      notRequest: extraction.not_request_reason ?? "Sin pedido concreto",
+    };
+  }
 
   // 2) Solicitud + folio (idempotente por Message-ID).
   let request =
