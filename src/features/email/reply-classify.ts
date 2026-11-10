@@ -196,7 +196,7 @@ export async function classifyReply(
       input: buildReplyPrompt(context),
       schema: replyClassificationSchema,
       schemaName: "email_reply_classification",
-      maxOutputTokens: 1_200,
+      maxOutputTokens: 4_096,
     });
     return {
       classification: normalizeReplyClassification(raw, context),

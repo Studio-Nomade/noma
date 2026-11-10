@@ -1,14 +1,18 @@
 import "server-only";
 
-import { z } from "zod";
 import { getLLMProvider, type GenerateStructuredInput } from "./provider";
+import {
+  anthropicStructuredBody,
+  parseStructuredMessage,
+  type AnthropicMessage,
+} from "./structured-body";
 
 /**
  * Salida estructurada para el canal de solicitudes (extracción del correo y
  * clasificación de respuestas). Proveedor por `REQUESTS_AI_PROVIDER`:
  *
- * - `anthropic` (por defecto si hay `ANTHROPIC_API_KEY`): Claude con una
- *   herramienta forzada cuyo `input_schema` es el JSON Schema del Zod.
+ * - `anthropic` (por defecto si hay `ANTHROPIC_API_KEY`): Claude con JSON
+ *   outputs (`output_config.format`) generados desde el Zod.
  * - `openai`: el proveedor existente (Responses API con JSON Schema estricto).
  *
  * Nunca cambia de proveedor por su cuenta: si el elegido no tiene key,
@@ -19,7 +23,6 @@ export type StructuredFn = <T>(input: GenerateStructuredInput<T>) => Promise<T>;
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-export const DEFAULT_REQUESTS_ANTHROPIC_MODEL = "claude-sonnet-5-5";
 
 export function requestsAiProvider(
   env: Record<string, string | undefined> = process.env,
@@ -43,24 +46,11 @@ export function requestsStructuredGenerator(): StructuredFn | null {
   return null;
 }
 
-/** JSON Schema para `input_schema` (objeto, sin `$schema`). */
-export function toolInputSchema(schema: z.ZodType) {
-  const json = z.toJSONSchema(schema, { target: "draft-7" }) as Record<
-    string,
-    unknown
-  >;
-  delete json.$schema;
-  return json;
-}
-
 async function anthropicStructured<T>(
   input: GenerateStructuredInput<T>,
 ): Promise<T> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error("Claude no está configurado.");
-  const toolName = input.schemaName
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 64);
   const response = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: {
@@ -68,23 +58,8 @@ async function anthropicStructured<T>(
       "x-api-key": apiKey,
       "anthropic-version": ANTHROPIC_VERSION,
     },
-    body: JSON.stringify({
-      model:
-        process.env.REQUESTS_ANTHROPIC_MODEL?.trim() ||
-        DEFAULT_REQUESTS_ANTHROPIC_MODEL,
-      max_tokens: input.maxOutputTokens ?? 4_096,
-      system: input.instructions,
-      messages: [{ role: "user", content: input.input }],
-      tools: [
-        {
-          name: toolName,
-          description: "Devuelve el resultado estructurado.",
-          input_schema: toolInputSchema(input.schema as z.ZodType),
-        },
-      ],
-      tool_choice: { type: "tool", name: toolName },
-    }),
-    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify(anthropicStructuredBody(input)),
+    signal: AbortSignal.timeout(45_000),
   });
   if (!response.ok) {
     // Solo el tipo y mensaje del error de la API (no repiten el correo).
@@ -92,30 +67,10 @@ async function anthropicStructured<T>(
       `Claude respondió ${response.status}${await anthropicErrorDetail(response)}.`,
     );
   }
-  const body = (await response.json()) as {
-    content?: { type: string; name?: string; input?: unknown }[];
-    stop_reason?: string;
-  };
-  const block = body.content?.find(
-    (item) => item.type === "tool_use" && item.name === toolName,
+  return parseStructuredMessage(
+    (await response.json()) as AnthropicMessage,
+    input.schema,
   );
-  if (!block) {
-    throw new Error(
-      `Claude no devolvió una salida estructurada (stop_reason: ${body.stop_reason ?? "?"}).`,
-    );
-  }
-  const parsed = input.schema.safeParse(block.input);
-  if (!parsed.success) {
-    // Rutas y códigos de Zod, sin valores.
-    const issues = parsed.error.issues
-      .slice(0, 5)
-      .map((issue) => `${issue.path.join(".") || "(raíz)"}:${issue.code}`)
-      .join(", ");
-    throw new Error(
-      `Salida de Claude inválida (stop_reason: ${body.stop_reason ?? "?"}; ${issues}).`,
-    );
-  }
-  return parsed.data;
 }
 
 async function anthropicErrorDetail(response: Response): Promise<string> {
