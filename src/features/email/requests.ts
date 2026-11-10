@@ -349,7 +349,11 @@ export async function handleNewEmailRequest(input: {
     );
     progress.extraction = result.extraction;
     progress.extractionSource = result.source;
-    if (result.error) warnings.push(`IA: ${result.error}`);
+    if (result.error) {
+      warnings.push(`IA: ${result.error}`);
+      // Visible en los logs: la extracción cayó a la heurística sin IA.
+      console.warn("[email:extract] heurística sin IA:", result.error);
+    }
     await patchEventPayload(input.eventId, progress);
   }
   const extraction = completeExtraction(progress.extraction);
@@ -687,7 +691,7 @@ async function sendConfirmation(
       from: { name: STUDIO_SENDER_NAME, email: ctx.channel.alias },
       to: [request.requesterEmail!],
       cc: request.ccEmails ?? [],
-      subject: replySubject(request.emailSubject, request.folio ?? ""),
+      subject: replySubject(request.emailSubject),
       html: rendered.html,
       text: rendered.text,
       inReplyTo: thread.inReplyTo,
@@ -881,7 +885,7 @@ export async function sendThreadEmail(
     from: { name: STUDIO_SENDER_NAME, email: channel.alias },
     to: [request.requesterEmail!],
     cc: request.ccEmails ?? [],
-    subject: replySubject(request.emailSubject, request.folio ?? ""),
+    subject: replySubject(request.emailSubject),
     html: rendered.html,
     text: rendered.text,
     inReplyTo: thread.inReplyTo,

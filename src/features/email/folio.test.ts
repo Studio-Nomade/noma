@@ -43,10 +43,6 @@ test("encuentra el folio con mes en el asunto", () => {
     cleanSubject("Re: Video LinkedIn [G360-NOV-0042]"),
     "Video LinkedIn",
   );
-  assert.equal(
-    replySubject("Re: Video [G360-NOV-0042]", "G360-NOV-0042"),
-    "Re: Video [G360-NOV-0042]",
-  );
 });
 
 test("encuentra el folio en el asunto", () => {
@@ -63,14 +59,12 @@ test("limpia prefijos de respuesta y folios", () => {
   assert.equal(cleanSubject("Revisión: banner"), "Revisión: banner");
 });
 
-test("arma el asunto de respuesta con folio una sola vez", () => {
+test("arma el asunto de respuesta sin folio para no separar el hilo", () => {
+  assert.equal(replySubject("Banner cyber"), "Re: Banner cyber");
+  assert.equal(replySubject("RE: Fwd: Banner cyber"), "Re: Banner cyber");
   assert.equal(
-    replySubject("Banner cyber", "EQ-0142"),
-    "Re: Banner cyber [EQ-0142]",
+    replySubject("Re: Video [G360-NOV-0042]"),
+    "Re: Video [G360-NOV-0042]",
   );
-  assert.equal(
-    replySubject("RE: Banner cyber [EQ-0142]", "EQ-0142"),
-    "Re: Banner cyber [EQ-0142]",
-  );
-  assert.equal(replySubject("", "EQ-0001"), "Re: Solicitud [EQ-0001]");
+  assert.equal(replySubject(""), "Re: Solicitud");
 });

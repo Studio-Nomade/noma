@@ -72,7 +72,7 @@ async function anthropicStructured<T>(
       model:
         process.env.REQUESTS_ANTHROPIC_MODEL?.trim() ||
         DEFAULT_REQUESTS_ANTHROPIC_MODEL,
-      max_tokens: input.maxOutputTokens ?? 2_000,
+      max_tokens: input.maxOutputTokens ?? 4_096,
       system: input.instructions,
       messages: [{ role: "user", content: input.input }],
       tools: [
@@ -87,15 +87,48 @@ async function anthropicStructured<T>(
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) {
-    // No se registra el cuerpo: puede repetir partes del correo del cliente.
-    throw new Error(`Claude respondió ${response.status}.`);
+    // Solo el tipo y mensaje del error de la API (no repiten el correo).
+    throw new Error(
+      `Claude respondió ${response.status}${await anthropicErrorDetail(response)}.`,
+    );
   }
   const body = (await response.json()) as {
     content?: { type: string; name?: string; input?: unknown }[];
+    stop_reason?: string;
   };
   const block = body.content?.find(
     (item) => item.type === "tool_use" && item.name === toolName,
   );
-  if (!block) throw new Error("Claude no devolvió una salida estructurada.");
-  return input.schema.parse(block.input);
+  if (!block) {
+    throw new Error(
+      `Claude no devolvió una salida estructurada (stop_reason: ${body.stop_reason ?? "?"}).`,
+    );
+  }
+  const parsed = input.schema.safeParse(block.input);
+  if (!parsed.success) {
+    // Rutas y códigos de Zod, sin valores.
+    const issues = parsed.error.issues
+      .slice(0, 5)
+      .map((issue) => `${issue.path.join(".") || "(raíz)"}:${issue.code}`)
+      .join(", ");
+    throw new Error(
+      `Salida de Claude inválida (stop_reason: ${body.stop_reason ?? "?"}; ${issues}).`,
+    );
+  }
+  return parsed.data;
+}
+
+async function anthropicErrorDetail(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      error?: { type?: string; message?: string };
+    };
+    const type = body.error?.type ?? "";
+    const message = (body.error?.message ?? "").slice(0, 160);
+    return type || message
+      ? ` (${[type, message].filter(Boolean).join(": ")})`
+      : "";
+  } catch {
+    return "";
+  }
 }
