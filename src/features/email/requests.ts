@@ -1,33 +1,36 @@
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { clientRequests } from "@/db/schema";
+import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
   AsanaApiError,
   addStory,
   createTask,
   ensureMonthSection,
   getTaskState,
-  resolveEnumValues,
+  resolveCustomFieldValues,
   setEnumFieldByName,
   setTaskCompleted,
+  setTaskCustomFields,
+  setTaskDueOn,
+  taskFieldValue,
   uploadAttachment,
 } from "@/features/asana/asana";
+import type { CustomFieldWish } from "@/features/asana/custom-fields";
 import { notifyNewClientRequest } from "@/features/bot/notify";
 import { classifyScope } from "@/features/bot/scope";
 import { consumeRequest } from "@/features/retainers/periods";
 import { logActivity } from "@/lib/activity";
-import { getLLMProvider } from "@/lib/ai/provider";
+import { requestsStructuredGenerator } from "@/lib/ai/structured";
 import { domainOf, externalRecipients } from "./addresses";
+import { buildReplyStoryHtml, buildTaskHtmlNotes } from "./asana-content";
+import { formatSpanishDate } from "./dates";
 import {
-  buildReplyStoryHtml,
-  buildTaskHtmlNotes,
-  priorityLabel,
-} from "./asana-content";
-import {
+  completeExtraction,
   extractEmailRequest,
   type EmailExtraction,
+  type RequestChannel,
   type StructuredGenerator,
 } from "./extract";
 import { replySubject } from "./folio";
@@ -47,7 +50,17 @@ import {
   type EmailRequestRow,
   type ResolvedEmailChannel,
 } from "./store";
-import { renderConfirmationEmail } from "./templates";
+import { classifyReply, type ReplyClassification } from "./reply-classify";
+import {
+  priorityStyle,
+  renderAdjustmentsAckEmail,
+  renderApprovedEmail,
+  renderCommentAckEmail,
+  renderConfirmationEmail,
+  stageFromEstado,
+  type FieldChange,
+  type RenderedEmail,
+} from "./templates";
 
 /** Progreso guardado en email_inbound_events.payload para reintentos. */
 export type EventProgress = {
@@ -64,6 +77,13 @@ export type EventProgress = {
   attachmentsDone?: boolean;
   storyGid?: string;
   uploaded?: string[];
+  /** Respuesta del cliente: clasificación (persistida para reanudar). */
+  reply?: ReplyClassification | null;
+  /** Acuse de la respuesta reclamado (antes de enviar) y enviado. */
+  ackClaimed?: boolean;
+  ackSent?: boolean;
+  /** Cambios de Asana por la respuesta ya aplicados. */
+  replyApplied?: boolean;
 };
 
 export const STUDIO_SENDER_NAME = "Studio Nomade";
@@ -72,7 +92,80 @@ export const STUDIO_SENDER_NAME = "Studio Nomade";
 export const ESTADO_FIELD = "Estado";
 export const ESTADO_SENT = ["Enviado a cliente"];
 export const ESTADO_ADJUSTMENTS = ["Con ajustes"];
+export const ESTADO_APPROVED = ["Aprobado"];
+export const ESTADO_REVIEW = ["Por revisar"];
+export const ESTADO_OUT_OF_SCOPE = "Fuera de alcance";
 const PRIORITY_FIELD = "Prioridad";
+const TICKET_FIELD = "¿Ticket Activo?";
+
+/** Opciones de Prioridad en Asana, en orden de preferencia. */
+export function priorityOptions(priority: EmailExtraction["priority"]) {
+  switch (priority) {
+    case "urgente":
+      return ["Urgente", "Alta"];
+    case "alta":
+      return ["Alta"];
+    case "media":
+      return ["Media"];
+    default:
+      return ["Normal", "Baja"];
+  }
+}
+
+/** Sinónimos de cada canal en las opciones de Asana. */
+const CHANNEL_OPTIONS: Record<RequestChannel, string[]> = {
+  Instagram: ["Instagram"],
+  Facebook: ["Facebook"],
+  LinkedIn: ["LinkedIn"],
+  TikTok: ["TikTok"],
+  YouTube: ["YouTube", "Video"],
+  Email: ["Email", "Mailing"],
+  Web: ["Web"],
+  "PDF - Documento": ["PDF - Documento", "PDF / documento", "PDF"],
+  Impreso: ["Impreso"],
+  Otro: ["Otro"],
+};
+
+/**
+ * Campos de la tarea nueva por nombre: Prioridad, Ingreso Solicitud, Canal
+ * (multi), Cliente final (en proyectos de agencias el campo local "Cliente" guarda el
+ * cliente final) y Folio NOMA. Lo que no exista en el proyecto se omite.
+ */
+export function taskFieldWishes(
+  extraction: EmailExtraction,
+  folio: string,
+): CustomFieldWish[] {
+  const channelOptions = extraction.channels.flatMap(
+    (channel) => CHANNEL_OPTIONS[channel] ?? [],
+  );
+  return [
+    {
+      kind: "enum",
+      fields: [PRIORITY_FIELD],
+      options: priorityOptions(extraction.priority),
+    },
+    { kind: "enum", fields: ["Ingreso Solicitud"], options: ["Correo"] },
+    ...(channelOptions.length
+      ? [
+          {
+            kind: "multi_enum" as const,
+            fields: ["Formato / Canal", "Canal"],
+            options: channelOptions,
+          },
+        ]
+      : []),
+    ...(extraction.end_client
+      ? [
+          {
+            kind: "enum" as const,
+            fields: ["Cliente final", "Cliente"],
+            options: [extraction.end_client],
+          },
+        ]
+      : []),
+    { kind: "text", fields: ["Folio NOMA", "Folio"], value: folio },
+  ];
+}
 
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_ATTACHMENTS = 10;
@@ -92,8 +185,7 @@ export function studioDomain() {
 }
 
 function structuredGenerator(): StructuredGenerator | null {
-  if (!process.env.OPENAI_API_KEY?.trim()) return null;
-  return (input) => getLLMProvider().generateStructured(input);
+  return requestsStructuredGenerator();
 }
 
 /**
@@ -260,7 +352,7 @@ export async function handleNewEmailRequest(input: {
     if (result.error) warnings.push(`IA: ${result.error}`);
     await patchEventPayload(input.eventId, progress);
   }
-  const extraction = progress.extraction;
+  const extraction = completeExtraction(progress.extraction);
 
   // 2) Solicitud + folio (idempotente por Message-ID).
   let request =
@@ -284,7 +376,7 @@ export async function handleNewEmailRequest(input: {
     }
     const outcome = await db
       .transaction(async (tx) => {
-        const folio = await nextFolio(tx, channel.folioPrefix);
+        const folio = await nextFolio(tx, channel.folioPrefix, email.date);
         const [row] = await tx
           .insert(clientRequests)
           .values({
@@ -397,8 +489,8 @@ export async function handleNewEmailRequest(input: {
     try {
       request = await sendConfirmation(request, {
         channel,
-        title: extraction.title,
-        dueDate: extraction.requested_due_date,
+        extraction,
+        email,
       });
       progress.confirmationSent = true;
       await patchEventPayload(input.eventId, progress);
@@ -480,15 +572,10 @@ async function createAsanaTaskForRequest(
             channel.monthSectionTemplate,
           )
         ).gid;
-  const customFields = await resolveEnumValues(channel.asanaProjectGid, [
-    {
-      field: PRIORITY_FIELD,
-      options:
-        extraction.priority === "urgente"
-          ? ["Urgente", "Alta"]
-          : [priorityLabel(extraction.priority)],
-    },
-  ]).catch(() => ({}));
+  const customFields = await resolveCustomFieldValues(
+    channel.asanaProjectGid,
+    taskFieldWishes(extraction, request.folio ?? ""),
+  ).catch(() => ({}));
 
   const [claimed] = await db
     .update(clientRequests)
@@ -561,8 +648,8 @@ async function sendConfirmation(
   request: EmailRequestRow,
   ctx: {
     channel: ResolvedEmailChannel;
-    title: string;
-    dueDate: string | null;
+    extraction: EmailExtraction;
+    email: ParsedEmail;
   },
 ): Promise<EmailRequestRow> {
   const [claimed] = await db
@@ -579,9 +666,16 @@ async function sendConfirmation(
 
   const rendered = renderConfirmationEmail({
     folio: request.folio ?? "",
-    title: ctx.title,
+    clientName: ctx.channel.clientName,
+    alias: ctx.channel.alias,
+    title: ctx.extraction.title,
     requesterName: request.requesterName,
-    dueDate: ctx.dueDate,
+    requesterEmail: request.requesterEmail ?? ctx.email.from?.email ?? "",
+    extraction: ctx.extraction,
+    receivedAt: ctx.email.date,
+    attachmentNames: selectAttachments(ctx.email.attachments).selected.map(
+      (ref) => ref.filename,
+    ),
   });
   const thread = buildReplyThreadHeaders({
     parentMessageId: request.emailLastMessageId ?? request.emailMessageId,
@@ -672,43 +766,350 @@ export async function handleEmailReply(input: {
     await patchEventPayload(input.eventId, progress);
   }
 
-  // Ajustes del cliente sobre una tarea cerrada: se reabre. Las respuestas
-  // internas del estudio en el hilo solo comentan.
-  const isInternal = domainOf(from.email) === studioDomain();
-  if (!isInternal) {
-    const task = await getTaskState(taskGid);
-    if (task.completed) {
-      await setTaskCompleted(taskGid, false);
-      const projectGid =
-        input.channel?.asanaProjectGid ?? task.projects?.[0]?.gid ?? null;
-      if (projectGid) {
-        await setEnumFieldByName(
-          taskGid,
-          projectGid,
-          ESTADO_FIELD,
-          ESTADO_ADJUSTMENTS,
-        ).catch((error) => {
-          notes.push(
-            `Estado no actualizado: ${error instanceof Error ? error.message : "error"}`,
-          );
-          return false;
-        });
-      }
-      notes.push("Tarea reabierta por respuesta del cliente.");
-    }
-  }
-
-  await db
+  // El mensaje del cliente pasa a ser el último del hilo (los acuses de Noma
+  // responden a él).
+  const [current] = await db
     .update(clientRequests)
     .set({
       emailLastMessageId: email.messageId ?? request.emailLastMessageId,
       updatedAt: new Date(),
     })
-    .where(eq(clientRequests.id, request.id));
+    .where(eq(clientRequests.id, request.id))
+    .returning();
+
+  // Respuestas internas del estudio en el hilo solo comentan.
+  const isInternal = domainOf(from.email) === studioDomain();
+  if (!isInternal) {
+    const outcome = await actOnClientReply({
+      eventId: input.eventId,
+      progress,
+      email,
+      request: current ?? request,
+      channel: input.channel,
+      taskGid,
+      replyText: replyBody(email).text,
+    });
+    notes.push(...outcome.notes);
+    if (outcome.needsReview) {
+      return { status: "review", note: notes.join(" · ") || null };
+    }
+  }
+
   await logActivity({
     entityType: "client_request",
     entityId: request.id,
     action: "email_reply_commented",
   });
   return { status: "done", note: notes.join(" · ") || null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Acuse de la respuesta del cliente (02 · 05 · 06) y cambios en Asana
+// ─────────────────────────────────────────────────────────────
+type LastDelivery = {
+  round: number;
+  files: { label: string; url: string; detail: string | null }[];
+  links: string[];
+  sentAt: Date | null;
+};
+
+async function lastSentDelivery(
+  requestId: string,
+): Promise<LastDelivery | null> {
+  const rows = await db
+    .select({
+      round: requestDeliveries.round,
+      files: requestDeliveries.files,
+      links: requestDeliveries.links,
+      sentAt: requestDeliveries.sentAt,
+    })
+    .from(requestDeliveries)
+    .where(
+      and(
+        eq(requestDeliveries.clientRequestId, requestId),
+        eq(requestDeliveries.kind, "delivery"),
+        eq(requestDeliveries.status, "sent"),
+      ),
+    )
+    .orderBy(desc(requestDeliveries.round))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+async function lastConsultaQuestions(requestId: string): Promise<string[]> {
+  const rows = await db
+    .select({ note: requestDeliveries.note })
+    .from(requestDeliveries)
+    .where(
+      and(
+        eq(requestDeliveries.clientRequestId, requestId),
+        eq(requestDeliveries.kind, "consulta"),
+        eq(requestDeliveries.status, "sent"),
+      ),
+    )
+    .orderBy(desc(requestDeliveries.createdAt))
+    .limit(1);
+  return (rows[0]?.note ?? "").split("\n").filter(Boolean);
+}
+
+async function countSentDeliveries(requestId: string) {
+  const rows = await db
+    .select({ round: requestDeliveries.round })
+    .from(requestDeliveries)
+    .where(
+      and(
+        eq(requestDeliveries.clientRequestId, requestId),
+        eq(requestDeliveries.kind, "delivery"),
+        eq(requestDeliveries.status, "sent"),
+      ),
+    );
+  return new Set(rows.map((row) => row.round)).size;
+}
+
+/** Envía un correo de Noma en el hilo de la solicitud y guarda el Message-ID. */
+export async function sendThreadEmail(
+  request: EmailRequestRow,
+  channel: ResolvedEmailChannel,
+  rendered: RenderedEmail,
+) {
+  const thread = buildReplyThreadHeaders({
+    parentMessageId: request.emailLastMessageId ?? request.emailMessageId,
+    references: [request.emailMessageId],
+  });
+  const sent = await sendReply({
+    threadId: request.emailThreadId!,
+    from: { name: STUDIO_SENDER_NAME, email: channel.alias },
+    to: [request.requesterEmail!],
+    cc: request.ccEmails ?? [],
+    subject: replySubject(request.emailSubject, request.folio ?? ""),
+    html: rendered.html,
+    text: rendered.text,
+    inReplyTo: thread.inReplyTo,
+    references: thread.references,
+  });
+  await db
+    .update(clientRequests)
+    .set({
+      emailLastMessageId: sent.messageId ?? request.emailLastMessageId,
+      updatedAt: new Date(),
+    })
+    .where(eq(clientRequests.id, request.id));
+  return sent;
+}
+
+export function requestTitle(request: EmailRequestRow) {
+  return (
+    request.normalizedSummary?.split(" — ")[0] ?? request.emailSubject ?? ""
+  );
+}
+
+async function actOnClientReply(input: {
+  eventId: string;
+  progress: EventProgress;
+  email: ParsedEmail;
+  request: EmailRequestRow;
+  channel: ResolvedEmailChannel | null;
+  taskGid: string;
+  replyText: string;
+}): Promise<{ notes: string[]; needsReview: boolean }> {
+  const { email, request, progress, taskGid } = input;
+  const notes: string[] = [];
+  const channel = input.channel;
+  const task = await getTaskState(taskGid);
+  const projectGid =
+    channel?.asanaProjectGid ?? task.projects?.[0]?.gid ?? null;
+  const delivery = await lastSentDelivery(request.id);
+
+  // 1) Clasificación (persistida: un reintento no vuelve a llamar a la IA).
+  if (progress.reply === undefined) {
+    const result = await classifyReply(
+      {
+        folio: request.folio ?? "",
+        title: requestTitle(request),
+        lastDeliveryRound: delivery?.round ?? null,
+        openQuestions: await lastConsultaQuestions(request.id),
+        fromName: email.from?.name ?? null,
+        date: email.date,
+        body: input.replyText,
+      },
+      structuredGenerator(),
+    );
+    progress.reply = result.classification;
+    if (result.error) notes.push(`IA: ${result.error}`);
+    await patchEventPayload(input.eventId, progress);
+  }
+  const reply = progress.reply;
+
+  // Sin IA: comportamiento previo (reabre una tarea cerrada, sin acuse).
+  if (!reply) {
+    if (task.completed) {
+      await setTaskCompleted(taskGid, false);
+      if (projectGid) {
+        await setEnumFieldByName(
+          taskGid,
+          projectGid,
+          ESTADO_FIELD,
+          ESTADO_ADJUSTMENTS,
+        ).catch(() => false);
+      }
+      notes.push("Tarea reabierta por respuesta del cliente.");
+    }
+    return { notes, needsReview: false };
+  }
+  notes.push(`Respuesta clasificada: ${reply.kind}`);
+  if (reply.kind === "empty") return { notes, needsReview: false };
+
+  // 2) Cambios en Asana (una sola vez por evento; degradables).
+  const changes: FieldChange[] = [];
+  if (!progress.replyApplied && projectGid) {
+    const estado = (options: string[]) =>
+      setEnumFieldByName(taskGid, projectGid, ESTADO_FIELD, options).catch(
+        (error) => {
+          notes.push(
+            `Estado no actualizado: ${error instanceof Error ? error.message : "error"}`,
+          );
+          return false;
+        },
+      );
+    try {
+      if (reply.kind === "approval") {
+        await estado(ESTADO_APPROVED);
+        await setEnumFieldByName(taskGid, projectGid, TICKET_FIELD, [
+          "Finalizado",
+        ]).catch(() => false);
+        if (!task.completed) await setTaskCompleted(taskGid, true);
+        notes.push("Aprobada por el cliente: tarea completada.");
+      } else {
+        if (task.completed) {
+          await setTaskCompleted(taskGid, false);
+          notes.push("Tarea reabierta por respuesta del cliente.");
+        }
+        if (reply.kind === "adjustments") {
+          await estado(ESTADO_ADJUSTMENTS);
+          await db
+            .update(clientRequests)
+            .set({
+              emailPendingAdjustments: reply.adjustments,
+              updatedAt: new Date(),
+            })
+            .where(eq(clientRequests.id, request.id));
+        } else if (reply.kind === "ambiguous") {
+          await estado(ESTADO_REVIEW);
+          notes.push("Respuesta ambigua: la tarea vuelve a Por revisar.");
+        } else if (task.completed) {
+          await estado(ESTADO_ADJUSTMENTS);
+        }
+      }
+      if (reply.new_due_date && reply.new_due_date !== task.due_on) {
+        await setTaskDueOn(taskGid, reply.new_due_date);
+        changes.push({
+          field: "Fecha ideal de entrega",
+          before: task.due_on
+            ? formatSpanishDate(task.due_on)
+            : "Por confirmar",
+          after: formatSpanishDate(reply.new_due_date),
+        });
+      }
+      if (reply.new_priority) {
+        const before = taskFieldValue(task, PRIORITY_FIELD);
+        const values = await resolveCustomFieldValues(projectGid, [
+          {
+            kind: "enum",
+            fields: [PRIORITY_FIELD],
+            options: priorityOptions(reply.new_priority),
+          },
+        ]);
+        const after = priorityStyle(reply.new_priority).label;
+        if (Object.keys(values).length && before !== after) {
+          await setTaskCustomFields(taskGid, values);
+          changes.push({ field: "Prioridad", before, after });
+        }
+      }
+      if (reply.new_format) {
+        changes.push({
+          field: "Formato",
+          before: null,
+          after: reply.new_format,
+        });
+      }
+    } catch (error) {
+      notes.push(`Asana: ${error instanceof Error ? error.message : "error"}`);
+    }
+    progress.replyApplied = true;
+    await patchEventPayload(input.eventId, progress);
+  }
+
+  // 3) Acuse en el hilo (reclamado antes de enviar para no duplicar).
+  if (!channel || !request.emailThreadId || !request.requesterEmail) {
+    notes.push("Sin canal o hilo: no se envió acuse.");
+    return { notes, needsReview: false };
+  }
+  if (progress.ackSent) return { notes, needsReview: false };
+  if (progress.ackClaimed) {
+    notes.push("Acuse reclamado sin respuesta de Gmail; revisar si llegó.");
+    return { notes, needsReview: true };
+  }
+  const common = {
+    folio: request.folio ?? "",
+    clientName: channel.clientName,
+    alias: channel.alias,
+    title: requestTitle(request),
+    requesterName: request.requesterName,
+  };
+  let rendered: RenderedEmail;
+  if (reply.kind === "approval" && delivery) {
+    rendered = renderApprovedEmail({
+      ...common,
+      finalRound: delivery.round,
+      totalRounds: Math.max(1, await countSentDeliveries(request.id)),
+      receivedAt: request.createdAt,
+      approvedAt: email.date,
+      files: delivery.files.length
+        ? delivery.files
+        : delivery.links.map((url, index) => ({
+            label: `Archivo ${String(index + 1).padStart(2, "0")}`,
+            url,
+            detail: null,
+          })),
+    });
+  } else if (reply.kind === "adjustments" && delivery) {
+    rendered = renderAdjustmentsAckEmail({
+      ...common,
+      reviewedRound: delivery.round,
+      adjustments: reply.adjustments,
+      doubts: reply.doubts,
+    });
+  } else {
+    const estado = taskFieldValue(task, ESTADO_FIELD);
+    const uploaded = selectAttachments(email.attachments).selected;
+    rendered = renderCommentAckEmail({
+      ...common,
+      receivedAt: email.date,
+      stage: reply.kind === "ambiguous" ? 1 : (stageFromEstado(estado) ?? 1),
+      isQuestion: reply.kind === "question" || reply.kind === "ambiguous",
+      points: reply.points,
+      changes,
+      files: uploaded.map((ref) => ({ name: ref.filename, type: "Adjunto" })),
+      pending: reply.doubts,
+    });
+  }
+  progress.ackClaimed = true;
+  await patchEventPayload(input.eventId, progress);
+  try {
+    await sendThreadEmail(request, channel, rendered);
+    progress.ackSent = true;
+    await patchEventPayload(input.eventId, progress);
+  } catch (error) {
+    if (isDefinite(error)) {
+      // Gmail rechazó: no salió. Se libera para reintentar el evento.
+      progress.ackClaimed = false;
+      await patchEventPayload(input.eventId, progress);
+      throw error;
+    }
+    notes.push(
+      `Acuse sin confirmar (${error instanceof Error ? error.message : "corte"}); revisar si llegó.`,
+    );
+    return { notes, needsReview: true };
+  }
+  return { notes, needsReview: false };
 }

@@ -11,6 +11,41 @@ hilo con un folio correlativo y mantiene el ciclo entrega → ajustes en ese hil
 
 ## Ciclo
 
+Los correos al cliente usan 7 plantillas con la identidad de Studio Nomade
+(`src/features/email/email-templates/`, HTML Mustache + texto plano). Todas van en
+el mismo hilo y, salvo la confirmación, muestran solo lo nuevo:
+
+| #   | Correo                  | Lo dispara                                                      | En Asana                                         |
+| --- | ----------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| 01  | Solicitud recibida      | Correo nuevo al alias                                           | Crea la tarea (Por revisar vía regla)            |
+| 02  | Comentario recibido     | Respuesta del cliente con datos o una pregunta                  | Comentario; fecha y prioridad si cambian         |
+| 03  | Tenemos una consulta    | Comentario `CONSULTA` (o `CONSULTA BLOQUEA`)                    | Sin cambio                                       |
+| 04  | Entrega NN              | Comentario `ENTREGA NN` + un archivo por línea (`Nombre: link`) | Enviado a cliente                                |
+| 05  | Ajustes recibidos       | Respuesta con cambios sobre una entrega                         | Con ajustes (reabre)                             |
+| 06  | Solicitud aprobada      | Respuesta que aprueba la última entrega                         | Aprobado · ¿Ticket Activo? Finalizado · completa |
+| 07  | Solicitud en evaluación | Estado → «Fuera de alcance / En evaluación»                     | **Borrador** en Gmail para revisión humana       |
+
+**Folio:** `PREFIJO-MES-NNNN` (`G360-NOV-0042`): mes de ingreso en America/Santiago y
+correlativo por cliente que no se reinicia. Los folios antiguos (`EQ-0142`) se siguen
+reconociendo en el asunto.
+
+**Respuestas del cliente:** se clasifican con IA (`reply-classify.ts`) en approval ·
+adjustments · info · question · empty · ambiguous. Sin entrega enviada no hay
+aprobación ni ajustes; ante la duda, `ambiguous` (02 + Estado _Por revisar_); un
+«gracias» sin contenido no genera correo. Sin IA configurada no hay acuse: solo el
+comentario (y se reabre la tarea si estaba cerrada).
+
+**IA:** `REQUESTS_AI_PROVIDER` = `anthropic` (default si hay `ANTHROPIC_API_KEY`;
+`REQUESTS_ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) u `openai`. La extracción
+llena además cliente final, canal, formato, estructura (p. ej. orden de cuñas),
+indicaciones, material y datos faltantes.
+
+**Campos de la tarea** (solo si existen en el proyecto): Prioridad (baja → _Normal_),
+Ingreso Solicitud = Correo, Formato / Canal o Canal (multi), Cliente final o Cliente
+(cliente final, p. ej. en proyectos de agencias intermediarias) y Folio NOMA (texto).
+
+### Ciclo base
+
 1. **Correo nuevo a un alias** → `client_request` (`channel = 'email'`) + tarea en el
    proyecto de Asana del cliente: sección del mes (`Octubre | 2026`, se crea si falta) o
    sección fija, nombre `[FOLIO] Título`, descripción (resumen, detalle, links, correo
@@ -159,11 +194,11 @@ sin la bandera en `true` responden `200 {"ok":true,"skipped":…}` y no hacen na
 La credencial se valida antes que la bandera (sin `CRON_SECRET` → 503; Bearer
 incorrecto → 401).
 
-| Cron (`vercel.json`) | Horario (UTC) | Bandera | Qué hace al encenderlo |
-|---|---|---|---|
-| `/api/cron/whatsapp-drain` | 04:15 diario | `CRON_WHATSAPP_DRAIN_ENABLED` | Procesa la cola de mensajes entrantes de WhatsApp, incluidos fallidos: crea solicitudes y tareas en Asana, consume horas de bolsa y **responde por WhatsApp** al remitente (confirmación o aviso de número no autorizado). |
-| `/api/cron/retainers-open` | 03:05 día 1 | `CRON_RETAINERS_OPEN_ENABLED` | Abre el período del mes de cada bolsa activa y aplica el arrastre de horas. Idempotente por `retainer_periods_retainer_start_unique`. |
-| `/api/cron/email-maintenance` | 10:40 diario | `CRON_EMAIL_MAINTENANCE_ENABLED` | Renueva el watch de Gmail, recupera correos perdidos, procesa la cola del canal correo (crea tareas y **responde al cliente**), marca entregas trabadas y reconcilia comentarios «ENTREGA NN» de Asana (**puede enviar la entrega al cliente**). |
+| Cron (`vercel.json`)          | Horario (UTC) | Bandera                          | Qué hace al encenderlo                                                                                                                                                                                                                           |
+| ----------------------------- | ------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/api/cron/whatsapp-drain`    | 04:15 diario  | `CRON_WHATSAPP_DRAIN_ENABLED`    | Procesa la cola de mensajes entrantes de WhatsApp, incluidos fallidos: crea solicitudes y tareas en Asana, consume horas de bolsa y **responde por WhatsApp** al remitente (confirmación o aviso de número no autorizado).                       |
+| `/api/cron/retainers-open`    | 03:05 día 1   | `CRON_RETAINERS_OPEN_ENABLED`    | Abre el período del mes de cada bolsa activa y aplica el arrastre de horas. Idempotente por `retainer_periods_retainer_start_unique`.                                                                                                            |
+| `/api/cron/email-maintenance` | 10:40 diario  | `CRON_EMAIL_MAINTENANCE_ENABLED` | Renueva el watch de Gmail, recupera correos perdidos, procesa la cola del canal correo (crea tareas y **responde al cliente**), marca entregas trabadas y reconcilia comentarios «ENTREGA NN» de Asana (**puede enviar la entrega al cliente**). |
 
 Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
@@ -202,7 +237,9 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 6. **Canales**: completar `noma-ops/data/email-channels.json` (ver
    `scripts/email-channels.example.json`), revisar con `npm run email:seed-channels` y
    aplicar con `-- --apply` contra la base de producción.
-7. **Webhooks de Asana**: con el deploy arriba, `npm run asana:register-webhooks --
+7. **Webhooks de Asana** (filtros: `comment_added` y `enum_custom_field_changed`; un
+   webhook registrado antes de la migración `0050` solo escucha comentarios y hay que
+   borrarlo y registrarlo de nuevo para el correo 07): con el deploy arriba, `npm run asana:register-webhooks --
 --base-url https://<deploy>` (dry-run) y luego con `--apply`. Usa la misma
    `DATABASE_URL` que el deploy.
 8. **Watch de Gmail**: con `CRON_EMAIL_MAINTENANCE_ENABLED=true`, llamar una vez al cron

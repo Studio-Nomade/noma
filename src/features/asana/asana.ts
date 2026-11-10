@@ -1,7 +1,14 @@
 import "server-only";
 
 import { monthSectionName, normalizeSectionName } from "@/features/email/dates";
-import { findEnumOption, type AsanaCustomFieldSetting } from "./custom-fields";
+import {
+  buildCustomFieldValues,
+  findEnumOption,
+  foldName,
+  type AsanaCustomFieldSetting,
+  type CustomFieldValues,
+  type CustomFieldWish,
+} from "./custom-fields";
 
 /**
  * Asana: creación de tarea/proyecto al traspasar una oportunidad a operación.
@@ -411,6 +418,26 @@ export async function resolveEnumValues(
   return values;
 }
 
+/** `custom_fields` para crear o actualizar una tarea, desde deseos por nombre. */
+export async function resolveCustomFieldValues(
+  projectGid: string,
+  wishes: CustomFieldWish[],
+): Promise<CustomFieldValues> {
+  const settings = await getProjectCustomFields(projectGid);
+  return buildCustomFieldValues(settings, wishes);
+}
+
+/** Actualiza campos personalizados de una tarea (no hace nada si viene vacío). */
+export async function setTaskCustomFields(
+  taskGid: string,
+  values: CustomFieldValues,
+) {
+  if (!Object.keys(values).length) return;
+  await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
+    body: { custom_fields: values },
+  });
+}
+
 /**
  * Fija un campo enum por nombre ("Estado" → "Enviado a cliente") si el campo y
  * la opción existen en el proyecto. Devuelve false si no aplica.
@@ -438,7 +465,7 @@ export async function createTask(input: {
   htmlNotes: string;
   dueOn?: string | null;
   assigneeGid?: string | null;
-  customFields?: Record<string, string>;
+  customFields?: CustomFieldValues;
 }): Promise<{ gid: string; url: string | null }> {
   const task = await asanaRequest<{ gid: string; permalink_url?: string }>(
     "POST",
@@ -502,10 +529,13 @@ export type AsanaStory = {
   created_at: string | null;
   created_by: { gid: string; name?: string } | null;
   target: { gid: string } | null;
+  /** Solo en cambios de campo (`enum_custom_field_changed`). */
+  custom_field?: { gid?: string; name?: string } | null;
+  new_enum_value?: { gid?: string; name?: string } | null;
 };
 
 const STORY_FIELDS =
-  "gid,text,html_text,resource_subtype,created_at,created_by.gid,created_by.name,target.gid";
+  "gid,text,html_text,resource_subtype,created_at,created_by.gid,created_by.name,target.gid,custom_field.gid,custom_field.name,new_enum_value.gid,new_enum_value.name";
 
 export async function getStory(storyGid: string) {
   return asanaRequest<AsanaStory>(
@@ -535,15 +565,40 @@ export async function listTaskStories(taskGid: string, maxPages = 10) {
   return stories;
 }
 
-export async function getTaskState(taskGid: string) {
-  return asanaRequest<{
+export type AsanaTaskState = {
+  gid: string;
+  name?: string;
+  completed: boolean;
+  due_on?: string | null;
+  projects?: { gid: string }[];
+  custom_fields?: {
     gid: string;
-    completed: boolean;
-    projects?: { gid: string }[];
-  }>(
+    name?: string;
+    display_value?: string | null;
+    enum_value?: { gid?: string; name?: string } | null;
+  }[];
+};
+
+export async function getTaskState(taskGid: string) {
+  return asanaRequest<AsanaTaskState>(
     "GET",
-    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,completed,projects.gid`,
+    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,name,completed,due_on,projects.gid,custom_fields.gid,custom_fields.name,custom_fields.display_value,custom_fields.enum_value.name`,
   );
+}
+
+/** Valor visible de un campo de la tarea por nombre (null si no está). */
+export function taskFieldValue(task: AsanaTaskState, fieldName: string) {
+  const wanted = foldName(fieldName);
+  const field = task.custom_fields?.find(
+    (item) => foldName(item.name ?? "") === wanted,
+  );
+  return field?.enum_value?.name ?? field?.display_value ?? null;
+}
+
+export async function setTaskDueOn(taskGid: string, dueOn: string | null) {
+  await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
+    body: { due_on: dueOn },
+  });
 }
 
 export async function setTaskCompleted(taskGid: string, completed: boolean) {
@@ -573,6 +628,12 @@ export async function createWebhook(resourceGid: string, target: string) {
           {
             resource_type: "story",
             resource_subtype: "comment_added",
+            action: "added",
+          },
+          // Cambio de "Estado" a Fuera de alcance → borrador del correo 07.
+          {
+            resource_type: "story",
+            resource_subtype: "enum_custom_field_changed",
             action: "added",
           },
         ],

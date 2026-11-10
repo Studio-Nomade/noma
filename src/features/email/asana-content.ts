@@ -9,7 +9,7 @@ import type { EmailExtraction } from "./extract";
 import { escapeHtml } from "./templates";
 
 const PRIORITY_LABEL: Record<EmailExtraction["priority"], string> = {
-  baja: "Baja",
+  baja: "Normal",
   media: "Media",
   alta: "Alta",
   urgente: "Urgente",
@@ -54,6 +54,12 @@ export function buildTaskHtmlNotes(input: {
     e.deliverable_type
       ? `<strong>Entregable:</strong> ${escapeHtml(e.deliverable_type)}`
       : null,
+    e.end_client
+      ? `<strong>Cliente final:</strong> ${escapeHtml(e.end_client)}`
+      : null,
+    e.channels.length || e.format
+      ? `<strong>Canal / formato:</strong> ${escapeHtml([e.channels.join(" · "), e.format].filter(Boolean).join(" · "))}`
+      : null,
     `<strong>Alcance:</strong> ${escapeHtml(input.scopeLabel)}`,
     "",
     `<strong>Resumen</strong>`,
@@ -61,8 +67,30 @@ export function buildTaskHtmlNotes(input: {
     e.details.length
       ? `\n<strong>Detalle</strong><ul>${e.details.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
       : null,
+    e.structure
+      ? `<strong>${escapeHtml(e.structure.title)}</strong><ol>${e.structure.items
+          .map(
+            (item) =>
+              `<li>${escapeHtml(item.title)}${item.detail ? ` · ${escapeHtml(item.detail)}` : ""}${item.links
+                .map(
+                  (entry) =>
+                    ` · <a href="${escapeHtml(entry.url)}">${escapeHtml(entry.label)}</a>${entry.note ? ` (${escapeHtml(entry.note)})` : ""}`,
+                )
+                .join("")}</li>`,
+          )
+          .join("")}</ol>`
+      : null,
+    e.considerations.length
+      ? `<strong>A considerar</strong><ul>${e.considerations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+      : null,
+    e.materials.length
+      ? `<strong>Material</strong><ul>${e.materials.map((item) => `<li><a href="${escapeHtml(item.url)}">${escapeHtml(item.label)}</a> · ${escapeHtml(item.kind)}</li>`).join("")}</ul>`
+      : null,
     e.links.length
       ? `<strong>Links</strong><ul>${e.links.map((url) => `<li>${link(url)}</li>`).join("")}</ul>`
+      : null,
+    e.missing_info.length
+      ? `<strong>Pedido al cliente en la confirmación</strong><ul>${e.missing_info.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
       : null,
     input.attachmentNames.length
       ? `<strong>Adjuntos:</strong> ${escapeHtml(input.attachmentNames.join(", "))}`
@@ -70,7 +98,7 @@ export function buildTaskHtmlNotes(input: {
     "<hr/>",
     `<strong>Correo original</strong>`,
     `<blockquote>${escapeHtml(input.body.slice(0, 8_000))}</blockquote>`,
-    "<em>Creada por Noma desde el correo. Para enviar una entrega, comenta «ENTREGA 01» + link(s).</em>",
+    "<em>Creada por Noma desde el correo. Para enviar una entrega, comenta «ENTREGA 01» y debajo un archivo por línea («Nombre: link»). Para preguntarle algo al cliente, comenta «CONSULTA» y una pregunta por línea.</em>",
   ];
   return `<body>${lines.filter((line) => line !== null).join("\n")}</body>`;
 }

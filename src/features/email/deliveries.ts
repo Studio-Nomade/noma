@@ -6,25 +6,41 @@ import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
   addStory,
   getStory,
+  getTaskState,
   listTaskStories,
   resolveBotUserGid,
   setEnumFieldByName,
+  taskFieldValue,
   type AsanaStory,
 } from "@/features/asana/asana";
+import { foldName } from "@/features/asana/custom-fields";
 import { logActivity } from "@/lib/activity";
 import { buildDeliveryAuditStoryHtml } from "./asana-content";
-import { formatRound, parseDeliveryCommand } from "./delivery-command";
+import {
+  formatRound,
+  parseConsultaCommand,
+  parseDeliveryCommand,
+} from "./delivery-command";
 import { replySubject } from "./folio";
-import { GmailApiError, sendReply } from "./inbox";
+import { GmailApiError, createDraftReply, sendReply } from "./inbox";
 import { buildReplyThreadHeaders } from "./mime";
 import {
   ESTADO_FIELD,
+  ESTADO_OUT_OF_SCOPE,
   ESTADO_SENT,
   STUDIO_SENDER_NAME,
   isDefiniteRejection,
+  requestTitle,
 } from "./requests";
 import { getChannel } from "./store";
-import { renderDeliveryEmail } from "./templates";
+import {
+  escapeHtml,
+  renderConsultaEmail,
+  renderDeliveryEmail,
+  renderEvaluationEmail,
+  stageFromEstado,
+  type RenderedEmail,
+} from "./templates";
 
 /**
  * Entregas: un comentario de Asana que empieza con "ENTREGA NN" + link(s) en
@@ -35,6 +51,7 @@ import { renderDeliveryEmail } from "./templates";
 
 export type DeliveryOutcome =
   | "sent"
+  | "drafted"
   | "skipped_not_comment"
   | "skipped_bot"
   | "skipped_not_delivery"
@@ -42,17 +59,59 @@ export type DeliveryOutcome =
   | "skipped_duplicate"
   | "rejected_no_links";
 
+type Command =
+  | {
+      kind: "delivery";
+      delivery: NonNullable<ReturnType<typeof parseDeliveryCommand>>;
+    }
+  | {
+      kind: "consulta";
+      consulta: NonNullable<ReturnType<typeof parseConsultaCommand>>;
+    }
+  | { kind: "evaluacion" };
+
+/** Qué hace Noma con una story de Asana (null: nada). Módulo puro. */
+export function storyCommand(story: AsanaStory): Command | null {
+  if (story.resource_subtype === "comment_added") {
+    const delivery = parseDeliveryCommand(story.text, story.html_text);
+    if (delivery) return { kind: "delivery", delivery };
+    const consulta = parseConsultaCommand(story.text);
+    if (consulta) return { kind: "consulta", consulta };
+    return null;
+  }
+  if (
+    story.resource_subtype === "enum_custom_field_changed" &&
+    foldName(story.custom_field?.name ?? "") === foldName(ESTADO_FIELD) &&
+    foldName(story.new_enum_value?.name ?? "").startsWith(
+      foldName(ESTADO_OUT_OF_SCOPE),
+    )
+  ) {
+    return { kind: "evaluacion" };
+  }
+  return null;
+}
+
+function authorLabel(story: AsanaStory) {
+  const name = story.created_by?.name?.trim();
+  return name ? name.split(/\s+/).slice(0, 2).join(" ") : null;
+}
+
 export async function processAsanaStory(
   storyGid: string,
   options: { story?: AsanaStory; botUserGid?: string } = {},
 ): Promise<DeliveryOutcome> {
   const botUserGid = options.botUserGid ?? (await resolveBotUserGid());
   const story = options.story ?? (await getStory(storyGid));
-  if (story.resource_subtype !== "comment_added") return "skipped_not_comment";
+  if (
+    story.resource_subtype !== "comment_added" &&
+    story.resource_subtype !== "enum_custom_field_changed"
+  ) {
+    return "skipped_not_comment";
+  }
   if (!story.created_by || story.created_by.gid === botUserGid) {
     return "skipped_bot";
   }
-  const command = parseDeliveryCommand(story.text, story.html_text);
+  const command = storyCommand(story);
   if (!command) return "skipped_not_delivery";
 
   const taskGid = story.target?.gid;
@@ -68,15 +127,31 @@ export async function processAsanaStory(
     return "skipped_no_request";
   }
 
+  const round = command.kind === "delivery" ? command.delivery.round : 0;
+  const files = command.kind === "delivery" ? command.delivery.files : [];
+  const applied =
+    command.kind === "delivery" && command.delivery.round > 1
+      ? (request.emailPendingAdjustments ?? [])
+      : [];
+  const note =
+    command.kind === "delivery"
+      ? command.delivery.note
+      : command.kind === "consulta"
+        ? command.consulta.questions.map((question) => question.text).join("\n")
+        : null;
+
   // Reclamo idempotente: una story → un envío. Se reintenta solo si falló.
   const [inserted] = await db
     .insert(requestDeliveries)
     .values({
       clientRequestId: request.id,
-      round: command.round,
+      kind: command.kind,
+      round,
       asanaStoryGid: story.gid,
-      links: command.links,
-      note: command.note,
+      links: command.kind === "delivery" ? command.delivery.links : [],
+      files,
+      appliedAdjustments: applied,
+      note,
       status: "sending",
     })
     .onConflictDoNothing({ target: requestDeliveries.asanaStoryGid })
@@ -101,53 +176,120 @@ export async function processAsanaStory(
 
   const channel = await getChannel(request.emailChannelId);
   if (!channel) throw new Error("Canal de correo no encontrado.");
-  const round = formatRound(command.round);
+  const padded = formatRound(round);
+  const common = {
+    folio: request.folio ?? "",
+    clientName: channel.clientName,
+    alias: channel.alias,
+    title: requestTitle(request),
+    requesterName: request.requesterName,
+  };
 
-  if (!command.links.length) {
+  const reject = async (error: string, comment: string) => {
     await db
       .update(requestDeliveries)
-      .set({
-        status: "rejected",
-        error: "El comentario no trae links.",
-        updatedAt: new Date(),
-      })
+      .set({ status: "rejected", error, updatedAt: new Date() })
       .where(eq(requestDeliveries.id, delivery.id));
-    await addStory(
-      taskGid,
-      `<body><em>Noma no envió la Entrega ${round}: el comentario no trae links. Comenta de nuevo «ENTREGA ${round}» con el/los link(s).</em></body>`,
-    );
-    return "rejected_no_links";
+    await addStory(taskGid, `<body><em>${comment}</em></body>`);
+  };
+
+  let rendered: RenderedEmail;
+  if (command.kind === "delivery") {
+    if (!command.delivery.links.length) {
+      await reject(
+        "El comentario no trae links.",
+        `Noma no envió la Entrega ${padded}: el comentario no trae links. Comenta de nuevo «ENTREGA ${padded}» con el/los link(s), uno por línea como «Nombre: link».`,
+      );
+      return "rejected_no_links";
+    }
+    rendered = renderDeliveryEmail({
+      ...common,
+      round,
+      files: command.delivery.files,
+      note: command.delivery.note,
+      author: authorLabel(story),
+      appliedAdjustments: applied.map((item) => item.text),
+      pieceLabel: requestTitle(request) || null,
+    });
+  } else if (command.kind === "consulta") {
+    if (!command.consulta.questions.length) {
+      await reject(
+        "La consulta no trae preguntas.",
+        "Noma no envió la consulta: escribe «CONSULTA» y debajo una pregunta por línea.",
+      );
+      return "rejected_no_links";
+    }
+    const task = await getTaskState(taskGid).catch(() => null);
+    rendered = renderConsultaEmail({
+      ...common,
+      stage: task
+        ? (stageFromEstado(taskFieldValue(task, ESTADO_FIELD)) ?? 1)
+        : 1,
+      questions: command.consulta.questions,
+      blocking: command.consulta.blocking,
+      author: authorLabel(story),
+    });
+  } else {
+    rendered = renderEvaluationEmail({
+      ...common,
+      summary:
+        request.normalizedSummary?.split(" — ").slice(1).join(" — ") ||
+        requestTitle(request),
+    });
   }
 
-  const title =
-    request.normalizedSummary?.split(" — ")[0] ?? request.emailSubject ?? "";
-  const rendered = renderDeliveryEmail({
-    folio: request.folio ?? "",
-    round: command.round,
-    title,
-    links: command.links,
-    note: command.note,
-    requesterName: request.requesterName,
-  });
   const thread = buildReplyThreadHeaders({
     parentMessageId: request.emailLastMessageId ?? request.emailMessageId,
     references: [request.emailMessageId],
   });
   const cc = request.ccEmails ?? [];
+  const message = {
+    threadId: request.emailThreadId!,
+    from: { name: STUDIO_SENDER_NAME, email: channel.alias },
+    to: [request.requesterEmail],
+    cc,
+    subject: replySubject(request.emailSubject, request.folio ?? ""),
+    html: rendered.html,
+    text: rendered.text,
+    inReplyTo: thread.inReplyTo,
+    references: thread.references,
+  };
+
+  // 07 (fuera de alcance) es comercial: queda como borrador para Sebastián.
+  if (command.kind === "evaluacion") {
+    try {
+      const draft = await createDraftReply(message);
+      await db
+        .update(requestDeliveries)
+        .set({
+          status: "drafted",
+          sentGmailMessageId: draft.messageId,
+          updatedAt: new Date(),
+        })
+        .where(eq(requestDeliveries.id, delivery.id));
+    } catch (error) {
+      const definite =
+        error instanceof GmailApiError && isDefiniteRejection(error.status);
+      await db
+        .update(requestDeliveries)
+        .set({
+          status: definite ? "failed" : "unknown",
+          error: error instanceof Error ? error.message.slice(0, 500) : "Error",
+          updatedAt: new Date(),
+        })
+        .where(eq(requestDeliveries.id, delivery.id));
+      throw error;
+    }
+    await addStory(
+      taskGid,
+      `<body><em>Noma dejó un borrador del aviso «Solicitud en evaluación» en el hilo de ${escapeHtml(channel.alias)} (casilla de solicitudes). Revísalo, ajústalo si hace falta y envíalo desde Gmail.</em></body>`,
+    ).catch((error) => console.error("[email:evaluacion:story]", error));
+    return "drafted";
+  }
 
   let sent: Awaited<ReturnType<typeof sendReply>>;
   try {
-    sent = await sendReply({
-      threadId: request.emailThreadId!,
-      from: { name: STUDIO_SENDER_NAME, email: channel.alias },
-      to: [request.requesterEmail],
-      cc,
-      subject: replySubject(request.emailSubject, request.folio ?? ""),
-      html: rendered.html,
-      text: rendered.text,
-      inReplyTo: thread.inReplyTo,
-      references: thread.references,
-    });
+    sent = await sendReply(message);
   } catch (error) {
     // Solo un 4xx garantiza que no salió; 5xx/red pudo haber salido.
     const definite =
@@ -181,9 +323,20 @@ export async function processAsanaStory(
     .update(clientRequests)
     .set({
       emailLastMessageId: sent.messageId ?? request.emailLastMessageId,
+      // Los ajustes pendientes quedan registrados en esta entrega.
+      ...(command.kind === "delivery" ? { emailPendingAdjustments: [] } : {}),
       updatedAt: now,
     })
     .where(eq(clientRequests.id, request.id));
+
+  if (command.kind === "consulta") {
+    await logActivity({
+      entityType: "client_request",
+      entityId: request.id,
+      action: "email_consulta_sent",
+    });
+    return "sent";
+  }
 
   // Pasos posteriores degradables: el correo ya salió.
   await setEnumFieldByName(
@@ -194,7 +347,11 @@ export async function processAsanaStory(
   ).catch((error) => console.error("[email:delivery:estado]", error));
   await addStory(
     taskGid,
-    buildDeliveryAuditStoryHtml({ round, to: [request.requesterEmail], cc }),
+    buildDeliveryAuditStoryHtml({
+      round: padded,
+      to: [request.requesterEmail],
+      cc,
+    }),
   ).catch((error) => console.error("[email:delivery:story]", error));
   await logActivity({
     entityType: "client_request",
@@ -256,9 +413,8 @@ export async function reconcileAsanaDeliveries({
     for (const story of stories) {
       if (
         settled.has(story.gid) ||
-        story.resource_subtype !== "comment_added" ||
         story.created_by?.gid === botUserGid ||
-        !parseDeliveryCommand(story.text, story.html_text)
+        !storyCommand(story)
       ) {
         continue;
       }

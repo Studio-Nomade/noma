@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseDeliveryCommand } from "./delivery-command";
+import { parseConsultaCommand, parseDeliveryCommand } from "./delivery-command";
 
 test("reconoce ENTREGA con cualquier número y ceros a la izquierda", () => {
   assert.equal(parseDeliveryCommand("ENTREGA 01 https://x.cl")?.round, 1);
@@ -55,6 +55,15 @@ test("extrae links (texto y href) y la nota del equipo", () => {
       "https://figma.com/x",
       "https://www.canva.com/design/xyz",
     ],
+    files: [
+      {
+        label: "Google Drive",
+        url: "https://drive.google.com/file/d/abc/view",
+        detail: null,
+      },
+      { label: "Figma", url: "https://figma.com/x", detail: null },
+      { label: "canva", url: "https://www.canva.com/design/xyz", detail: null },
+    ],
     note: "Se ajustó el color del CTA.\nQuedamos atentos",
   });
 });
@@ -63,6 +72,51 @@ test("entrega sin nota", () => {
   assert.deepEqual(parseDeliveryCommand("ENTREGA 1 - https://x.cl/a"), {
     round: 1,
     links: ["https://x.cl/a"],
+    files: [{ label: "Archivo 01", url: "https://x.cl/a", detail: null }],
     note: null,
   });
+});
+
+test("lee un archivo por línea con nombre y detalle", () => {
+  const parsed = parseDeliveryCommand(
+    "ENTREGA 01\nVideo resumen 16:9 (1:32, con subtítulos): https://drive.google.com/a\n- Miniatura LinkedIn: https://drive.google.com/b\nUsamos música de librería.",
+  );
+  assert.deepEqual(parsed?.files, [
+    {
+      label: "Video resumen 16:9",
+      url: "https://drive.google.com/a",
+      detail: "1:32, con subtítulos",
+    },
+    {
+      label: "Miniatura LinkedIn",
+      url: "https://drive.google.com/b",
+      detail: null,
+    },
+  ]);
+  assert.equal(parsed?.note, "Usamos música de librería.");
+});
+
+test("CONSULTA: preguntas por línea, ayuda entre paréntesis y BLOQUEA", () => {
+  assert.deepEqual(
+    parseConsultaCommand(
+      "CONSULTA\n¿Música de librería o pista del evento? (si es del evento, basta el enlace)\n- ¿Logos juntos en el cierre?",
+    ),
+    {
+      blocking: false,
+      questions: [
+        {
+          text: "¿Música de librería o pista del evento?",
+          hint: "si es del evento, basta el enlace",
+        },
+        { text: "¿Logos juntos en el cierre?", hint: null },
+      ],
+    },
+  );
+  assert.equal(
+    parseConsultaCommand("CONSULTA BLOQUEA: ¿Fecha?")?.blocking,
+    true,
+  );
+  assert.equal(parseConsultaCommand("Consulta: ¿fecha?"), null);
+  assert.equal(parseConsultaCommand("Tengo una CONSULTA"), null);
+  assert.deepEqual(parseConsultaCommand("CONSULTA")?.questions, []);
 });

@@ -290,3 +290,37 @@ export async function sendReply(input: SendReplyInput): Promise<{
   const messageId = await getMessageIdHeader(sent.id).catch(() => generatedId);
   return { id: sent.id, threadId: sent.threadId, messageId };
 }
+
+/**
+ * Deja un borrador de respuesta en el hilo de la casilla de servicio (no lo
+ * envía). Se usa para correos que una persona debe revisar antes de salir,
+ * como el aviso de solicitud fuera de alcance.
+ */
+export async function createDraftReply(
+  input: SendReplyInput,
+): Promise<{ draftId: string; messageId: string }> {
+  const domain = input.from.email.split("@")[1] ?? "studionomade.cl";
+  const raw = buildMimeMessage({
+    from: input.from,
+    to: input.to,
+    cc: input.cc,
+    replyTo: input.from.email,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+    inReplyTo: input.inReplyTo,
+    references: input.references,
+    messageId: generateMessageId(domain),
+  });
+  const draft = await gmailFetch<{ id: string; message: { id: string } }>(
+    "/drafts",
+    {
+      method: "POST",
+      body: {
+        message: { raw: encodeBase64Url(raw), threadId: input.threadId },
+      },
+      timeoutMs: 20_000,
+    },
+  );
+  return { draftId: draft.id, messageId: draft.message.id };
+}
