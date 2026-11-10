@@ -1387,6 +1387,11 @@ export const emailChannels = pgTable(
       .array()
       .default(sql`'{}'::text[]`)
       .notNull(),
+    // Copia permanente en todos los correos del hilo (p. ej. supervisión del cliente).
+    alwaysCc: text("always_cc")
+      .array()
+      .default(sql`'{}'::text[]`)
+      .notNull(),
     status: text("status").default("active").notNull(),
     ...timestamps,
   },
