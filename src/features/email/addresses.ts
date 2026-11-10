@@ -227,3 +227,17 @@ export function externalRecipients(
   }
   return out;
 }
+
+/**
+ * Copias de un hilo: primero las permanentes del canal (p. ej. la supervisora
+ * del cliente), luego las visibles del correo. Sin duplicados ni direcciones
+ * propias/del solicitante. Las permanentes van primero para que el tope de
+ * copias nunca las deje fuera.
+ */
+export function withAlwaysCc(
+  visibleCc: readonly string[],
+  alwaysCc: readonly string[],
+  exclude: Iterable<string>,
+): string[] {
+  return externalRecipients([...alwaysCc, ...visibleCc], exclude);
+}

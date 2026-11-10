@@ -51,6 +51,14 @@ export async function notifyNewClientRequest(input: {
   summary: string;
   scopeClass: string;
   asanaUrl?: string | null;
+  /** Datos opcionales del canal correo para que el equipo se asigne la tarea. */
+  folio?: string | null;
+  endClient?: string | null;
+  channels?: string | null;
+  priority?: string | null;
+  dueDate?: string | null;
+  requester?: string | null;
+  assigned?: boolean;
 }) {
   const panelUrl = appUrl(`/solicitudes/${input.requestId}`);
   const links = [
@@ -59,17 +67,33 @@ export async function notifyNewClientRequest(input: {
   ]
     .filter(Boolean)
     .join(" · ");
+  const details = [
+    input.endClient ? `Cliente final: ${clean(input.endClient)}` : null,
+    input.channels ? `Canal: ${clean(input.channels)}` : null,
+    input.priority ? `Prioridad: *${clean(input.priority)}*` : null,
+    input.dueDate ? `Entrega: ${clean(input.dueDate)}` : null,
+    input.requester ? `Pide: ${clean(input.requester)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const body = [
-    `*${clean(input.clientName)}${input.projectName ? ` · ${clean(input.projectName)}` : ""}*`,
+    `${input.folio ? `\`${clean(input.folio)}\` · ` : ""}*${clean(input.clientName)}${input.projectName ? ` · ${clean(input.projectName)}` : ""}*`,
     clean(input.summary),
+    details || null,
+    input.assigned === false
+      ? "🙋 *Sin responsable*: revísenla en el tablero y asígnensela."
+      : null,
     `Alcance: \`${clean(input.scopeClass)}\``,
     links,
   ]
     .filter(Boolean)
     .join("\n");
-  return sendOperationsNotification("Nueva solicitud de cliente", [
-    { type: "section", text: { type: "mrkdwn", text: body } },
-  ]);
+  return sendOperationsNotification(
+    input.folio
+      ? `Nueva solicitud ${input.folio}`
+      : "Nueva solicitud de cliente",
+    [{ type: "section", text: { type: "mrkdwn", text: body } }],
+  );
 }
 
 export async function notifyUnknownWhatsAppSender(phone: string) {

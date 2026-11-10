@@ -92,6 +92,10 @@ acepta al solicitante o CC originales.
   nombre como `"Jefe <jefe@cliente.cl>" <x@otro.com>` no suplanta al cliente.
 - **Dominios públicos** (gmail.com, outlook.com…) no se aceptan en
   `allowed_sender_domains`: esos remitentes van en `client_contacts` con la dirección.
+- **Copia permanente** (`always_cc` del canal, máx. 5): direcciones que van en copia en
+  todos los correos del hilo (confirmación, consultas, entregas, acuses), p. ej. la
+  supervisora del cliente. Se agregan primero, sin duplicar al solicitante, y se guardan
+  en `client_requests.cc_emails` al crear la solicitud.
 
 ## Arquitectura
 
