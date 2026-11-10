@@ -39,6 +39,17 @@ export const REQUEST_CHANNELS = [
 export type RequestChannel = (typeof REQUEST_CHANNELS)[number];
 
 export const emailExtractionSchema = z.object({
+  is_request: z
+    .boolean()
+    .describe(
+      "true SOLO si el correo pide trabajo nuevo al estudio (una pieza, un diseño, un cambio, una entrega). false si es un agradecimiento, felicitación, comentario, confirmación, respuesta a un comunicado, saludo o aviso sin pedido concreto.",
+    ),
+  not_request_reason: z
+    .string()
+    .nullable()
+    .describe(
+      "Si is_request es false: motivo en pocas palabras para el equipo (p. ej. 'Felicitación por la mejora del canal'). Si es true: null.",
+    ),
   title: z
     .string()
     .describe(
@@ -175,6 +186,9 @@ export function completeExtraction(
   raw: Partial<EmailExtraction> & Pick<EmailExtraction, "title" | "summary">,
 ): EmailExtraction {
   return {
+    // Extracciones antiguas o heurísticas: se asume solicitud (comportamiento previo).
+    is_request: raw.is_request ?? true,
+    not_request_reason: raw.not_request_reason ?? null,
     title: raw.title,
     summary: raw.summary,
     details: raw.details ?? [],
@@ -224,6 +238,7 @@ const INSTRUCTIONS = [
   "Ignora firmas, avisos legales y texto citado de correos anteriores.",
   "El resumen se le muestra al cliente como 'Qué entendimos': escríbelo en primera persona plural del estudio, claro y sin repetir la lista de structure.",
   "Si el correo trae links sin nombre visible, ponles un nombre corto según el contexto; nunca uses la URL como nombre.",
+  "Primero decide is_request: no todo correo al alias es una solicitud. Agradecimientos, felicitaciones, comentarios sobre un comunicado, confirmaciones de recepción o saludos NO son solicitudes (is_request=false), aunque vengan del cliente. En ese caso completa igual los demás campos con lo mínimo (título y resumen breves).",
 ].join("\n");
 
 /** Título apto para Asana: sin prefijos de respuesta, folios ni etiquetas. */
@@ -264,6 +279,9 @@ export function fallbackExtraction(
 ): EmailExtraction {
   const haystack = `${input.subject}\n${input.body}`;
   return {
+    // Sin IA no se descarta nada: mejor una tarea de más que perder un pedido.
+    is_request: true,
+    not_request_reason: null,
     title: sanitizeTitle(input.subject),
     summary: firstParagraph(input.body) || sanitizeTitle(input.subject),
     details: [],
@@ -290,7 +308,12 @@ export function normalizeExtraction(
   input: EmailExtractionInput,
 ): EmailExtraction {
   const links = extractUrls(...raw.links, input.body);
+  const isRequest = raw.is_request !== false;
   return {
+    is_request: isRequest,
+    not_request_reason: isRequest
+      ? null
+      : clean(raw.not_request_reason) || "Sin pedido concreto",
     title: sanitizeTitle(raw.title, input.subject),
     summary: raw.summary.trim() || firstParagraph(input.body),
     details: raw.details
