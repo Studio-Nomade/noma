@@ -112,16 +112,25 @@ export function priorityOptions(priority: EmailExtraction["priority"]) {
   }
 }
 
-/** Sinónimos de cada canal en las opciones de Asana. */
+/**
+ * Sinónimos de cada canal en las opciones de Asana: sirven para "Formato /
+ * Canal" (agencias) y para "Formato" (PNG, Video, Diseño Email, Web,
+ * Paper/Word…). Las opciones que no existen en el proyecto se ignoran.
+ */
 const CHANNEL_OPTIONS: Record<RequestChannel, string[]> = {
-  Instagram: ["Instagram"],
-  Facebook: ["Facebook"],
-  LinkedIn: ["LinkedIn"],
-  TikTok: ["TikTok"],
+  Instagram: ["Instagram", "PNG"],
+  Facebook: ["Facebook", "PNG"],
+  LinkedIn: ["LinkedIn", "PNG"],
+  TikTok: ["TikTok", "Video"],
   YouTube: ["YouTube", "Video"],
-  Email: ["Email", "Mailing"],
+  Email: ["Email", "Mailing", "Diseño Email"],
   Web: ["Web"],
-  "PDF - Documento": ["PDF - Documento", "PDF / documento", "PDF"],
+  "PDF - Documento": [
+    "PDF - Documento",
+    "PDF / documento",
+    "PDF",
+    "Paper/Word",
+  ],
   Impreso: ["Impreso"],
   Otro: ["Otro"],
 };
@@ -151,7 +160,7 @@ export function taskFieldWishes(
       ? [
           {
             kind: "multi_enum" as const,
-            fields: ["Formato / Canal", "Canal"],
+            fields: ["Formato / Canal", "Canal", "Formato"],
             options: channelOptions,
           },
         ]
@@ -416,7 +425,9 @@ export async function handleNewEmailRequest(input: {
       input.ownAddresses,
     );
     if (!recipients.aliasVisible) {
-      warnings.push("Alias en copia oculta: se responde solo al remitente.");
+      warnings.push(
+        "Alias no visible (copia oculta o correo redirigido): se responde al remitente y a las copias fijas.",
+      );
     }
     const outcome = await db
       .transaction(async (tx) => {
@@ -574,6 +585,7 @@ export async function handleNewEmailRequest(input: {
   if (created) {
     await notifyNewClientRequest({
       requestId: request.id,
+      slackWebhookEnv: channel.slackWebhookEnv,
       clientName: channel.clientName,
       projectName: channel.projectName,
       summary: extraction.title,

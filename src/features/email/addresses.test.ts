@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  channelBySenderDomain,
   externalRecipients,
+  isIgnoredSender,
   isAllowedSenderDomain,
   isPublicEmailDomain,
   matchAlias,
@@ -158,4 +160,42 @@ test("agrega las copias permanentes del canal primero y sin duplicar", () => {
   assert.deepEqual(withAlwaysCc(["ana@cliente.cl"], [], []), [
     "ana@cliente.cl",
   ]);
+});
+
+test("canal por dominio del remitente solo si es inequívoco", () => {
+  const channels = [
+    {
+      alias: "a@studio.cl",
+      allowedSenderDomains: ["cliente.com", "agencia.com"],
+    },
+    { alias: "b@studio.cl", allowedSenderDomains: ["otro.cl"] },
+  ];
+  assert.equal(
+    channelBySenderDomain(channels, "Pedro@Agencia.com")?.alias,
+    "a@studio.cl",
+  );
+  assert.equal(
+    channelBySenderDomain(channels, "x@mkt.otro.cl")?.alias,
+    "b@studio.cl",
+  );
+  assert.equal(channelBySenderDomain(channels, "x@desconocido.cl"), null);
+  assert.equal(
+    channelBySenderDomain(
+      [
+        ...channels,
+        { alias: "c@studio.cl", allowedSenderDomains: ["otro.cl"] },
+      ],
+      "x@otro.cl",
+    ),
+    null,
+  );
+});
+
+test("remitentes ignorados por canal, sin distinguir mayúsculas", () => {
+  const channels = [
+    { ignoredSenders: ["servicio@cliente.com"] },
+    { ignoredSenders: [] },
+  ];
+  assert.equal(isIgnoredSender(channels, "Servicio@Cliente.com"), true);
+  assert.equal(isIgnoredSender(channels, "marketing@cliente.com"), false);
 });

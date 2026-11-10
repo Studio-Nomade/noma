@@ -19,7 +19,10 @@
       "default_assignee_gid": "1200000000000500",
       "folio_prefix": "CB",
       "folio_start": 100,
-      "allowed_sender_domains": ["cliente-b.example"]
+      "allowed_sender_domains": ["cliente-b.example", "agencia-b.example"],
+      "always_cc": ["supervision@cliente-b.example"],
+      "ignored_senders": ["servicio-al-cliente@cliente-b.example"],
+      "slack_webhook_env": "SLACK_CLIENTE_B_WEBHOOK_URL"
     }
   ]
 }
