@@ -89,7 +89,7 @@ async function main() {
           : `mensual "${channel.month_section_template}"`
       } · dominios [${channel.allowed_sender_domains.join(", ")}]${
         channel.domains_to_confirm ? " (POR CONFIRMAR)" : ""
-      } · ${channel.status}`,
+      }${channel.always_cc.length ? ` · copia [${channel.always_cc.join(", ")}]` : ""} · ${channel.status}`,
     );
     if (!hasDb) {
       console.log("  (sin DATABASE_URL: no se resuelve cliente/proyecto)");
@@ -119,6 +119,7 @@ async function main() {
       defaultAssigneeGid: channel.default_assignee_gid ?? null,
       folioPrefix: channel.folio_prefix,
       allowedSenderDomains: channel.allowed_sender_domains,
+      alwaysCc: channel.always_cc,
       status: channel.status,
       updatedAt: new Date(),
     };

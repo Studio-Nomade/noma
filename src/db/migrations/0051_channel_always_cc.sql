@@ -1,0 +1,1 @@
+ALTER TABLE "email_channels" ADD COLUMN "always_cc" text[] DEFAULT '{}'::text[] NOT NULL;

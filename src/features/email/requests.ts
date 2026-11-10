@@ -23,7 +23,7 @@ import { classifyScope } from "@/features/bot/scope";
 import { consumeRequest } from "@/features/retainers/periods";
 import { logActivity } from "@/lib/activity";
 import { requestsStructuredGenerator } from "@/lib/ai/structured";
-import { domainOf, externalRecipients } from "./addresses";
+import { domainOf, externalRecipients, withAlwaysCc } from "./addresses";
 import { buildReplyStoryHtml, buildTaskHtmlNotes } from "./asana-content";
 import { formatSpanishDate } from "./dates";
 import {
@@ -325,12 +325,13 @@ async function resolveRecipients(
       : from;
   const visible = [...email.to, ...email.cc].map((address) => address.email);
   const aliasVisible = visible.includes(channel.alias.toLowerCase());
-  const cc = aliasVisible
-    ? externalRecipients(visible, [...ownAddresses, requester.email]).slice(
-        0,
-        MAX_REPLY_CC,
-      )
+  const visibleCc = aliasVisible
+    ? externalRecipients(visible, [...ownAddresses, requester.email])
     : [];
+  const cc = withAlwaysCc(visibleCc, channel.alwaysCc ?? [], [
+    ...ownAddresses,
+    requester.email,
+  ]).slice(0, MAX_REPLY_CC);
   return { requester, cc, aliasVisible };
 }
 

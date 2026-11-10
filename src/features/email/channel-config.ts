@@ -54,6 +54,20 @@ export const emailChannelConfigSchema = z
           ),
       )
       .default([]),
+    /**
+     * Copia permanente en todos los correos del hilo (confirmación, consultas,
+     * entregas…), p. ej. la supervisora del cliente. Máximo 5.
+     */
+    always_cc: z
+      .array(
+        z
+          .string()
+          .trim()
+          .toLowerCase()
+          .pipe(z.email({ message: "correo inválido" })),
+      )
+      .max(5)
+      .default([]),
     /** Marca de revisión humana: dominios aún sin confirmar con el cliente. */
     domains_to_confirm: z.boolean().default(false),
     status: z.enum(["active", "paused"]).default("active"),

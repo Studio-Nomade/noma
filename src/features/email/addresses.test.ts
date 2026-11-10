@@ -7,6 +7,7 @@ import {
   matchAlias,
   parseAddressList,
   routingCandidates,
+  withAlwaysCc,
 } from "./addresses";
 
 test("parsea listas con nombres entre comillas y comas", () => {
@@ -139,4 +140,22 @@ test("dominios de correo público nunca son dominio autorizado", () => {
   assert.equal(isAllowedSenderDomain("x@gmail.com", ["gmail.com"]), false);
   assert.equal(isPublicEmailDomain("Outlook.com"), true);
   assert.equal(isPublicEmailDomain("cliente.cl"), false);
+});
+
+test("agrega las copias permanentes del canal primero y sin duplicar", () => {
+  assert.deepEqual(
+    withAlwaysCc(
+      ["ana@cliente.cl", "Supervisora@Cliente.cl"],
+      ["supervisora@cliente.cl"],
+      ["solicitante@cliente.cl", "alias@estudio.cl"],
+    ),
+    ["supervisora@cliente.cl", "ana@cliente.cl"],
+  );
+  assert.deepEqual(
+    withAlwaysCc([], ["supervisora@cliente.cl"], ["supervisora@cliente.cl"]),
+    [],
+  );
+  assert.deepEqual(withAlwaysCc(["ana@cliente.cl"], [], []), [
+    "ana@cliente.cl",
+  ]);
 });
