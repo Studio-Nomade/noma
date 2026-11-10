@@ -5,7 +5,10 @@ import {
   anthropicStructuredBody,
   parseStructuredMessage,
   type AnthropicMessage,
+  usageFromMessage,
 } from "./structured-body";
+import { db } from "@/db";
+import { aiUsage } from "@/db/schema";
 
 /**
  * Salida estructurada para el canal de solicitudes (extracción del correo y
@@ -51,6 +54,8 @@ async function anthropicStructured<T>(
 ): Promise<T> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new Error("Claude no está configurado.");
+  const requestBody = anthropicStructuredBody(input);
+  const startedAt = Date.now();
   const response = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: {
@@ -58,7 +63,7 @@ async function anthropicStructured<T>(
       "x-api-key": apiKey,
       "anthropic-version": ANTHROPIC_VERSION,
     },
-    body: JSON.stringify(anthropicStructuredBody(input)),
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(45_000),
   });
   if (!response.ok) {
@@ -67,10 +72,42 @@ async function anthropicStructured<T>(
       `Claude respondió ${response.status}${await anthropicErrorDetail(response)}.`,
     );
   }
-  return parseStructuredMessage(
-    (await response.json()) as AnthropicMessage,
-    input.schema,
+  const body = (await response.json()) as AnthropicMessage;
+  let ok = false;
+  try {
+    const parsed = parseStructuredMessage(body, input.schema);
+    ok = true;
+    return parsed;
+  } finally {
+    await recordAiUsage({
+      feature: input.schemaName,
+      model: body.model ?? requestBody.model,
+      durationMs: Date.now() - startedAt,
+      ok,
+      ...usageFromMessage(body),
+    });
+  }
+}
+
+/** Registro best-effort del consumo: nunca hace fallar la llamada. */
+async function recordAiUsage(row: {
+  feature: string;
+  model: string;
+  durationMs: number;
+  ok: boolean;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}) {
+  console.info(
+    `[ai:usage] ${row.feature} ${row.model} in=${row.inputTokens} out=${row.outputTokens} ${row.durationMs}ms${row.ok ? "" : " (inválida)"}`,
   );
+  try {
+    await db.insert(aiUsage).values({ provider: "anthropic", ...row });
+  } catch (error) {
+    console.error("[ai:usage] no se pudo registrar", error);
+  }
 }
 
 async function anthropicErrorDetail(response: Response): Promise<string> {

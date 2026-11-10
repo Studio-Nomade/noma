@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   anthropicStructuredBody,
   parseStructuredMessage,
+  usageFromMessage,
 } from "./structured-body";
 
 const schema = z.object({ title: z.string(), urgent: z.boolean() });
@@ -82,4 +83,28 @@ test("errores sin repetir el contenido", () => {
     (error: Error) =>
       /urgent/.test(error.message) && !error.message.includes("dato privado"),
   );
+});
+
+test("lee el consumo de tokens de la respuesta", () => {
+  assert.deepEqual(
+    usageFromMessage({
+      usage: {
+        input_tokens: 1820,
+        output_tokens: 640,
+        cache_read_input_tokens: 0,
+      },
+    }),
+    {
+      inputTokens: 1820,
+      outputTokens: 640,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+  );
+  assert.deepEqual(usageFromMessage({}), {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  });
 });
