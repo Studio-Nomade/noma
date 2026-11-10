@@ -474,13 +474,17 @@ export async function createTask(input: {
       body: {
         name: input.name.slice(0, 250),
         html_notes: input.htmlNotes,
+        // Asana exige `projects` (o workspace/parent) aunque vaya `memberships`:
+        // solo con `memberships` responde 400 "You should specify one of
+        // workspace, parent, projects".
+        projects: [input.projectGid],
         ...(input.sectionGid
           ? {
               memberships: [
                 { project: input.projectGid, section: input.sectionGid },
               ],
             }
-          : { projects: [input.projectGid] }),
+          : {}),
         ...(input.dueOn ? { due_on: input.dueOn } : {}),
         ...(input.assigneeGid ? { assignee: input.assigneeGid } : {}),
         ...(input.customFields && Object.keys(input.customFields).length

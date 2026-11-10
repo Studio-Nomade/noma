@@ -55,7 +55,7 @@ Ingreso Solicitud = Correo, Formato / Canal o Canal (multi), Cliente final o Cli
    como título y resuelve fechas relativas ("lunes AM") contra la fecha del correo en
    America/Santiago.
 2. **Confirmación en el mismo hilo**: Noma responde desde el alias con `threadId` +
-   `In-Reply-To` + `References`, HTML + texto, asunto `Re: <asunto> [EQ-0142]`. Sale
+   `In-Reply-To` + `References`, HTML + texto, asunto `Re: <asunto>` (sin folio: cambiar el asunto separa el hilo en Gmail). Sale
    antes de subir los adjuntos a la tarea, para que un corte por tiempo no la retrase.
    Destinatarios: el remitente (From). El `Reply-To` solo se usa si también es remitente
    autorizado. Los demás To/Cc externos van en copia (máx. 10), salvo que el alias haya
