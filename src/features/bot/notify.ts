@@ -33,13 +33,6 @@ async function sendOperationsNotification(
   }
 }
 
-function appUrl(path: string) {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-  return base ? `${base.replace(/\/$/, "")}${path}` : null;
-}
-
 function clean(value: string) {
   return value.replace(/[<>&]/g, "").slice(0, 500);
 }
@@ -49,7 +42,8 @@ export async function notifyNewClientRequest(input: {
   clientName: string;
   projectName?: string | null;
   summary: string;
-  scopeClass: string;
+  /** Se recibe por compatibilidad; ya no se muestra en el aviso. */
+  scopeClass?: string;
   asanaUrl?: string | null;
   /** Datos opcionales del canal correo para que el equipo se asigne la tarea. */
   folio?: string | null;
@@ -60,13 +54,8 @@ export async function notifyNewClientRequest(input: {
   requester?: string | null;
   assigned?: boolean;
 }) {
-  const panelUrl = appUrl(`/solicitudes/${input.requestId}`);
-  const links = [
-    input.asanaUrl ? `<${input.asanaUrl}|Abrir en Asana>` : null,
-    panelUrl ? `<${panelUrl}|Abrir en Noma>` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  // Por ahora solo Asana: es donde el equipo se asigna y trabaja la tarea.
+  const links = input.asanaUrl ? `<${input.asanaUrl}|Abrir en Asana>` : null;
   const details = [
     input.endClient ? `Cliente final: ${clean(input.endClient)}` : null,
     input.channels ? `Canal: ${clean(input.channels)}` : null,
@@ -83,7 +72,6 @@ export async function notifyNewClientRequest(input: {
     input.assigned === false
       ? "🙋 *Sin responsable*: revísenla en el tablero y asígnensela."
       : null,
-    `Alcance: \`${clean(input.scopeClass)}\``,
     links,
   ]
     .filter(Boolean)
