@@ -27,7 +27,7 @@ export function escapeHtml(value: string): string {
 }
 
 export const DEFAULT_EMAIL_ASSETS_BASE =
-  "https://assets.studionomade.cl/noma/email";
+  "https://assets.studionomade.cl/mailings/studio-nomade/20261109_correos-solicitudes/01_20261109_noma";
 
 export function emailAssetsBase(
   env: Record<string, string | undefined> = process.env,

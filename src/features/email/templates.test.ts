@@ -21,7 +21,8 @@ const COMMON = {
   title: "Video resumen evento Marca B",
   requesterName: "Ana Pérez",
   now: new Date("2026-11-09T15:00:00Z"),
-  assetsBase: "https://assets.studionomade.cl/noma/email",
+  assetsBase:
+    "https://assets.studionomade.cl/mailings/studio-nomade/20261109_correos-solicitudes/01_20261109_noma",
 };
 
 function assertWellFormed(email: RenderedEmail) {
