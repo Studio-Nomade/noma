@@ -94,14 +94,23 @@ export function cleanSubject(subject: string | null | undefined): string {
 }
 
 /**
- * Asunto de las respuestas de Noma en el hilo: `Re: <asunto original> [EQ-0142]`.
- * Conserva el asunto original para que Gmail/Outlook mantengan el hilo y
- * agrega el folio solo una vez.
+ * Asunto de las respuestas de Noma en el hilo: `Re: <asunto original>`.
+ *
+ * Sin folio: Gmail separa el hilo cuando cambia el asunto (además de
+ * In-Reply-To/References), así que agregar `[G360-NOV-0042]` dejaba la
+ * confirmación en una conversación aparte. El folio va en el cuerpo y en la
+ * tarea; aquí solo se quitan los prefijos Re:/Fwd: repetidos y se conserva el
+ * resto tal cual (incluido un folio que el cliente haya escrito).
  */
 export function replySubject(
   originalSubject: string | null | undefined,
-  folio: string,
 ): string {
-  const base = cleanSubject(originalSubject) || "Solicitud";
-  return `Re: ${base} [${folio}]`;
+  let value = originalSubject ?? "";
+  for (let i = 0; i < 5; i += 1) {
+    const next = value.replace(REPLY_PREFIX_RE, "");
+    if (next === value) break;
+    value = next;
+  }
+  const base = value.replace(/\s+/g, " ").trim() || "Solicitud";
+  return `Re: ${base}`;
 }

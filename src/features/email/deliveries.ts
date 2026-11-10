@@ -248,7 +248,7 @@ export async function processAsanaStory(
     from: { name: STUDIO_SENDER_NAME, email: channel.alias },
     to: [request.requesterEmail],
     cc,
-    subject: replySubject(request.emailSubject, request.folio ?? ""),
+    subject: replySubject(request.emailSubject),
     html: rendered.html,
     text: rendered.text,
     inReplyTo: thread.inReplyTo,
