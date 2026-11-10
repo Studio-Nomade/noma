@@ -63,11 +63,26 @@ test("filtra eventos de comentarios agregados y sin duplicados", () => {
         resource: { gid: "s3", resource_type: "story" },
         parent: { gid: "t2", resource_type: "task" },
       },
+      {
+        action: "added",
+        resource: {
+          gid: "s4",
+          resource_type: "story",
+          resource_subtype: "enum_custom_field_changed",
+        },
+        parent: { gid: "t3", resource_type: "task" },
+      },
     ],
   });
   assert.deepEqual(events, [
     { storyGid: "s1", taskGid: "t1", userGid: "u1", subtype: "comment_added" },
     { storyGid: "s3", taskGid: "t2", userGid: null, subtype: null },
+    {
+      storyGid: "s4",
+      taskGid: "t3",
+      userGid: null,
+      subtype: "enum_custom_field_changed",
+    },
   ]);
   assert.deepEqual(storyAddedEvents(null), []);
 });

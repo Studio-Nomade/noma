@@ -1521,6 +1521,11 @@ export const clientRequests = pgTable(
     requesterName: text("requester_name"),
     ccEmails: text("cc_emails").array(),
     folio: text("folio"),
+    // Ajustes del cliente pendientes para la próxima ENTREGA (correo 05 → 04).
+    emailPendingAdjustments: jsonb("email_pending_adjustments")
+      .$type<{ text: string; reference: string | null }[]>()
+      .default([])
+      .notNull(),
     ...timestamps,
   },
   (t) => [
@@ -1653,6 +1658,9 @@ export const requestDeliveries = pgTable(
       .notNull()
       .references(() => clientRequests.id, { onDelete: "cascade" }),
     round: integer("round").notNull(),
+    // delivery (ENTREGA NN) | consulta (CONSULTA) | evaluacion (Estado fuera
+    // de alcance → borrador del correo 07). round = 0 si no es entrega.
+    kind: text("kind").default("delivery").notNull(),
     // Idempotencia: un comentario de Asana produce a lo más un envío.
     asanaStoryGid: text("asana_story_gid").notNull().unique(),
     links: text("links")
@@ -1660,7 +1668,18 @@ export const requestDeliveries = pgTable(
       .default(sql`'{}'::text[]`)
       .notNull(),
     note: text("note"),
-    // sending | sent | failed (reintentable) | rejected (sin links) |
+    // Archivos con nombre (`Nombre: link` en el comentario).
+    files: jsonb("files")
+      .$type<{ label: string; url: string; detail: string | null }[]>()
+      .default([])
+      .notNull(),
+    // Ajustes del cliente que esta entrega declara aplicados.
+    appliedAdjustments: jsonb("applied_adjustments")
+      .$type<{ text: string; reference: string | null }[]>()
+      .default([])
+      .notNull(),
+    // sending | sent | drafted (borrador en Gmail) | failed (reintentable) |
+    // rejected (sin links) |
     // unknown (corte ambiguo: revisar a mano antes de reenviar)
     status: text("status").default("sending").notNull(),
     error: text("error"),
