@@ -551,9 +551,22 @@ export async function handleNewEmailRequest(input: {
       requestId: request.id,
       clientName: channel.clientName,
       projectName: channel.projectName,
-      summary: `[${request.folio}] ${extraction.title} (correo de ${from.email})`,
+      summary: extraction.title,
       scopeClass: request.scopeClass,
       asanaUrl: request.asanaUrl,
+      folio: request.folio,
+      endClient: extraction.end_client,
+      channels: extraction.channels.length
+        ? extraction.channels.join(", ")
+        : null,
+      priority: priorityStyle(extraction.priority).label,
+      dueDate: extraction.requested_due_date
+        ? formatSpanishDate(extraction.requested_due_date)
+        : null,
+      requester: request.requesterName
+        ? `${request.requesterName} (${from.email})`
+        : from.email,
+      assigned: Boolean(channel.defaultAssigneeGid),
     });
   }
 
