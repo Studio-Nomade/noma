@@ -47,9 +47,31 @@ export function anthropicStructuredBody<T>(
 }
 
 export type AnthropicMessage = {
+  model?: string;
   content?: { type: string; text?: string }[];
   stop_reason?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 };
+
+/** Tokens de la respuesta de Claude (0 si faltan). */
+export function usageFromMessage(body: AnthropicMessage) {
+  const usage = body.usage ?? {};
+  const n = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.max(0, Math.round(value))
+      : 0;
+  return {
+    inputTokens: n(usage.input_tokens),
+    outputTokens: n(usage.output_tokens),
+    cacheReadTokens: n(usage.cache_read_input_tokens),
+    cacheWriteTokens: n(usage.cache_creation_input_tokens),
+  };
+}
 
 /** Extrae y valida el JSON del bloque de texto (ignora bloques de razonamiento). */
 export function parseStructuredMessage<T>(

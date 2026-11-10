@@ -1645,6 +1645,29 @@ export const emailInboundEvents = pgTable(
 
 // Estado de la casilla de servicio: último historyId procesado y vigencia del
 // watch de Gmail (expira a los 7 días; el cron lo renueva).
+// ── Consumo de IA (tokens por llamada, para medir costo por función) ──
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // p. ej. email_request_extraction · reply_classification
+    feature: text("feature").notNull(),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").default(0).notNull(),
+    // Incluye los tokens de razonamiento.
+    outputTokens: integer("output_tokens").default(0).notNull(),
+    cacheReadTokens: integer("cache_read_tokens").default(0).notNull(),
+    cacheWriteTokens: integer("cache_write_tokens").default(0).notNull(),
+    durationMs: integer("duration_ms"),
+    ok: boolean("ok").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("ai_usage_created_idx").on(t.createdAt)],
+);
+
 export const emailMailboxState = pgTable("email_mailbox_state", {
   mailbox: text("mailbox").primaryKey(),
   historyId: text("history_id"),
