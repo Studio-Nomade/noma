@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  completeExtraction,
   extractEmailRequest,
   sanitizeTitle,
   type EmailExtraction,
@@ -43,7 +44,7 @@ test("usa la salida del modelo y la normaliza", async () => {
     calls.push(input.schemaName);
     assert.match(input.input, /sábado 17 de octubre de 2026/);
     assert.match(input.input, /Adjuntos: brief\.pdf/);
-    const output: EmailExtraction = {
+    const output: EmailExtraction = completeExtraction({
       title: "Fwd: banner Cyber para home",
       summary: "Banner para home de la campaña Cyber.",
       details: ["1200x400", " "],
@@ -51,7 +52,27 @@ test("usa la salida del modelo y la normaliza", async () => {
       priority: "alta",
       deliverable_type: "Banner web",
       links: ["https://cliente.cl/cyber."],
-    };
+      channels: ["Web", "Web"],
+      structure: {
+        title: "Piezas",
+        items: [
+          {
+            title: " Banner home ",
+            detail: null,
+            links: [
+              { label: "Ref", url: "https://cliente.cl/cyber", note: null },
+              {
+                label: "Tarea",
+                url: "https://app.asana.com/0/1/2",
+                note: null,
+              },
+            ],
+          },
+          { title: " ", detail: null, links: [] },
+        ],
+      },
+      missing_info: ["a", "b", "c", "d"],
+    });
     return output as T;
   };
   const result = await extractEmailRequest(INPUT, generate);
@@ -65,6 +86,25 @@ test("usa la salida del modelo y la normaliza", async () => {
     priority: "alta",
     deliverable_type: "Banner web",
     links: ["https://cliente.cl/cyber"],
+    requester_first_name: "Ana",
+    end_client: null,
+    channels: ["Web"],
+    format: null,
+    structure: {
+      title: "Piezas",
+      items: [
+        {
+          title: "Banner home",
+          detail: null,
+          links: [
+            { label: "Ref", url: "https://cliente.cl/cyber", note: null },
+          ],
+        },
+      ],
+    },
+    considerations: [],
+    materials: [],
+    missing_info: ["a", "b", "c"],
   });
 });
 

@@ -94,7 +94,11 @@ export async function isTrustedSender(
  * hasta el commit de `tx`: dos correos simultáneos nunca comparten número y,
  * si la transacción se revierte, el número no se consume.
  */
-export async function nextFolio(tx: DbTransaction, prefix: string) {
+export async function nextFolio(
+  tx: DbTransaction,
+  prefix: string,
+  receivedAt?: Date | null,
+) {
   const normalized = prefix.trim().toUpperCase();
   const [row] = await tx
     .insert(folioCounters)
@@ -107,7 +111,7 @@ export async function nextFolio(tx: DbTransaction, prefix: string) {
       },
     })
     .returning({ lastNumber: folioCounters.lastNumber });
-  return formatFolio(normalized, row.lastNumber);
+  return formatFolio(normalized, row.lastNumber, receivedAt);
 }
 
 // ── Búsquedas de solicitudes por hilo ────────────────────────

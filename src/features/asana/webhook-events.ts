@@ -43,7 +43,16 @@ export type StoryAddedEvent = {
   subtype: string | null;
 };
 
-/** Eventos `story` `added` (comentarios nuevos), sin duplicados. */
+/** Subtipos de story que Noma procesa. */
+export const HANDLED_STORY_SUBTYPES = [
+  "comment_added",
+  "enum_custom_field_changed",
+];
+
+/**
+ * Eventos `story` `added` (comentarios nuevos y cambios de campos enum, como
+ * Estado), sin duplicados.
+ */
 export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
   const events = (payload as { events?: AsanaEventJson[] } | null)?.events;
   if (!Array.isArray(events)) return [];
@@ -59,11 +68,11 @@ export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
     ) {
       continue;
     }
-    // Asana puede omitir el subtipo en el evento; si viene y no es
-    // comentario, se descarta sin pedir la story.
+    // Asana puede omitir el subtipo en el evento; si viene y no es un
+    // comentario ni un cambio de campo enum, se descarta sin pedir la story.
     if (
       resource.resource_subtype &&
-      resource.resource_subtype !== "comment_added"
+      !HANDLED_STORY_SUBTYPES.includes(resource.resource_subtype)
     ) {
       continue;
     }

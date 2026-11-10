@@ -22,6 +22,10 @@ export function foldName(value: string): string {
     .trim();
 }
 
+function compactName(value: string) {
+  return foldName(value).replace(/[^a-z0-9]/g, "");
+}
+
 export function findCustomField(
   settings: AsanaCustomFieldSetting[],
   fieldName: string,
@@ -61,4 +65,63 @@ export function findEnumOption(
     }
   }
   return null;
+}
+
+/** Valor deseado para un campo personalizado, por nombre. */
+export type CustomFieldWish =
+  /** Enum: primera opción que exista (en orden de preferencia). */
+  | { kind: "enum"; fields: string[]; options: string[] }
+  /** Multi-enum: todas las opciones que existan (ignora las que no). */
+  | { kind: "multi_enum"; fields: string[]; options: string[] }
+  /** Texto libre. */
+  | { kind: "text"; fields: string[]; value: string };
+
+export type CustomFieldValues = Record<string, string | string[]>;
+
+/**
+ * Traduce deseos por nombre a `custom_fields` de Asana ({gid campo → valor}).
+ * Cada deseo prueba sus nombres de campo en orden y usa el primero que exista
+ * con el tipo correcto. Lo que no calza se omite: nunca crea opciones ni
+ * escribe en un campo de otro tipo.
+ */
+export function buildCustomFieldValues(
+  settings: AsanaCustomFieldSetting[],
+  wishes: CustomFieldWish[],
+): CustomFieldValues {
+  const values: CustomFieldValues = {};
+  for (const wish of wishes) {
+    for (const fieldName of wish.fields) {
+      const field = findCustomField(settings, fieldName);
+      if (!field || values[field.gid] !== undefined) continue;
+      const subtype = field.resource_subtype ?? "enum";
+      if (wish.kind === "text") {
+        if (subtype !== "text" || !wish.value.trim()) continue;
+        values[field.gid] = wish.value.trim().slice(0, 1_000);
+        break;
+      }
+      if (subtype !== wish.kind) continue;
+      const options = (field.enum_options ?? []).filter(
+        (option) => option.enabled !== false,
+      );
+      const matched = wish.options
+        .map(
+          (wanted) =>
+            options.find(
+              (option) => foldName(option.name) === foldName(wanted),
+            ) ??
+            // "MarcaB Group" ≈ "Marca B Group": sin espacios ni signos.
+            options.find(
+              (option) => compactName(option.name) === compactName(wanted),
+            ),
+        )
+        .filter((option): option is AsanaEnumOption => Boolean(option));
+      if (!matched.length) continue;
+      values[field.gid] =
+        wish.kind === "enum"
+          ? matched[0].gid
+          : [...new Set(matched.map((option) => option.gid))];
+      break;
+    }
+  }
+  return values;
 }
