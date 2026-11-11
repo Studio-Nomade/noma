@@ -132,6 +132,7 @@ async function processEmailEvent(
   const auth = evaluateSenderAuth(email.rawHeaders, email.from.email, {
     studioDomain: studioDomain(),
     mode: process.env.NOMA_EMAIL_SENDER_AUTH,
+    trustedArcSealers: process.env.NOMA_EMAIL_TRUSTED_ARC_SEALERS,
   });
 
   const sourceKey = emailSourceKey(email);

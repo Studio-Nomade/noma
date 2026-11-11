@@ -87,6 +87,14 @@ acepta al solicitante o CC originales.
   con el dominio del From. Correo interno del Workspace sin ese encabezado solo vale si
   el From es del dominio del estudio. Las respuestas en hilo sin autenticar también van a
   `review`. `NOMA_EMAIL_SENDER_AUTH=off` la desactiva (solo diagnóstico).
+- **Respaldo ARC**: remitentes en Microsoft 365 sin SPF publicado ni DKIM propio, y los
+  correos que una regla del Workspace redirige a otro buzón, llegan a Gmail solo con
+  `arc=pass`. Si el encabezado de Gmail dice `arc=pass`, la cadena ARC es continua
+  (i=1..N, sin duplicados), **todos** los selladores son de confianza
+  (`NOMA_EMAIL_TRUSTED_ARC_SEALERS`, por defecto `google.com,microsoft.com`) y el
+  `ARC-Authentication-Results` i=1 trae dmarc/dkim/spf en `pass` alineado con el From,
+  el remitente se da por autenticado. Exigir selladores confiables en toda la cadena
+  evita reciclar un i=1 legítimo bajo un sello propio.
 - **Direcciones**: se parsean sobre el encabezado crudo (RFC 5322: el `<…>` fuera de
   comillas) y las encoded-words se decodifican solo en el nombre visible, así que un
   nombre como `"Jefe <jefe@cliente.cl>" <x@otro.com>` no suplanta al cliente.
@@ -202,6 +210,8 @@ Nuevas:
   define, `NOMA_GMAIL_PUSH_SERVICE_ACCOUNT` es obligatoria (si falta, el push responde 503).
 - `NOMA_GMAIL_PUSH_SERVICE_ACCOUNT` — cuenta de servicio esperada en el OIDC.
 - `NOMA_EMAIL_SENDER_AUTH` — opcional; `off` desactiva la verificación DMARC/DKIM/SPF.
+- `NOMA_EMAIL_TRUSTED_ARC_SEALERS` — opcional; selladores ARC de confianza separados por
+  coma (por defecto `google.com,microsoft.com`). Vacío desactiva el respaldo ARC.
 - `NOMA_GMAIL_WATCH_LABEL_ID` — opcional; limita watch/history a una etiqueta.
 - `NOMA_ASANA_BOT_USER_GID` — opcional; si falta se usa `users/me` del token central.
 
