@@ -11,6 +11,8 @@ import {
   matchAlias,
   routingCandidates,
 } from "./addresses";
+import { findFolioInSubject } from "./folio";
+import { detectInternalForward } from "./forwarded";
 import { GmailApiError, getMessage, requestsMailbox } from "./inbox";
 import { isAutomatedMessage, parseGmailMessage } from "./mime";
 import { detectReply } from "./reply-detection";
@@ -192,34 +194,68 @@ async function processEmailEvent(
     };
   }
 
+  // Reenvío del equipo: alguien del estudio (autenticado) reenvía el correo
+  // que un cliente le mandó directo. La solicitud queda a nombre del
+  // remitente original y se rutea por su dominio.
+  const forwarded = detectInternalForward(email, auth.verified, studioDomain());
+  if (forwarded && isIgnoredSender(channels, forwarded.original.from.email)) {
+    return { status: "ignored", note: "Reenvío de un remitente excluido." };
+  }
+  const sender = forwarded ? forwarded.original.from : email.from;
+
   const alias = matchAlias(
     routingCandidates(email.rawHeaders),
     channels.map((channel) => channel.alias),
   );
   // Sin alias en los encabezados (correo redirigido por una regla del
-  // administrador desde otra casilla): canal por dominio del remitente.
+  // administrador desde otra casilla, o reenvío del equipo a la casilla):
+  // canal por dominio del remitente (original, si es un reenvío).
   const channel = alias
     ? channels.find((item) => item.alias === alias)
-    : (channelBySenderDomain(channels, email.from.email) ?? undefined);
+    : (channelBySenderDomain(channels, sender.email) ?? undefined);
   if (!channel) {
     return {
       status: "ignored",
-      note: "No va dirigido a un alias de solicitudes.",
+      note: forwarded
+        ? `Reenvío de ${email.from.email}: ${sender.email} no corresponde a ningún canal.`
+        : "No va dirigido a un alias de solicitudes.",
+    };
+  }
+
+  // Un reenvío de una respuesta con folio no abre otra solicitud: se avisa
+  // para sumarla a la tarea existente.
+  const forwardedFolio = forwarded
+    ? findFolioInSubject(forwarded.original.subject ?? "")
+    : null;
+  if (forwardedFolio && (await requestByFolio(forwardedFolio))) {
+    await notifyUnknownEmailSender({
+      alias: channel.alias,
+      fromEmail: sender.email,
+      subject: email.subject,
+      clientName: channel.clientName,
+      slackWebhookEnv: channel.slackWebhookEnv,
+      reason: `Reenvío de ${email.from.email} de una respuesta a ${forwardedFolio}: súmala como comentario en esa tarea.`,
+    });
+    return {
+      status: "review",
+      note: `Reenvío interno de una respuesta a ${forwardedFolio}.`,
     };
   }
 
   const trusted =
-    auth.verified && (await isTrustedSender(channel, email.from.email));
+    auth.verified && (await isTrustedSender(channel, sender.email));
   if (!trusted) {
     await notifyUnknownEmailSender({
       alias: channel.alias,
-      fromEmail: email.from.email,
+      fromEmail: sender.email,
       subject: email.subject,
       clientName: channel.clientName,
       slackWebhookEnv: channel.slackWebhookEnv,
-      reason: auth.verified
-        ? null
-        : `Remitente sin autenticar (${auth.reason}).`,
+      reason: !auth.verified
+        ? `Remitente sin autenticar (${auth.reason}).`
+        : forwarded
+          ? `Reenvío de ${email.from.email}: el remitente original no está autorizado para el canal.`
+          : null,
     });
     await logActivity({
       entityType: "email_inbound_event",
@@ -240,12 +276,13 @@ async function processEmailEvent(
     email,
     channel,
     ownAddresses,
+    forwarded,
   });
   if (result.notRequest) {
     await notifyEmailWithoutRequest({
       alias: channel.alias,
-      fromEmail: email.from.email,
-      fromName: email.from.name,
+      fromEmail: sender.email,
+      fromName: sender.name,
       subject: email.subject,
       clientName: channel.clientName,
       reason: result.notRequest,
