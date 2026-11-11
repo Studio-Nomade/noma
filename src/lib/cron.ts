@@ -21,12 +21,16 @@ import { timingSafeEqual } from "node:crypto";
  * - `cobranza-seguimiento`: seguimiento de cobranza a 7 días (P3). Con la
  *   bandera encendida deja borradores; además envía solo si
  *   `NOMA_COBRANZA_AUTOSEND=true`.
+ * - `monthly-reports`: el día 1 arma el informe mensual de solicitudes de
+ *   cada canal con `monthly_report` activo: borrador del correo (no lo envía)
+ *   y tarea en «Mis tareas» del responsable.
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
   "retainers-open": "CRON_RETAINERS_OPEN_ENABLED",
   "email-maintenance": "CRON_EMAIL_MAINTENANCE_ENABLED",
   "cobranza-seguimiento": "CRON_COBRANZA_SEGUIMIENTO_ENABLED",
+  "monthly-reports": "CRON_MONTHLY_REPORTS_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;
