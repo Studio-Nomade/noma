@@ -66,7 +66,10 @@ Ingreso Solicitud = Correo, Formato / Canal o Canal (multi), Cliente final o Cli
    `Estado` en "Enviado a cliente" si esa opción existe. En minúsculas («Entrega 01»,
    «entrega 1:») también vale, pero solo si esa es la primera línea completa y el
    comentario trae un link para el cliente. "Entrega 2 queda para mañana" es conversación
-   interna y no dispara nada. Los links de Asana (menciones,
+   interna y no dispara nada. **Equipo en copia** (entregas y consultas): quien comenta
+   (ejecuta) y el responsable de la tarea (supervisa) van en copia junto al cliente, solo
+   si son del dominio del estudio; quedan guardados en `cc_emails` para el resto del hilo.
+   Si la tarea no tiene responsable, se asigna a quien comentó. Los links de Asana (menciones,
    tareas) nunca se envían. El texto libre del comentario va como nota en el correo. Sin
    links, Noma no envía y lo comenta.
 4. **Respuesta del cliente** (mismo `threadId`, `References` conocidas o folio en el

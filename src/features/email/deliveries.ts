@@ -6,10 +6,13 @@ import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
   addStory,
   getStory,
+  getTaskAssignee,
   getTaskState,
+  getUserEmail,
   listTaskStories,
   resolveBotUserGid,
   setEnumFieldByName,
+  setTaskAssignee,
   taskFieldValue,
   type AsanaStory,
 } from "@/features/asana/asana";
@@ -21,6 +24,7 @@ import {
   parseConsultaCommand,
   parseDeliveryCommand,
 } from "./delivery-command";
+import { deliveryCc } from "./delivery-team";
 import { replySubject } from "./folio";
 import { GmailApiError, createDraftReply, sendReply } from "./inbox";
 import { buildReplyThreadHeaders } from "./mime";
@@ -31,6 +35,7 @@ import {
   STUDIO_SENDER_NAME,
   isDefiniteRejection,
   requestTitle,
+  studioDomain,
 } from "./requests";
 import { getChannel } from "./store";
 import {
@@ -242,7 +247,22 @@ export async function processAsanaStory(
     parentMessageId: request.emailLastMessageId ?? request.emailMessageId,
     references: [request.emailMessageId],
   });
-  const cc = request.ccEmails ?? [];
+  // Entregas y consultas: quien comenta (ejecuta) y el responsable de la
+  // tarea (supervisa) quedan en copia del hilo. Degradable: sin Asana, se
+  // usan las copias de la solicitud.
+  const team =
+    command.kind === "evaluacion"
+      ? null
+      : await studioTeam(taskGid, story.created_by.gid);
+  const cc = team
+    ? deliveryCc({
+        requestCc: request.ccEmails ?? [],
+        commenterEmail: team.commenterEmail,
+        assigneeEmail: team.assignee?.email ?? null,
+        studioDomain: studioDomain(),
+        exclude: [request.requesterEmail, channel.alias],
+      })
+    : (request.ccEmails ?? []);
   const message = {
     threadId: request.emailThreadId!,
     from: { name: STUDIO_SENDER_NAME, email: channel.alias },
@@ -323,11 +343,20 @@ export async function processAsanaStory(
     .update(clientRequests)
     .set({
       emailLastMessageId: sent.messageId ?? request.emailLastMessageId,
+      // El equipo que entró en copia sigue en el hilo para el seguimiento.
+      ccEmails: cc,
       // Los ajustes pendientes quedan registrados en esta entrega.
       ...(command.kind === "delivery" ? { emailPendingAdjustments: [] } : {}),
       updatedAt: now,
     })
     .where(eq(clientRequests.id, request.id));
+
+  // Sin responsable: queda asignada a quien hizo la entrega o la consulta.
+  if (team && !team.assignee) {
+    await setTaskAssignee(taskGid, story.created_by.gid).catch((error) =>
+      console.error("[email:delivery:assignee]", error),
+    );
+  }
 
   if (command.kind === "consulta") {
     await logActivity({
@@ -359,6 +388,20 @@ export async function processAsanaStory(
     action: "email_delivery_sent",
   });
   return "sent";
+}
+
+/** Correo de quien comenta y responsable de la tarea (null si Asana falla). */
+async function studioTeam(taskGid: string, commenterGid: string) {
+  try {
+    const [commenterEmail, assignee] = await Promise.all([
+      getUserEmail(commenterGid).catch(() => null),
+      getTaskAssignee(taskGid),
+    ]);
+    return { commenterEmail, assignee };
+  } catch (error) {
+    console.error("[email:delivery:team]", error);
+    return null;
+  }
 }
 
 /**
