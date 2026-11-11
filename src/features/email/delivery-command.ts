@@ -1,13 +1,27 @@
 /**
- * Comando de entrega en comentarios de Asana: `ENTREGA 01` (en MAYÚSCULAS,
- * número 1–999) al inicio del comentario + link(s). Las mayúsculas son el
- * gatillo explícito: "Entrega 2 queda para mañana…" es conversación interna y
- * nunca sale al cliente. Los links internos de Asana (menciones, tareas) no
- * se envían. Módulo puro.
+ * Comando de entrega en comentarios de Asana: `ENTREGA 01` (número 1–999) al
+ * inicio del comentario + link(s). Dos formas:
+ *   - En MAYÚSCULAS, siempre es el gatillo explícito.
+ *   - En minúsculas o mixto («Entrega 01», «entrega 1:») solo si es la
+ *     primera línea completa (nada más que el número y, opcional, «:») y el
+ *     comentario trae al menos un link para el cliente. Así «Entrega 2 queda
+ *     para mañana…» sigue siendo conversación interna y nunca sale.
+ * Los links internos de Asana (menciones, tareas) no se envían. Módulo puro.
  */
 
 export const DELIVERY_COMMAND_RE =
   /^\s*ENTREGA\s*0*(\d{1,3})(?=$|[\s:·\-–—.,;])/;
+
+/** «Entrega 01» / «entrega 1:» como primera línea completa. */
+const LOOSE_DELIVERY_LINE_RE = /^\s*entrega\s*0*(\d{1,3})\s*:?\s*(?:\n|$)/i;
+
+function matchCommand(text: string, htmlText?: string | null) {
+  const strict = text.match(DELIVERY_COMMAND_RE);
+  if (strict) return strict;
+  const loose = text.match(LOOSE_DELIVERY_LINE_RE);
+  if (!loose) return null;
+  return extractUrls(text, htmlText).length ? loose : null;
+}
 
 /** Links que nunca se mandan al cliente (menciones y tareas de Asana). */
 export function isInternalLink(url: string) {
@@ -67,8 +81,9 @@ export function parseDeliveryCommand(
   text: string | null | undefined,
   htmlText?: string | null,
 ): DeliveryCommand | null {
-  const match = text?.match(DELIVERY_COMMAND_RE);
-  if (!text || !match) return null;
+  if (!text) return null;
+  const match = matchCommand(text, htmlText);
+  if (!match) return null;
   const round = Number(match[1]);
   if (!Number.isInteger(round) || round < 1) return null;
 

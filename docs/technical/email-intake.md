@@ -63,8 +63,10 @@ Ingreso Solicitud = Correo, Formato / Canal o Canal (multi), Cliente final o Cli
 3. **Entrega**: un comentario en la tarea que empieza con `ENTREGA 01` **en mayúsculas**
    (cualquier número 1–999) y trae link(s) envía al solicitante (y CC) la entrega en el
    hilo, registra la ronda en `request_deliveries` (idempotente por story) y fija el campo
-   `Estado` en "Enviado a cliente" si esa opción existe. "Entrega 2 queda para mañana"
-   (minúsculas) es conversación interna y no dispara nada. Los links de Asana (menciones,
+   `Estado` en "Enviado a cliente" si esa opción existe. En minúsculas («Entrega 01»,
+   «entrega 1:») también vale, pero solo si esa es la primera línea completa y el
+   comentario trae un link para el cliente. "Entrega 2 queda para mañana" es conversación
+   interna y no dispara nada. Los links de Asana (menciones,
    tareas) nunca se envían. El texto libre del comentario va como nota en el correo. Sin
    links, Noma no envía y lo comenta.
 4. **Respuesta del cliente** (mismo `threadId`, `References` conocidas o folio en el
