@@ -4,6 +4,7 @@
  * blockquote, hr…); los saltos de línea se respetan. Módulo puro.
  */
 
+import { foldName, type CustomFieldWish } from "@/features/asana/custom-fields";
 import { formatSpanishDate } from "./dates";
 import type { EmailExtraction } from "./extract";
 import { escapeHtml } from "./templates";
@@ -22,6 +23,48 @@ export function priorityLabel(priority: EmailExtraction["priority"]) {
 function link(url: string) {
   const safe = escapeHtml(url);
   return `<a href="${safe}">${safe}</a>`;
+}
+
+/** Campos que gobierna Noma: la IA nunca los elige, aunque el canal lo permita. */
+const PROTECTED_FIELDS = new Set(
+  [
+    "Estado",
+    "Prioridad",
+    "¿Ticket Activo?",
+    "Ticket Activo",
+    "Ingreso Solicitud",
+    "Folio NOMA",
+    "Folio",
+    "Correo de contacto",
+  ].map(foldName),
+);
+
+/**
+ * Opciones que la IA eligió según la pauta del cliente, solo para los campos
+ * permitidos por el canal. Se piden como multi-enum y enum: se aplica la que
+ * calce con el tipo real del campo y las opciones inexistentes se ignoran.
+ */
+export function aiFieldWishes(
+  choices: EmailExtraction["field_choices"],
+  allowedFields: readonly string[],
+): CustomFieldWish[] {
+  const allowed = new Set(
+    allowedFields.map(foldName).filter((name) => !PROTECTED_FIELDS.has(name)),
+  );
+  return choices
+    .filter((choice) => allowed.has(foldName(choice.field)))
+    .flatMap((choice) => [
+      {
+        kind: "multi_enum" as const,
+        fields: [choice.field],
+        options: choice.options,
+      },
+      {
+        kind: "enum" as const,
+        fields: [choice.field],
+        options: choice.options,
+      },
+    ]);
 }
 
 export function buildTaskHtmlNotes(input: {
@@ -79,6 +122,9 @@ export function buildTaskHtmlNotes(input: {
                 .join("")}</li>`,
           )
           .join("")}</ol>`
+      : null,
+    e.brief.length
+      ? `<strong>Brief</strong><ul>${e.brief.map((item) => `<li><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</li>`).join("")}</ul>`
       : null,
     e.considerations.length
       ? `<strong>A considerar</strong><ul>${e.considerations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`

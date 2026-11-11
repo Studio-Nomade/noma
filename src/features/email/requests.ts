@@ -24,7 +24,11 @@ import { consumeRequest } from "@/features/retainers/periods";
 import { logActivity } from "@/lib/activity";
 import { requestsStructuredGenerator } from "@/lib/ai/structured";
 import { domainOf, externalRecipients, withAlwaysCc } from "./addresses";
-import { buildReplyStoryHtml, buildTaskHtmlNotes } from "./asana-content";
+import {
+  aiFieldWishes,
+  buildReplyStoryHtml,
+  buildTaskHtmlNotes,
+} from "./asana-content";
 import { formatSpanishDate } from "./dates";
 import {
   completeExtraction,
@@ -145,11 +149,14 @@ export function taskFieldWishes(
   extraction: EmailExtraction,
   folio: string,
   requesterEmail?: string | null,
+  aiFields: readonly string[] = [],
 ): CustomFieldWish[] {
   const channelOptions = extraction.channels.flatMap(
     (channel) => CHANNEL_OPTIONS[channel] ?? [],
   );
   return [
+    // Primero lo que eligió la IA con la pauta del cliente (gana sobre el canal).
+    ...aiFieldWishes(extraction.field_choices, aiFields),
     {
       kind: "enum",
       fields: [PRIORITY_FIELD],
@@ -373,6 +380,7 @@ export async function handleNewEmailRequest(input: {
         body: email.text,
         attachmentNames: email.attachments.map((item) => item.filename),
         clientName: channel.clientName,
+        briefGuide: channel.briefGuide,
       },
       structuredGenerator(),
     );
@@ -647,6 +655,7 @@ async function createAsanaTaskForRequest(
       extraction,
       request.folio ?? "",
       request.requesterEmail ?? email.from?.email ?? null,
+      channel.aiFields,
     ),
   ).catch(() => ({}));
 
