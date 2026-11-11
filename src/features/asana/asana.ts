@@ -634,6 +634,35 @@ export function taskFieldValue(task: AsanaTaskState, fieldName: string) {
   return field?.enum_value?.name ?? field?.display_value ?? null;
 }
 
+/** Responsable actual de la tarea (gid y correo), o null si no tiene. */
+export async function getTaskAssignee(
+  taskGid: string,
+): Promise<{ gid: string; email: string | null } | null> {
+  const task = await asanaRequest<{
+    assignee?: { gid: string; email?: string | null } | null;
+  }>(
+    "GET",
+    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=assignee.gid,assignee.email`,
+  );
+  if (!task?.assignee?.gid) return null;
+  return { gid: task.assignee.gid, email: task.assignee.email ?? null };
+}
+
+/** Correo de un usuario de Asana (null si el token no lo puede ver). */
+export async function getUserEmail(userGid: string): Promise<string | null> {
+  const user = await asanaRequest<{ email?: string | null }>(
+    "GET",
+    `/users/${encodeURIComponent(userGid)}?opt_fields=email`,
+  );
+  return user?.email ?? null;
+}
+
+export async function setTaskAssignee(taskGid: string, userGid: string) {
+  await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
+    body: { assignee: userGid },
+  });
+}
+
 export async function setTaskDueOn(taskGid: string, dueOn: string | null) {
   await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
     body: { due_on: dueOn },
