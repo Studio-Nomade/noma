@@ -10,14 +10,38 @@ test("reconoce ENTREGA con cualquier número y ceros a la izquierda", () => {
   assert.equal(parseDeliveryCommand("ENTREGA 999")?.round, 999);
 });
 
-test("solo en MAYÚSCULAS: conversación interna no dispara entregas", () => {
+test("conversación interna no dispara entregas", () => {
   for (const text of [
     "Entrega 2 queda para mañana, borrador interno https://drive.google.com/x",
     "entrega 01 https://x.cl",
     "Entrega 012",
+    "Entrega 01:",
+    "Entrega 01:\nfalta exportar, lo subo en la tarde",
+    "Entrega 01: https://app.asana.com/0/123/456",
   ]) {
     assert.equal(parseDeliveryCommand(text), null, text);
   }
+});
+
+test("acepta «Entrega 01» en minúsculas como primera línea completa con link", () => {
+  const parsed = parseDeliveryCommand(
+    "Entrega 01:\nhttps://drive.google.com/drive/folders/1ENRN?usp=drive_link",
+  );
+  assert.equal(parsed?.round, 1);
+  assert.deepEqual(parsed?.links, [
+    "https://drive.google.com/drive/folders/1ENRN?usp=drive_link",
+  ]);
+  assert.equal(
+    parseDeliveryCommand("entrega 2\nVideo: https://drive.google.com/a")?.round,
+    2,
+  );
+  assert.equal(
+    parseDeliveryCommand(
+      "Entrega 03",
+      '<body>Entrega 03\n<a href="https://www.canva.com/design/xyz">diseño</a></body>',
+    )?.round,
+    3,
+  );
 });
 
 test("no envía links internos de Asana (menciones, tareas)", () => {
