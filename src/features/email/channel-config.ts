@@ -110,6 +110,16 @@ export const emailChannelConfigSchema = z
       .regex(SLACK_WEBHOOK_ENV_RE, "debe ser SLACK_…_WEBHOOK_URL")
       .nullable()
       .optional(),
+    /**
+     * Pauta del cliente para leer sus correos (los campos de su formulario de
+     * solicitudes, sus opciones de formato…). Se entrega a la IA tal cual.
+     */
+    brief_guide: z.string().trim().max(4_000).nullable().optional(),
+    /**
+     * Campos de Asana (enum o multi-enum, por nombre) que la IA puede completar
+     * con opciones de la pauta. Solo estos: nunca Estado, Prioridad ni Ticket.
+     */
+    ai_fields: z.array(z.string().trim().min(1).max(80)).max(10).default([]),
     /** Marca de revisión humana: dominios aún sin confirmar con el cliente. */
     domains_to_confirm: z.boolean().default(false),
     status: z.enum(["active", "paused"]).default("active"),

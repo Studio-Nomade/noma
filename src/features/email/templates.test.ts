@@ -90,7 +90,7 @@ test("01 · confirmación con ficha, estructura, material y pendientes", () => {
     email.html,
     /href="https:\/\/drive\.google\.com\/a\?x=1&amp;y=2"/,
   );
-  assert.match(email.html, /Nos falta confirmar/);
+  assert.match(email.html, /Para agilizar/);
   assert.match(email.html, /Lun 09 nov 2026 · 12:06/);
   assert.match(email.html, /bolsa de noviembre/);
   assert.match(email.text, /Fecha ideal de entrega: Por confirmar/);
@@ -112,7 +112,7 @@ test("01 · sin estructura ni pendientes omite esos bloques y escapa HTML", () =
   assertWellFormed(email);
   assert.doesNotMatch(
     email.html,
-    /Nos falta confirmar|Orden de las cuñas|Material/,
+    /Para agilizar|Orden de las cuñas|Material/,
   );
   assert.match(email.html, /&lt;script&gt;/);
   assert.match(email.html, /Normal/);

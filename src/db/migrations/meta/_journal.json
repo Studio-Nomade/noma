@@ -379,6 +379,13 @@
       "when": 1794342983261,
       "tag": "0053_channel_slack_ignored",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794360033156,
+      "tag": "0054_channel_brief_guide",
+      "breakpoints": true
     }
   ]
 }

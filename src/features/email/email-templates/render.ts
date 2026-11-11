@@ -354,7 +354,7 @@ export function renderConfirmationEmail(
     ...(e.missing_info.length
       ? [
           "",
-          "Nos falta confirmar (responde este correo con esos datos):",
+          "Para agilizar (si los tienen, respóndannos en este hilo; igual ya comenzamos):",
           ...bullets(e.missing_info),
         ]
       : []),
@@ -443,7 +443,7 @@ export function renderCommentAckEmail(input: CommentAckInput): RenderedEmail {
     ...(files.length
       ? ["", "Archivos recibidos:", ...files.map((file) => `- ${file.name}`)]
       : []),
-    ...(pending.length ? ["", "Aún nos falta:", ...bullets(pending)] : []),
+    ...(pending.length ? ["", "Si lo tienen, nos ayudaría:", ...bullets(pending)] : []),
     ...textFooter(input),
   ].join("\n");
   return { html: render("02_comentario_recibido", view), text };
