@@ -9,7 +9,18 @@
  * Solo cuenta el PRIMER encabezado: Gmail antepone el suyo, y cualquier otro
  * `Authentication-Results` más abajo pudo venir escrito por el remitente.
  * Correo interno del propio Workspace puede llegar sin encabezado: se acepta
- * solo si el From es del dominio del estudio. Módulo puro.
+ * solo si el From es del dominio del estudio.
+ *
+ * Respaldo ARC: dominios en Microsoft 365 sin SPF publicado ni firma DKIM
+ * propia (p. ej. raidoit.com) llegan a Gmail solo con `arc=pass`, y lo mismo
+ * pasa con correos que una regla del Workspace redirige a otro buzón. En ese
+ * caso se acepta el resultado que registró el PRIMER sellador (ARC i=1) si:
+ *   - el encabezado de Gmail dice `arc=pass` (Gmail validó la cadena),
+ *   - la cadena es continua (i=1..N, sin duplicados) y TODOS los selladores
+ *     son de confianza (por defecto google.com y microsoft.com: así nadie
+ *     puede reciclar un i=1 legítimo con un sello propio encima), y
+ *   - ese i=1 trae dmarc, dkim o spf en `pass` alineado con el From.
+ * Módulo puro.
  */
 
 import { domainOf } from "./addresses";
@@ -21,7 +32,14 @@ export type SenderAuthOptions = {
   authservId?: string;
   /** `off` desactiva la verificación (solo para diagnóstico). */
   mode?: string | null;
+  /**
+   * Selladores ARC de confianza, separados por coma. Por defecto
+   * `google.com,microsoft.com`; vacío desactiva el respaldo ARC.
+   */
+  trustedArcSealers?: string | null;
 };
+
+export const DEFAULT_TRUSTED_ARC_SEALERS = ["google.com", "microsoft.com"];
 
 type ResInfo = {
   method: string;
@@ -108,33 +126,133 @@ export function evaluateSenderAuth(
     };
   }
 
-  for (const item of parsed.results) {
+  const direct = alignedPass(parsed.results, fromDomain);
+  if (direct) return { verified: true, reason: direct };
+
+  const arc = evaluateArcFallback(
+    rawHeaders,
+    parsed.results,
+    fromDomain,
+    options,
+  );
+  if (arc.verified) return arc;
+
+  const summary = parsed.results
+    .map((item) => `${item.method}=${item.result}`)
+    .join(", ");
+  return {
+    verified: false,
+    reason: `sin autenticación alineada (${summary || "sin resultados"})${arc.reason ? `; ARC: ${arc.reason}` : ""}`,
+  };
+}
+
+/** Primer mecanismo en `pass` alineado con el From, o null. */
+function alignedPass(results: ResInfo[], fromDomain: string): string | null {
+  for (const item of results) {
     if (item.result !== "pass") continue;
     if (
       item.method === "dmarc" &&
       domainsAligned(domainFromProp(item.props["header.from"]), fromDomain)
     ) {
-      return { verified: true, reason: "dmarc=pass" };
+      return "dmarc=pass";
     }
     if (
       item.method === "dkim" &&
       (domainsAligned(domainFromProp(item.props["header.d"]), fromDomain) ||
         domainsAligned(domainFromProp(item.props["header.i"]), fromDomain))
     ) {
-      return { verified: true, reason: "dkim=pass alineado" };
+      return "dkim=pass alineado";
     }
     if (
       item.method === "spf" &&
       domainsAligned(domainFromProp(item.props["smtp.mailfrom"]), fromDomain)
     ) {
-      return { verified: true, reason: "spf=pass alineado" };
+      return "spf=pass alineado";
     }
   }
-  const summary = parsed.results
-    .map((item) => `${item.method}=${item.result}`)
-    .join(", ");
+  return null;
+}
+
+/** `i=2; a=rsa-sha256; cv=pass; d=google.com` → { i: 2, rest: "a=…" }. */
+function splitArcInstance(value: string): { i: number; rest: string } | null {
+  const match = value
+    .replace(/\r?\n[ \t]+/g, " ")
+    .match(/^\s*i\s*=\s*(\d+)\s*;([\s\S]*)$/i);
+  if (!match) return null;
+  return { i: Number(match[1]), rest: match[2] };
+}
+
+function arcSealDomain(rest: string): string {
+  for (const part of rest.split(";")) {
+    const match = part.trim().match(/^d\s*=\s*([^\s;]+)$/i);
+    if (match) return match[1].toLowerCase().replace(/\.$/, "");
+  }
+  return "";
+}
+
+export function parseTrustedSealers(
+  value: string | null | undefined,
+): string[] {
+  if (value === undefined || value === null) return DEFAULT_TRUSTED_ARC_SEALERS;
+  return value
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function evaluateArcFallback(
+  rawHeaders: Record<string, string[] | undefined>,
+  topResults: ResInfo[],
+  fromDomain: string,
+  options: SenderAuthOptions,
+): SenderAuth {
+  const arcTop = topResults.find((item) => item.method === "arc");
+  if (!arcTop) return { verified: false, reason: "" };
+  if (arcTop.result !== "pass") {
+    return { verified: false, reason: `arc=${arcTop.result}` };
+  }
+  const trusted = parseTrustedSealers(options.trustedArcSealers);
+  if (!trusted.length)
+    return { verified: false, reason: "respaldo desactivado" };
+
+  const seals = new Map<number, string>();
+  for (const value of rawHeaders["arc-seal"] ?? []) {
+    const parsed = splitArcInstance(value);
+    if (!parsed || seals.has(parsed.i)) {
+      return { verified: false, reason: "ARC-Seal inválido o duplicado" };
+    }
+    seals.set(parsed.i, arcSealDomain(parsed.rest));
+  }
+  if (!seals.size) return { verified: false, reason: "sin ARC-Seal" };
+  for (let i = 1; i <= seals.size; i += 1) {
+    const domain = seals.get(i);
+    if (domain === undefined) {
+      return { verified: false, reason: "cadena ARC incompleta" };
+    }
+    if (!trusted.includes(domain)) {
+      return {
+        verified: false,
+        reason: `sellador i=${i} no confiable (${domain || "sin d="})`,
+      };
+    }
+  }
+
+  const firstResults = (rawHeaders["arc-authentication-results"] ?? [])
+    .map(splitArcInstance)
+    .filter((item): item is { i: number; rest: string } => item?.i === 1);
+  if (firstResults.length !== 1) {
+    return {
+      verified: false,
+      reason: "sin ARC-Authentication-Results i=1 único",
+    };
+  }
+  const original = parseAuthenticationResults(firstResults[0].rest);
+  const pass = alignedPass(original.results, fromDomain);
+  if (!pass) {
+    return { verified: false, reason: "i=1 sin autenticación alineada" };
+  }
   return {
-    verified: false,
-    reason: `sin autenticación alineada (${summary || "sin resultados"})`,
+    verified: true,
+    reason: `arc=pass: ${pass} según ${seals.get(1)}`,
   };
 }
