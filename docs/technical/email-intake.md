@@ -108,6 +108,23 @@ acepta al solicitante o CC originales.
   el alias en To/Cc/Delivered-To/X-Original-To/X-Forwarded-To): el canal se resuelve por
   el dominio del remitente, solo si pertenece a **un único** canal activo. Como el alias
   no es visible se responde al remitente y a las copias permanentes.
+- **Reenvío del equipo** (`forwarded.ts`): si el remitente es del dominio del estudio,
+  está autenticado y el cuerpo trae un mensaje reenviado (Gmail, Outlook o Apple Mail,
+  en español o inglés) de alguien de afuera, la solicitud queda **a nombre del
+  remitente original**. Se rutea por el alias o, si se reenvió a la casilla, por el
+  dominio del remitente original; tiene que ser un remitente autorizado del canal.
+  La confirmación va al remitente original, con copia a quienes iban en su correo, a
+  quien reenvió y a las copias permanentes. La tarea muestra «Reenviado por». Un
+  reenvío de una respuesta con folio existente no abre otra solicitud: queda en
+  `review` con aviso para sumarla a esa tarea. Reenviar como adjunto (`.eml`) no se
+  reconoce: hay que reenviar en línea.
+- **Diseño → desarrollo** (`design-link.ts`): al crear la tarea, si el correo trae
+  diseños de Canva (`canva.com/design/<id>` o links cortos `canva.link/…`, que se
+  resuelven), se busca otra tarea del mismo proyecto de los últimos 120 días que
+  comparta el diseño: primero en Noma (correo original o links de sus entregas) y
+  después en la descripción de las tareas recientes del tablero. Si existe, se deja
+  un comentario en cada tarea con el enlace a la otra («Diseño relacionado» /
+  «Desarrollo relacionado»). Es degradable: si falla, la solicitud sigue igual.
 - **Remitentes ignorados** (`ignored_senders` del canal): direcciones exactas que se
   descartan antes de la IA y sin aviso (p. ej. un flujo de servicio al cliente que
   comparte dominio con el cliente). El evento queda `ignored`.

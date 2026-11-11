@@ -79,6 +79,8 @@ export function buildTaskHtmlNotes(input: {
   attachmentNames: string[];
   scopeLabel: string;
   body: string;
+  /** Persona del estudio que reenvió el correo del cliente. */
+  forwardedBy?: string | null;
 }): string {
   const e = input.extraction;
   const requester = input.requesterName
@@ -91,6 +93,9 @@ export function buildTaskHtmlNotes(input: {
       ? `<strong>CC:</strong> ${escapeHtml(input.ccEmails.join(", "))}`
       : null,
     `<strong>Recibido en:</strong> ${escapeHtml(input.alias)} · ${escapeHtml(input.receivedAt.toISOString())}`,
+    input.forwardedBy
+      ? `<strong>Reenviado por:</strong> ${escapeHtml(input.forwardedBy)}`
+      : null,
     `<strong>Asunto original:</strong> ${escapeHtml(input.subject)}`,
     `<strong>Fecha pedida:</strong> ${e.requested_due_date ? escapeHtml(formatSpanishDate(e.requested_due_date)) : "Por confirmar"}`,
     `<strong>Prioridad sugerida:</strong> ${priorityLabel(e.priority)}`,
