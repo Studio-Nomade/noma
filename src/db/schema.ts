@@ -1400,6 +1400,14 @@ export const emailChannels = pgTable(
     // Nombre de la variable de entorno con el webhook de Slack del canal
     // (nunca la URL). Null → SLACK_OPERATIONS_WEBHOOK_URL.
     slackWebhookEnv: text("slack_webhook_env"),
+    // Pauta del cliente para la IA (campos de su formulario, opciones de
+    // formato…). Vive en noma-ops; aquí solo se copia al sembrar el canal.
+    briefGuide: text("brief_guide"),
+    // Campos de Asana que la IA puede completar según la pauta (allowlist).
+    aiFields: text("ai_fields")
+      .array()
+      .default(sql`'{}'::text[]`)
+      .notNull(),
     status: text("status").default("active").notNull(),
     ...timestamps,
   },

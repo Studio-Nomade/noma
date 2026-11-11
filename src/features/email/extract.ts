@@ -173,6 +173,35 @@ export const emailExtractionSchema = z.object({
     .describe(
       "Datos que faltan para producir la pieza y que conviene pedir al cliente (máx. 3; p. ej. 'Fecha ideal de entrega'). Vacío si está todo.",
     ),
+  // ── Pauta del cliente (v3): solo si el canal entrega una ──
+  brief: z
+    .array(
+      z.object({
+        label: z
+          .string()
+          .describe("Punto de la pauta del cliente (p. ej. 'Objetivo')."),
+        value: z
+          .string()
+          .describe("Lo que dice el correo para ese punto, breve."),
+      }),
+    )
+    .describe(
+      "Un elemento por cada punto de la pauta del cliente que el correo responde. Vacío si no hay pauta o el correo no lo dice.",
+    ),
+  field_choices: z
+    .array(
+      z.object({
+        field: z
+          .string()
+          .describe("Nombre exacto del campo de Asana indicado en la pauta."),
+        options: z
+          .array(z.string())
+          .describe("Opciones exactas de ese campo que corresponden."),
+      }),
+    )
+    .describe(
+      "Opciones de los campos de Asana que la pauta permite completar, con sus nombres exactos. Vacío si no hay pauta o no se puede saber.",
+    ),
 });
 
 export type EmailExtraction = z.infer<typeof emailExtractionSchema>;
@@ -204,6 +233,8 @@ export function completeExtraction(
     considerations: raw.considerations ?? [],
     materials: raw.materials ?? [],
     missing_info: raw.missing_info ?? [],
+    brief: raw.brief ?? [],
+    field_choices: raw.field_choices ?? [],
   };
 }
 
@@ -215,6 +246,8 @@ export type EmailExtractionInput = {
   body: string;
   attachmentNames: string[];
   clientName: string;
+  /** Pauta del cliente (campos de su formulario, opciones de formato…). */
+  briefGuide?: string | null;
 };
 
 export type StructuredGenerator = <T>(
@@ -238,6 +271,7 @@ const INSTRUCTIONS = [
   "Ignora firmas, avisos legales y texto citado de correos anteriores.",
   "El resumen se le muestra al cliente como 'Qué entendimos': escríbelo en primera persona plural del estudio, claro y sin repetir la lista de structure.",
   "Si el correo trae links sin nombre visible, ponles un nombre corto según el contexto; nunca uses la URL como nombre.",
+  "Si se entrega una 'Pauta del cliente', úsala para leer el correo: completa brief con sus puntos, field_choices solo con los campos y opciones exactas que la pauta indica, y en missing_info pide primero lo que la pauta marca como necesario y el correo no trae. Sin pauta, deja brief y field_choices vacíos.",
   "Primero decide is_request: no todo correo al alias es una solicitud. Agradecimientos, felicitaciones, comentarios sobre un comunicado, confirmaciones de recepción o saludos NO son solicitudes (is_request=false), aunque vengan del cliente. En ese caso completa igual los demás campos con lo mínimo (título y resumen breves).",
 ].join("\n");
 
@@ -299,6 +333,8 @@ export function fallbackExtraction(
     considerations: [],
     materials: [],
     missing_info: [],
+    brief: [],
+    field_choices: [],
   };
 }
 
@@ -346,6 +382,21 @@ export function normalizeExtraction(
       )
       .slice(0, 12),
     missing_info: cleanList(raw.missing_info, 3),
+    brief: (raw.brief ?? [])
+      .map((item) => ({ label: clean(item.label), value: clean(item.value) }))
+      .filter((item): item is { label: string; value: string } =>
+        Boolean(item.label && item.value),
+      )
+      .slice(0, 12),
+    field_choices: (raw.field_choices ?? [])
+      .map((choice) => ({
+        field: clean(choice.field),
+        options: cleanList(choice.options, 10),
+      }))
+      .filter((choice): choice is { field: string; options: string[] } =>
+        Boolean(choice.field && choice.options.length),
+      )
+      .slice(0, 10),
   };
 }
 
@@ -401,6 +452,9 @@ export function buildExtractionPrompt(input: EmailExtractionInput): string {
     input.attachmentNames.length
       ? `Adjuntos: ${input.attachmentNames.join(", ")}`
       : "Adjuntos: ninguno",
+    ...(input.briefGuide?.trim()
+      ? ["", "Pauta del cliente:", input.briefGuide.trim()]
+      : []),
     "",
     "Cuerpo:",
     input.body.slice(0, BODY_LIMIT),

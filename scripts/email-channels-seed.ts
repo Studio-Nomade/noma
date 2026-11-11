@@ -122,6 +122,8 @@ async function main() {
       alwaysCc: channel.always_cc,
       ignoredSenders: channel.ignored_senders,
       slackWebhookEnv: channel.slack_webhook_env ?? null,
+      briefGuide: channel.brief_guide ?? null,
+      aiFields: channel.ai_fields,
       status: channel.status,
       updatedAt: new Date(),
     };

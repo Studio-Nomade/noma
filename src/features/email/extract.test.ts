@@ -107,7 +107,49 @@ test("usa la salida del modelo y la normaliza", async () => {
     considerations: [],
     materials: [],
     missing_info: ["a", "b", "c"],
+    brief: [],
+    field_choices: [],
   });
+});
+
+test("con pauta del cliente, la entrega a la IA y normaliza brief y campos", async () => {
+  const guide = "Puntos: Objetivo, Formatos.\nCampo «Formato»: PNG, Video.";
+  const generate: StructuredGenerator = async <T>(input: { input: string }) => {
+    assert.match(
+      input.input,
+      /Pauta del cliente:\nPuntos: Objetivo, Formatos\./,
+    );
+    return completeExtraction({
+      title: "Video evento",
+      summary: "Video para el evento.",
+      brief: [
+        { label: " Objetivo ", value: " Evento " },
+        { label: "Formatos", value: " " },
+      ],
+      field_choices: [
+        { field: " Formato ", options: [" Video ", ""] },
+        { field: "Área", options: [] },
+      ],
+    }) as T;
+  };
+  const result = await extractEmailRequest(
+    { ...INPUT, briefGuide: guide },
+    generate,
+  );
+  assert.deepEqual(result.extraction.brief, [
+    { label: "Objetivo", value: "Evento" },
+  ]);
+  assert.deepEqual(result.extraction.field_choices, [
+    { field: "Formato", options: ["Video"] },
+  ]);
+});
+
+test("sin pauta, el prompt no la menciona", async () => {
+  const generate: StructuredGenerator = async <T>(input: { input: string }) => {
+    assert.doesNotMatch(input.input, /Pauta del cliente/);
+    return completeExtraction({ title: "x", summary: "y" }) as T;
+  };
+  await extractEmailRequest(INPUT, generate);
 });
 
 test("descarta fechas del modelo en el pasado", async () => {
