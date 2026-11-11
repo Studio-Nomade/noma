@@ -443,7 +443,9 @@ export function renderCommentAckEmail(input: CommentAckInput): RenderedEmail {
     ...(files.length
       ? ["", "Archivos recibidos:", ...files.map((file) => `- ${file.name}`)]
       : []),
-    ...(pending.length ? ["", "Si lo tienen, nos ayudaría:", ...bullets(pending)] : []),
+    ...(pending.length
+      ? ["", "Si lo tienen, nos ayudaría:", ...bullets(pending)]
+      : []),
     ...textFooter(input),
   ].join("\n");
   return { html: render("02_comentario_recibido", view), text };
@@ -716,4 +718,126 @@ export function renderEvaluationEmail(input: EvaluationInput): RenderedEmail {
     ...textFooter(input),
   ].join("\n");
   return { html: render("07_solicitud_en_evaluacion", view), text };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 08 · Informe mensual de solicitudes
+// ─────────────────────────────────────────────────────────────
+export type MonthlyReportIndicator = {
+  label: string;
+  value: string;
+  detail?: string | null;
+  highlight?: boolean;
+};
+
+export type MonthlyReportInput = {
+  clientName: string;
+  alias: string;
+  /** Nombre del servicio o plan contratado. */
+  service: string;
+  /** Mes informado (cualquier día del mes). */
+  month: Date;
+  indicators: MonthlyReportIndicator[];
+  highlights: string[];
+  /** Propuesta para el mes siguiente (opcional). */
+  proposal?: string | null;
+  attachmentName: string;
+  attachmentSize?: string | null;
+  now?: Date;
+  assetsBase?: string;
+};
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Saludo al equipo del cliente: «Equipo Cliente A». */
+export function teamName(clientName: string) {
+  return `Equipo ${clientName.trim()}`;
+}
+
+/** Identificador del informe para el asunto y la píldora: «Octubre 2026». */
+export function monthlyReportLabel(month: Date) {
+  const { year } = localDateParts(month);
+  return `${capitalize(monthName(month))} ${year}`;
+}
+
+/**
+ * Asunto del envío mensual (convención B&D para ordenar los envíos):
+ * «B&D – Cliente A | Informe Mensual de Solicitudes - Octubre 2026».
+ */
+export function monthlyReportSubject(clientName: string, month: Date) {
+  return `B&D – ${clientName} | Informe Mensual de Solicitudes - ${monthlyReportLabel(month)}`;
+}
+
+export function renderMonthlyReportEmail(
+  input: MonthlyReportInput,
+): RenderedEmail {
+  const label = monthlyReportLabel(input.month);
+  const mes = monthName(input.month);
+  const parts = localDateParts(input.month);
+  const next = new Date(Date.UTC(parts.year, parts.month, 15, 12));
+  const mesSiguiente = `Para ${monthName(next)}`;
+  const view = {
+    ...baseView(
+      {
+        folio: label,
+        clientName: input.clientName,
+        alias: input.alias,
+        title: input.service,
+        now: input.now,
+        assetsBase: input.assetsBase,
+      },
+      {
+        titulo: "Informe mensual",
+        preheader: `Informe de solicitudes de ${mes} · ${input.clientName}. Va adjunto en PDF.`,
+        stage: null,
+        cierre: "Quedamos atentos a sus comentarios.",
+      },
+    ),
+    // Va al equipo del cliente, nunca a una persona: «Hola Equipo Equifax,».
+    nombre_solicitante: teamName(input.clientName),
+    mes,
+    mes_siguiente: mesSiguiente,
+    servicio: input.service,
+    indicadores: input.indicators.map((item) => ({
+      etiqueta: item.label,
+      valor: item.value,
+      detalle: item.detail ?? "",
+      destacado: Boolean(item.highlight),
+    })),
+    tiene_hallazgos: input.highlights.length > 0,
+    hallazgos: input.highlights,
+    propuesta: input.proposal?.trim() || "",
+    adjuntos: [
+      { nombre: input.attachmentName, peso: input.attachmentSize ?? "" },
+    ],
+    nota_hilo: `Responde este correo con tus comentarios o dudas sobre el informe. Las solicitudes nuevas van en un correo aparte a ${input.alias}.`,
+    pie: `Informe mensual de solicitudes · ${input.clientName}. Lo prepara Noma con los registros del tablero de solicitudes.`,
+  };
+
+  const text = [
+    `Hola ${teamName(input.clientName)},`,
+    "",
+    `Te compartimos el informe de solicitudes de ${mes} del servicio ${input.service}. Va adjunto en PDF; abajo está el resumen del mes.`,
+    "",
+    "Resumen:",
+    ...input.indicators.map(
+      (item) =>
+        `- ${item.label}: ${item.value}${item.detail ? ` (${item.detail})` : ""}`,
+    ),
+    ...(input.highlights.length
+      ? ["", "Lo más relevante:", ...bullets(input.highlights)]
+      : []),
+    ...(view.propuesta ? ["", `${mesSiguiente}:`, view.propuesta] : []),
+    "",
+    `Adjunto: ${input.attachmentName}`,
+    "",
+    "Quedamos atentos a sus comentarios.",
+    "Design Team · Studio Nomade",
+    "",
+    view.nota_hilo,
+  ].join("\n");
+
+  return { html: render("08_informe_mensual", view), text };
 }
