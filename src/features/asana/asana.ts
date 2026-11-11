@@ -3,6 +3,7 @@ import "server-only";
 import { monthSectionName, normalizeSectionName } from "@/features/email/dates";
 import {
   buildCustomFieldValues,
+  findCustomField,
   findEnumOption,
   foldName,
   type AsanaCustomFieldSetting,
@@ -532,6 +533,129 @@ export async function listRecentTasksWithNotes(
     if (!offset) break;
   }
   return out;
+}
+
+/** Tarea con los campos que usa el informe mensual. */
+export type AsanaReportTask = {
+  gid: string;
+  name?: string;
+  created_at?: string;
+  completed?: boolean;
+  due_on?: string | null;
+  parent?: { gid: string } | null;
+  memberships?: { section?: { name?: string } | null }[];
+  custom_fields?: {
+    gid: string;
+    name?: string;
+    resource_subtype?: string;
+    display_value?: string | null;
+    number_value?: number | null;
+    enum_value?: { name?: string } | null;
+    multi_enum_values?: { name?: string }[] | null;
+  }[];
+};
+
+/**
+ * Tareas del proyecto modificadas desde `since` (paginado), con sección,
+ * campos y padre, para calcular métricas como el panel de Asana.
+ */
+export async function listProjectTasksForReport(
+  projectGid: string,
+  since: Date,
+  maxPages = 20,
+): Promise<AsanaReportTask[]> {
+  const out: AsanaReportTask[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      project: projectGid,
+      modified_since: since.toISOString(),
+      limit: "100",
+      opt_fields:
+        "gid,name,created_at,completed,due_on,parent.gid,memberships.section.name,custom_fields.gid,custom_fields.name,custom_fields.resource_subtype,custom_fields.display_value,custom_fields.number_value,custom_fields.enum_value.name,custom_fields.multi_enum_values.name",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<AsanaReportTask[]>(
+      "GET",
+      `/tasks?${params.toString()}`,
+    );
+    out.push(...(envelope?.data ?? []));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
+
+/**
+ * Fija un campo numérico por nombre si existe en el proyecto. Devuelve
+ * false si el campo no existe o no es numérico.
+ */
+export async function setNumberFieldByName(
+  taskGid: string,
+  projectGid: string,
+  fieldName: string,
+  value: number,
+): Promise<boolean> {
+  const settings = await getProjectCustomFields(projectGid);
+  const field = findCustomField(settings, fieldName);
+  if (!field || field.resource_subtype !== "number") return false;
+  await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
+    body: { custom_fields: { [field.gid]: value } },
+  });
+  return true;
+}
+
+/**
+ * Tarea en «Mis tareas» de un usuario (sin proyecto) con subtareas en orden.
+ * Para pendientes internos como revisar y enviar el informe mensual.
+ */
+export async function createMyTask(input: {
+  assigneeGid: string;
+  name: string;
+  htmlNotes: string;
+  dueOn: string | null;
+  subtasks: { name: string; dueOn?: string | null }[];
+}): Promise<{ gid: string; permalinkUrl: string | null }> {
+  const workspace = process.env.ASANA_WORKSPACE_GID?.trim();
+  if (!workspace) throw new Error("Falta configurar ASANA_WORKSPACE_GID.");
+  const task = await asanaRequest<{ gid: string; permalink_url?: string }>(
+    "POST",
+    "/tasks?opt_fields=gid,permalink_url",
+    {
+      body: {
+        workspace,
+        assignee: input.assigneeGid,
+        name: input.name,
+        html_notes: input.htmlNotes,
+        ...(input.dueOn ? { due_on: input.dueOn } : {}),
+      },
+    },
+  );
+  // Se crean en orden y se fija la posición explícita (insert_after) para
+  // que el checklist quede en el orden de trabajo.
+  let previous: string | null = null;
+  for (const subtask of input.subtasks) {
+    const created: { gid: string } = await asanaRequest<{ gid: string }>(
+      "POST",
+      `/tasks/${encodeURIComponent(task.gid)}/subtasks`,
+      {
+        body: {
+          name: subtask.name,
+          assignee: input.assigneeGid,
+          ...(subtask.dueOn ? { due_on: subtask.dueOn } : {}),
+        },
+      },
+    );
+    if (previous) {
+      await asanaRequest(
+        "POST",
+        `/tasks/${encodeURIComponent(created.gid)}/setParent`,
+        { body: { parent: task.gid, insert_after: previous } },
+      ).catch(() => undefined);
+    }
+    previous = created.gid;
+  }
+  return { gid: task.gid, permalinkUrl: task.permalink_url ?? null };
 }
 
 export async function addStory(taskGid: string, htmlText: string) {

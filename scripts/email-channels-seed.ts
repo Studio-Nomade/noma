@@ -124,6 +124,17 @@ async function main() {
       slackWebhookEnv: channel.slack_webhook_env ?? null,
       briefGuide: channel.brief_guide ?? null,
       aiFields: channel.ai_fields,
+      monthlyReport: channel.monthly_report
+        ? {
+            enabled: channel.monthly_report.enabled,
+            clientLabel: channel.monthly_report.client_label ?? null,
+            service: channel.monthly_report.service,
+            to: channel.monthly_report.to,
+            cc: channel.monthly_report.cc,
+            assigneeGid: channel.monthly_report.assignee_gid ?? null,
+            breakdownField: channel.monthly_report.breakdown_field ?? null,
+          }
+        : null,
       status: channel.status,
       updatedAt: new Date(),
     };

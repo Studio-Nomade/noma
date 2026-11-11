@@ -1400,6 +1400,9 @@ export const emailChannels = pgTable(
     // Nombre de la variable de entorno con el webhook de Slack del canal
     // (nunca la URL). Null → SLACK_OPERATIONS_WEBHOOK_URL.
     slackWebhookEnv: text("slack_webhook_env"),
+    // Envío mensual del informe de solicitudes (destinatarios, servicio,
+    // responsable). Null → el canal no tiene informe mensual. Vive en noma-ops.
+    monthlyReport: jsonb("monthly_report").$type<MonthlyReportConfig>(),
     // Pauta del cliente para la IA (campos de su formulario, opciones de
     // formato…). Vive en noma-ops; aquí solo se copia al sembrar el canal.
     briefGuide: text("brief_guide"),
@@ -2654,3 +2657,52 @@ export type CobranzaTemplate = typeof cobranzaTemplates.$inferSelect;
 export type NewCobranzaTemplate = typeof cobranzaTemplates.$inferInsert;
 export type CobranzaMessage = typeof cobranzaMessages.$inferSelect;
 export type NewCobranzaMessage = typeof cobranzaMessages.$inferInsert;
+
+/** Configuración del informe mensual de un canal (`email_channels.monthly_report`). */
+export type MonthlyReportConfig = {
+  enabled: boolean;
+  /** Nombre del cliente en el informe (si difiere de la razón social). */
+  clientLabel?: string | null;
+  /** Servicio o plan contratado, como aparece en el informe. */
+  service: string;
+  to: string[];
+  cc?: string[];
+  /** Usuario de Asana que revisa y envía (tarea en «Mis tareas»). */
+  assigneeGid?: string | null;
+  /** Campo de Asana para la distribución (p. ej. «Área …» o «Cliente»). */
+  breakdownField?: string | null;
+};
+
+/**
+ * Informe mensual de solicitudes por canal y mes: idempotencia del job del
+ * día 1 (un borrador y una tarea por canal y mes) y registro de las cifras.
+ */
+export const monthlyReports = pgTable(
+  "monthly_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    emailChannelId: uuid("email_channel_id")
+      .notNull()
+      .references(() => emailChannels.id, { onDelete: "cascade" }),
+    // «2026-11»
+    month: text("month").notNull(),
+    // running · drafted · failed
+    status: text("status").default("running").notNull(),
+    metrics: jsonb("metrics"),
+    gmailDraftId: text("gmail_draft_id"),
+    asanaTaskGid: text("asana_task_gid"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("monthly_reports_channel_month_uq").on(
+      table.emailChannelId,
+      table.month,
+    ),
+  ],
+);

@@ -12,6 +12,7 @@ import {
   listTaskStories,
   resolveBotUserGid,
   setEnumFieldByName,
+  setNumberFieldByName,
   setTaskAssignee,
   taskFieldValue,
   type AsanaStory,
@@ -24,6 +25,7 @@ import {
   parseConsultaCommand,
   parseDeliveryCommand,
 } from "./delivery-command";
+import { ROUNDS_FIELD } from "@/features/reports/metrics";
 import { deliveryCc } from "./delivery-team";
 import { replySubject } from "./folio";
 import { GmailApiError, createDraftReply, sendReply } from "./inbox";
@@ -374,6 +376,14 @@ export async function processAsanaStory(
     ESTADO_FIELD,
     ESTADO_SENT,
   ).catch((error) => console.error("[email:delivery:estado]", error));
+  // Retrabajo: la ronda enviada queda en el campo numérico del tablero
+  // («Rondas de entrega»), que el panel de Métricas promedia por mes.
+  await setNumberFieldByName(
+    taskGid,
+    channel.asanaProjectGid,
+    ROUNDS_FIELD,
+    round,
+  ).catch((error) => console.error("[email:delivery:rondas]", error));
   await addStory(
     taskGid,
     buildDeliveryAuditStoryHtml({
