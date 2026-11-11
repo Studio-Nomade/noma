@@ -737,7 +737,6 @@ export type MonthlyReportInput = {
   service: string;
   /** Mes informado (cualquier día del mes). */
   month: Date;
-  recipientName?: string | null;
   indicators: MonthlyReportIndicator[];
   highlights: string[];
   /** Propuesta para el mes siguiente (opcional). */
@@ -750,6 +749,11 @@ export type MonthlyReportInput = {
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Saludo al equipo del cliente: «Equipo Cliente A». */
+export function teamName(clientName: string) {
+  return `Equipo ${clientName.trim()}`;
 }
 
 /** Identificador del informe para el asunto y la píldora: «Octubre 2026». */
@@ -781,7 +785,6 @@ export function renderMonthlyReportEmail(
         clientName: input.clientName,
         alias: input.alias,
         title: input.service,
-        requesterName: input.recipientName,
         now: input.now,
         assetsBase: input.assetsBase,
       },
@@ -792,6 +795,8 @@ export function renderMonthlyReportEmail(
         cierre: "Quedamos atentos a sus comentarios.",
       },
     ),
+    // Va al equipo del cliente, nunca a una persona: «Hola Equipo Equifax,».
+    nombre_solicitante: teamName(input.clientName),
     mes,
     mes_siguiente: mesSiguiente,
     servicio: input.service,
@@ -812,7 +817,7 @@ export function renderMonthlyReportEmail(
   };
 
   const text = [
-    hello(input.recipientName),
+    `Hola ${teamName(input.clientName)},`,
     "",
     `Te compartimos el informe de solicitudes de ${mes} del servicio ${input.service}. Va adjunto en PDF; abajo está el resumen del mes.`,
     "",

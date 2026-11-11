@@ -288,7 +288,6 @@ test("informe mensual: asunto B&D, resumen, adjunto y nota propia del hilo", () 
     alias: "cliente-a@studionomade.cl",
     service: "Plan Mensual",
     month,
-    recipientName: "Ana Pérez",
     indicators: [
       { label: "Solicitudes del mes", value: "55", highlight: true },
       { label: "Finalizadas", value: "53", detail: "96%" },
@@ -301,13 +300,14 @@ test("informe mensual: asunto B&D, resumen, adjunto y nota propia del hilo", () 
   });
   assert.match(email.html, /INFORME MENSUAL|Informe mensual/);
   assert.match(email.html, />Octubre 2026</);
-  assert.match(email.html, /Hola Ana,/);
+  assert.match(email.html, /Hola Equipo Cliente A,/);
   assert.match(email.html, /Para noviembre/);
   assert.match(email.html, /PDF adjunto · 8,2 MB/);
   assert.match(email.html, /&lt;alta&gt;/);
   assert.match(email.html, /comentarios o dudas sobre el informe/);
   assert.doesNotMatch(email.html, /así queda en la tarea/);
   assert.doesNotMatch(email.html, /Correo automático de la solicitud/);
+  assert.match(email.text, /^Hola Equipo Cliente A,/);
   assert.match(email.text, /- Finalizadas: 53 \(96%\)/);
 });
 
