@@ -499,6 +499,41 @@ export async function createTask(input: {
   return { gid: task.gid, url: task.permalink_url ?? null };
 }
 
+/**
+ * Tareas del proyecto modificadas desde `since`, con su descripción en texto.
+ * Pagina hasta `maxPages` páginas de 100 (para buscar referencias recientes).
+ */
+export async function listRecentTasksWithNotes(
+  projectGid: string,
+  since: Date,
+  maxPages = 3,
+): Promise<{ gid: string; name: string; notes: string }[]> {
+  const out: { gid: string; name: string; notes: string }[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      project: projectGid,
+      modified_since: since.toISOString(),
+      limit: "100",
+      opt_fields: "gid,name,notes",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<
+      { gid: string; name?: string; notes?: string }[]
+    >("GET", `/tasks?${params.toString()}`);
+    for (const task of envelope?.data ?? []) {
+      out.push({
+        gid: task.gid,
+        name: task.name ?? "",
+        notes: task.notes ?? "",
+      });
+    }
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
+
 export async function addStory(taskGid: string, htmlText: string) {
   return asanaRequest<{ gid: string }>(
     "POST",

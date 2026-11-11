@@ -23,13 +23,19 @@ import { classifyScope } from "@/features/bot/scope";
 import { consumeRequest } from "@/features/retainers/periods";
 import { logActivity } from "@/lib/activity";
 import { requestsStructuredGenerator } from "@/lib/ai/structured";
-import { domainOf, externalRecipients, withAlwaysCc } from "./addresses";
+import {
+  domainOf,
+  externalRecipients,
+  withAlwaysCc,
+  type EmailAddress,
+} from "./addresses";
 import {
   aiFieldWishes,
   buildReplyStoryHtml,
   buildTaskHtmlNotes,
 } from "./asana-content";
 import { formatSpanishDate } from "./dates";
+import { linkDesignTask } from "./design-link";
 import {
   completeExtraction,
   extractEmailRequest,
@@ -38,6 +44,7 @@ import {
   type StructuredGenerator,
 } from "./extract";
 import { replySubject } from "./folio";
+import { forwardedRecipients, type ForwardedRequest } from "./forwarded";
 import { GmailApiError, getAttachment, sendReply } from "./inbox";
 import {
   buildReplyThreadHeaders,
@@ -88,6 +95,8 @@ export type EventProgress = {
   ackSent?: boolean;
   /** Cambios de Asana por la respuesta ya aplicados. */
   replyApplied?: boolean;
+  /** Ya se buscó (y, si existía, se relacionó) la tarea de diseño. */
+  designLinkDone?: boolean;
 };
 
 export const STUDIO_SENDER_NAME = "Studio Nomade";
@@ -356,15 +365,22 @@ async function resolveRecipients(
   return { requester, cc, aliasVisible };
 }
 
+function formatAddress(address: EmailAddress) {
+  return address.name ? `${address.name} <${address.email}>` : address.email;
+}
+
 export async function handleNewEmailRequest(input: {
   eventId: string;
   progress: EventProgress;
   email: ParsedEmail;
   channel: ResolvedEmailChannel;
   ownAddresses: string[];
+  /** Reenvío interno: la solicitud queda a nombre del remitente original. */
+  forwarded?: ForwardedRequest | null;
 }): Promise<NewEmailRequestResult> {
   const { email, channel } = input;
-  const from = email.from!;
+  const forwarded = input.forwarded ?? null;
+  const from = forwarded ? forwarded.original.from : email.from!;
   const sourceKey = emailSourceKey(email);
   const progress: EventProgress = { ...input.progress };
   const warnings: string[] = [];
@@ -427,11 +443,14 @@ export async function handleNewEmailRequest(input: {
       summary: `${extraction.title}. ${extraction.summary}`,
       date: email.date,
     });
-    const recipients = await resolveRecipients(
-      email,
-      channel,
-      input.ownAddresses,
-    );
+    const recipients = forwarded
+      ? forwardedRecipients(
+          forwarded,
+          channel.alwaysCc ?? [],
+          input.ownAddresses,
+          MAX_REPLY_CC,
+        )
+      : await resolveRecipients(email, channel, input.ownAddresses);
     if (!recipients.aliasVisible) {
       warnings.push(
         "Alias no visible (copia oculta o correo redirigido): se responde al remitente y a las copias fijas.",
@@ -530,6 +549,7 @@ export async function handleNewEmailRequest(input: {
         email,
         channel,
         extraction,
+        forwardedBy: forwarded ? formatAddress(forwarded.by) : null,
       });
     } catch (error) {
       asanaError = error;
@@ -544,6 +564,28 @@ export async function handleNewEmailRequest(input: {
     warnings.push(
       "Asana: intento previo sin confirmar; revisar si la tarea existe.",
     );
+  }
+
+  // 3b) Desarrollo de un diseño ya hecho: si el correo comparte un Canva con
+  //     otra tarea del tablero, se relacionan (comentario en cada una).
+  if (request.asanaTaskGid && !progress.designLinkDone) {
+    try {
+      const match = await linkDesignTask({
+        requestId: request.id,
+        projectId: channel.projectId,
+        asanaProjectGid: channel.asanaProjectGid,
+        newTaskGid: request.asanaTaskGid,
+        folio: request.folio,
+        texts: [email.text, email.html],
+      });
+      if (match) warnings.push(`Diseño relacionado: tarea ${match.taskGid}.`);
+    } catch (error) {
+      warnings.push(
+        `Diseño relacionado: ${error instanceof Error ? error.message : "error"}`,
+      );
+    }
+    progress.designLinkDone = true;
+    await patchEventPayload(input.eventId, progress);
   }
 
   // 4) Confirmación en el mismo hilo (aunque Asana haya fallado), ANTES de
@@ -608,9 +650,11 @@ export async function handleNewEmailRequest(input: {
       dueDate: extraction.requested_due_date
         ? formatSpanishDate(extraction.requested_due_date)
         : null,
-      requester: request.requesterName
-        ? `${request.requesterName} (${from.email})`
-        : from.email,
+      requester: `${
+        request.requesterName
+          ? `${request.requesterName} (${from.email})`
+          : from.email
+      }${forwarded ? ` · reenviado por ${forwarded.by.email}` : ""}`,
       assigned: Boolean(channel.defaultAssigneeGid),
     });
   }
@@ -635,6 +679,7 @@ async function createAsanaTaskForRequest(
     email: ParsedEmail;
     channel: ResolvedEmailChannel;
     extraction: EmailExtraction;
+    forwardedBy?: string | null;
   },
 ): Promise<EmailRequestRow> {
   const { channel, extraction, email } = ctx;
@@ -696,6 +741,7 @@ async function createAsanaTaskForRequest(
         attachmentNames: email.attachments.map((item) => item.filename),
         scopeLabel,
         body: email.text,
+        forwardedBy: ctx.forwardedBy ?? null,
       }),
       dueOn: extraction.requested_due_date,
       assigneeGid: channel.defaultAssigneeGid,
