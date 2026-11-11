@@ -107,8 +107,9 @@ acepta al solicitante o CC originales.
   al correo (los campos del formulario de solicitudes del cliente, sus opciones de
   formato…). Con pauta, la extracción llena `brief` (punto de la pauta → lo que dice el
   correo, va a la tarea como «Brief»), `field_choices` (opciones exactas de campos de
-  Asana) y prioriza en `missing_info` lo que la pauta pide y falta (se le consulta al
-  cliente en la confirmación). `ai_fields` es la lista de campos que la IA puede
+  Asana) y sugiere en `missing_info` lo que la pauta considera útil y falta. En la
+  confirmación aparece como «Para agilizar»: es opcional para el cliente y el equipo
+  avanza igual; no se envía ningún correo adicional por esto. `ai_fields` es la lista de campos que la IA puede
   completar; Estado, Prioridad, Ticket, Ingreso, Folio y Correo de contacto quedan
   siempre fuera. Las opciones que no existen en el proyecto se ignoran.
 - **Slack por canal** (`slack_webhook_env`): nombre de una variable

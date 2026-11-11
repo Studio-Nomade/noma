@@ -171,7 +171,7 @@ export const emailExtractionSchema = z.object({
   missing_info: z
     .array(z.string())
     .describe(
-      "Datos que faltan para producir la pieza y que conviene pedir al cliente (máx. 3; p. ej. 'Fecha ideal de entrega'). Vacío si está todo.",
+      "Datos que agilizarían el trabajo si el cliente los tiene (máx. 3; p. ej. 'Fecha ideal de entrega'). No bloquean: el equipo avanza igual. Vacío si no hace falta nada relevante.",
     ),
   // ── Pauta del cliente (v3): solo si el canal entrega una ──
   brief: z
@@ -271,7 +271,7 @@ const INSTRUCTIONS = [
   "Ignora firmas, avisos legales y texto citado de correos anteriores.",
   "El resumen se le muestra al cliente como 'Qué entendimos': escríbelo en primera persona plural del estudio, claro y sin repetir la lista de structure.",
   "Si el correo trae links sin nombre visible, ponles un nombre corto según el contexto; nunca uses la URL como nombre.",
-  "Si se entrega una 'Pauta del cliente', úsala para leer el correo: completa brief con sus puntos, field_choices solo con los campos y opciones exactas que la pauta indica, y en missing_info pide primero lo que la pauta marca como necesario y el correo no trae. Sin pauta, deja brief y field_choices vacíos.",
+  "Si se entrega una 'Pauta del cliente', úsala para leer el correo: completa brief con sus puntos, field_choices solo con los campos y opciones exactas que la pauta indica, en missing_info sugiere primero lo que la pauta marca como útil y el correo no trae (es opcional para el cliente; muchos correos son breves y está bien), y usa los criterios de prioridad de la pauta para priority. Sin pauta, deja brief y field_choices vacíos.",
   "Primero decide is_request: no todo correo al alias es una solicitud. Agradecimientos, felicitaciones, comentarios sobre un comunicado, confirmaciones de recepción o saludos NO son solicitudes (is_request=false), aunque vengan del cliente. En ese caso completa igual los demás campos con lo mínimo (título y resumen breves).",
 ].join("\n");
 
