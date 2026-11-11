@@ -10,6 +10,8 @@ import {
   renderConsultaEmail,
   renderDeliveryEmail,
   renderEvaluationEmail,
+  renderMonthlyReportEmail,
+  monthlyReportSubject,
   stageFromEstado,
   type RenderedEmail,
 } from "./templates";
@@ -110,10 +112,7 @@ test("01 · sin estructura ni pendientes omite esos bloques y escapa HTML", () =
     receivedAt: new Date("2026-11-09T15:06:00Z"),
   });
   assertWellFormed(email);
-  assert.doesNotMatch(
-    email.html,
-    /Para agilizar|Orden de las cuñas|Material/,
-  );
+  assert.doesNotMatch(email.html, /Para agilizar|Orden de las cuñas|Material/);
   assert.match(email.html, /&lt;script&gt;/);
   assert.match(email.html, /Normal/);
   assert.match(email.text, /^Hola,/);
@@ -276,4 +275,49 @@ test("notas de tarea y comentario de respuesta escapan HTML", () => {
   assert.match(story, /Respuesta del cliente por correo/);
   assert.match(story, /sin texto nuevo/);
   assert.doesNotMatch(story, /^\s*<body>\s*ENTREGA/i);
+});
+
+test("informe mensual: asunto B&D, resumen, adjunto y nota propia del hilo", () => {
+  const month = new Date("2026-10-15T12:00:00Z");
+  assert.equal(
+    monthlyReportSubject("Cliente A", month),
+    "B&D – Cliente A | Informe Mensual de Solicitudes - Octubre 2026",
+  );
+  const email = renderMonthlyReportEmail({
+    clientName: "Cliente A",
+    alias: "cliente-a@studionomade.cl",
+    service: "Plan Mensual",
+    month,
+    recipientName: "Ana Pérez",
+    indicators: [
+      { label: "Solicitudes del mes", value: "55", highlight: true },
+      { label: "Finalizadas", value: "53", detail: "96%" },
+    ],
+    highlights: ["Mes exigente en criticidad <alta>"],
+    proposal: "Planificar las piezas recurrentes.",
+    attachmentName: "Cliente A | Informe de Solicitudes - Octubre.pdf",
+    attachmentSize: "8,2 MB",
+    assetsBase: "https://assets.example.cl",
+  });
+  assert.match(email.html, /INFORME MENSUAL|Informe mensual/);
+  assert.match(email.html, />Octubre 2026</);
+  assert.match(email.html, /Hola Ana,/);
+  assert.match(email.html, /Para noviembre/);
+  assert.match(email.html, /PDF adjunto · 8,2 MB/);
+  assert.match(email.html, /&lt;alta&gt;/);
+  assert.match(email.html, /comentarios o dudas sobre el informe/);
+  assert.doesNotMatch(email.html, /así queda en la tarea/);
+  assert.doesNotMatch(email.html, /Correo automático de la solicitud/);
+  assert.match(email.text, /- Finalizadas: 53 \(96%\)/);
+});
+
+test("las plantillas de solicitudes mantienen la nota del hilo por folio", () => {
+  const email = renderEvaluationEmail({
+    folio: "CA-NOV-0581",
+    clientName: "Cliente A",
+    alias: "cliente-a@studionomade.cl",
+    summary: "Piezas nuevas",
+  });
+  assert.match(email.html, /así queda en la tarea/);
+  assert.match(email.html, /Correo automático de la solicitud CA-NOV-0581/);
 });
