@@ -17,6 +17,9 @@ export {
   renderConsultaEmail,
   renderDeliveryEmail,
   renderEvaluationEmail,
+  renderMonthlyReportEmail,
+  monthlyReportLabel,
+  monthlyReportSubject,
   stageFromEstado,
   stageSteps,
   type AdjustmentsAckInput,
@@ -28,6 +31,8 @@ export {
   type DeliveryInput,
   type EvaluationInput,
   type FieldChange,
+  type MonthlyReportIndicator,
+  type MonthlyReportInput,
   type RenderedEmail,
   type Stage,
 } from "./email-templates/render";
