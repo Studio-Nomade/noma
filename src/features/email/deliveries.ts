@@ -17,6 +17,8 @@ import {
   type AsanaStory,
 } from "@/features/asana/asana";
 import { foldName } from "@/features/asana/custom-fields";
+import { notifyTeamEvent } from "@/features/bot/notify";
+import { deliverySentMessage } from "@/features/bot/team-events";
 import { logActivity } from "@/lib/activity";
 import { buildDeliveryAuditStoryHtml } from "./asana-content";
 import {
@@ -38,6 +40,8 @@ import {
   studioDomain,
 } from "./requests";
 import { getChannel } from "./store";
+import { isLifecycleStory } from "./lifecycle-rules";
+import { processLifecycleStory, type LifecycleOutcome } from "./task-lifecycle";
 import {
   escapeHtml,
   renderConsultaEmail,
@@ -62,7 +66,8 @@ export type DeliveryOutcome =
   | "skipped_not_delivery"
   | "skipped_no_request"
   | "skipped_duplicate"
-  | "rejected_no_links";
+  | "rejected_no_links"
+  | LifecycleOutcome;
 
 type Command =
   | {
@@ -103,10 +108,22 @@ function authorLabel(story: AsanaStory) {
 
 export async function processAsanaStory(
   storyGid: string,
-  options: { story?: AsanaStory; botUserGid?: string } = {},
+  options: {
+    story?: AsanaStory;
+    botUserGid?: string;
+    /** Proyecto del webhook que trajo el evento. */
+    projectGid?: string | null;
+  } = {},
 ): Promise<DeliveryOutcome> {
   const botUserGid = options.botUserGid ?? (await resolveBotUserGid());
   const story = options.story ?? (await getStory(storyGid));
+  // Asignaciones y cierres hechos por el equipo (no por el bot).
+  if (isLifecycleStory(story)) {
+    if (!story.created_by || story.created_by.gid === botUserGid) {
+      return "skipped_bot";
+    }
+    return processLifecycleStory(story, { projectGid: options.projectGid });
+  }
   if (
     story.resource_subtype !== "comment_added" &&
     story.resource_subtype !== "enum_custom_field_changed"
@@ -382,6 +399,15 @@ export async function processAsanaStory(
       cc,
     }),
   ).catch((error) => console.error("[email:delivery:story]", error));
+  await notifyTeamEvent(
+    deliverySentMessage({
+      folio: request.folio,
+      clientName: channel.clientName,
+      round,
+      asanaUrl: request.asanaUrl,
+    }),
+    channel.slackWebhookEnv,
+  );
   await logActivity({
     entityType: "client_request",
     entityId: request.id,
