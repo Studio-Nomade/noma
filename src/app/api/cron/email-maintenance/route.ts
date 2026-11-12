@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { syncWebhookFilters } from "@/features/asana/webhook-store";
 import { gateCronRequest } from "@/lib/cron";
 import {
   flagStuckDeliveries,
@@ -57,6 +58,8 @@ export async function GET(request: Request) {
     };
   });
   await step("stuckDeliveries", () => flagStuckDeliveries());
+  // Webhooks antiguos sin los filtros nuevos (asignaciones, cierres).
+  await step("asanaWebhookFilters", () => syncWebhookFilters());
   await step("asanaReconcile", () =>
     reconcileAsanaDeliveries({ deadline: deadline - 5_000 }),
   );

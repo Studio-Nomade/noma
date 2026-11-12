@@ -92,3 +92,29 @@ export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
   }
   return out;
 }
+
+type WebhookFilter = {
+  resource_type?: string | null;
+  resource_subtype?: string | null;
+  action?: string | null;
+};
+
+/**
+ * ¿El webhook ya escucha todas las stories que Noma procesa? Si falta alguna
+ * (p. ej. webhooks registrados antes de sumar asignaciones y cierres), hay que
+ * actualizar sus filtros.
+ */
+export function webhookFiltersCurrent(
+  filters: readonly WebhookFilter[] | null | undefined,
+): boolean {
+  const have = new Set(
+    (filters ?? [])
+      .filter(
+        (filter) =>
+          filter.resource_type === "story" &&
+          (!filter.action || filter.action === "added"),
+      )
+      .map((filter) => filter.resource_subtype ?? ""),
+  );
+  return HANDLED_STORY_SUBTYPES.every((subtype) => have.has(subtype));
+}

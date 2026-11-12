@@ -4,6 +4,8 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { asanaWebhooks } from "@/db/schema";
 import { decryptToken, encryptToken } from "@/lib/crypto/tokens";
+import { getWebhookFilters, updateWebhookFilters } from "./asana";
+import { webhookFiltersCurrent } from "./webhook-events";
 
 /**
  * Secretos de webhooks de Asana por proyecto (cifrados con
@@ -107,4 +109,28 @@ export async function touchWebhook(projectGid: string) {
 
 export async function listRegisteredWebhooks() {
   return db.select().from(asanaWebhooks);
+}
+
+/**
+ * Autoreparación: los webhooks activos que no escuchan todas las stories que
+ * Noma procesa reciben los filtros actuales (PUT, sin nuevo handshake). Corre
+ * en el cron de mantención con el token de producción.
+ */
+export async function syncWebhookFilters() {
+  const rows = await db
+    .select({
+      projectGid: asanaWebhooks.asanaProjectGid,
+      webhookGid: asanaWebhooks.webhookGid,
+    })
+    .from(asanaWebhooks)
+    .where(eq(asanaWebhooks.status, "active"));
+  let updated = 0;
+  for (const row of rows) {
+    if (!row.webhookGid) continue;
+    const hook = await getWebhookFilters(row.webhookGid);
+    if (!hook.active || webhookFiltersCurrent(hook.filters)) continue;
+    await updateWebhookFilters(row.webhookGid);
+    updated += 1;
+  }
+  return { checked: rows.length, updated };
 }
