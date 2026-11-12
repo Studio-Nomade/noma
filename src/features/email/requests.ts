@@ -8,6 +8,7 @@ import {
   addStory,
   createTask,
   ensureMonthSection,
+  getTaskAssignee,
   getTaskState,
   resolveCustomFieldValues,
   setEnumFieldByName,
@@ -18,7 +19,16 @@ import {
   uploadAttachment,
 } from "@/features/asana/asana";
 import type { CustomFieldWish } from "@/features/asana/custom-fields";
-import { notifyNewClientRequest } from "@/features/bot/notify";
+import {
+  notifyNewClientRequest,
+  notifyTeamEvent,
+  teamSlackUserIds,
+} from "@/features/bot/notify";
+import {
+  adjustmentsMessage,
+  requestClosedMessage,
+  slackMention,
+} from "@/features/bot/team-events";
 import { classifyScope } from "@/features/bot/scope";
 import { consumeRequest } from "@/features/retainers/periods";
 import { logActivity } from "@/lib/activity";
@@ -31,11 +41,13 @@ import {
 } from "./addresses";
 import {
   aiFieldWishes,
+  buildAdjustmentsStoryHtml,
   buildReplyStoryHtml,
   buildTaskHtmlNotes,
 } from "./asana-content";
 import { formatSpanishDate } from "./dates";
 import { linkDesignTask } from "./design-link";
+import { deliveryCc } from "./delivery-team";
 import {
   completeExtraction,
   extractEmailRequest,
@@ -97,6 +109,8 @@ export type EventProgress = {
   replyApplied?: boolean;
   /** Ya se buscó (y, si existía, se relacionó) la tarea de diseño. */
   designLinkDone?: boolean;
+  /** Ajustes/aprobación ya comentados en la tarea y avisados en Slack. */
+  teamNotified?: boolean;
 };
 
 export const STUDIO_SENDER_NAME = "Studio Nomade";
@@ -107,6 +121,7 @@ export const ESTADO_SENT = ["Enviado a cliente"];
 export const ESTADO_ADJUSTMENTS = ["Con ajustes"];
 export const ESTADO_APPROVED = ["Aprobado"];
 export const ESTADO_REVIEW = ["Por revisar"];
+export const ESTADO_PLANNED = ["Planificada"];
 export const ESTADO_OUT_OF_SCOPE = "Fuera de alcance";
 const PRIORITY_FIELD = "Prioridad";
 const TICKET_FIELD = "¿Ticket Activo?";
@@ -999,7 +1014,17 @@ export async function sendThreadEmail(
   request: EmailRequestRow,
   channel: ResolvedEmailChannel,
   rendered: RenderedEmail,
+  options: { extraCc?: string[] } = {},
 ) {
+  const cc = deliveryCc({
+    requestCc: request.ccEmails ?? [],
+    commenterEmail: null,
+    assigneeEmail: options.extraCc?.[0] ?? null,
+    studioDomain: studioDomain(),
+    exclude: request.requesterEmail
+      ? [request.requesterEmail, channel.alias]
+      : [channel.alias],
+  });
   const thread = buildReplyThreadHeaders({
     parentMessageId: request.emailLastMessageId ?? request.emailMessageId,
     references: [request.emailMessageId],
@@ -1008,7 +1033,7 @@ export async function sendThreadEmail(
     threadId: request.emailThreadId!,
     from: { name: STUDIO_SENDER_NAME, email: channel.alias },
     to: [request.requesterEmail!],
-    cc: request.ccEmails ?? [],
+    cc,
     subject: replySubject(request.emailSubject),
     html: rendered.html,
     text: rendered.text,
@@ -1167,6 +1192,59 @@ async function actOnClientReply(input: {
     await patchEventPayload(input.eventId, progress);
   }
 
+  // 2b) Equipo: ajustes en un comentario de la tarea + aviso corto en Slack
+  // (etiqueta al responsable); aprobación → aviso de cierre. Una vez por
+  // evento; degradable.
+  const assignee =
+    reply.kind === "adjustments"
+      ? await getTaskAssignee(taskGid).catch(() => null)
+      : null;
+  if (
+    !progress.teamNotified &&
+    channel &&
+    ((reply.kind === "adjustments" && delivery) ||
+      (reply.kind === "approval" && delivery))
+  ) {
+    try {
+      if (reply.kind === "adjustments") {
+        await addStory(
+          taskGid,
+          buildAdjustmentsStoryHtml({
+            round: delivery?.round ?? null,
+            adjustments: reply.adjustments,
+            doubts: reply.doubts,
+          }),
+        );
+        await notifyTeamEvent(
+          adjustmentsMessage({
+            folio: request.folio,
+            clientName: channel.clientName,
+            round: delivery?.round ?? null,
+            asanaUrl: request.asanaUrl,
+            assignee: slackMention(assignee, teamSlackUserIds()),
+          }),
+          channel.slackWebhookEnv,
+        );
+      } else {
+        await notifyTeamEvent(
+          requestClosedMessage({
+            folio: request.folio,
+            clientName: channel.clientName,
+            by: "client",
+            asanaUrl: request.asanaUrl,
+          }),
+          channel.slackWebhookEnv,
+        );
+      }
+    } catch (error) {
+      notes.push(
+        `Aviso al equipo: ${error instanceof Error ? error.message : "error"}`,
+      );
+    }
+    progress.teamNotified = true;
+    await patchEventPayload(input.eventId, progress);
+  }
+
   // 3) Acuse en el hilo (reclamado antes de enviar para no duplicar).
   if (!channel || !request.emailThreadId || !request.requesterEmail) {
     notes.push("Sin canal o hilo: no se envió acuse.");
@@ -1224,7 +1302,10 @@ async function actOnClientReply(input: {
   progress.ackClaimed = true;
   await patchEventPayload(input.eventId, progress);
   try {
-    await sendThreadEmail(request, channel, rendered);
+    // Con ajustes, el responsable queda en copia del seguimiento.
+    await sendThreadEmail(request, channel, rendered, {
+      extraCc: assignee?.email ? [assignee.email] : [],
+    });
     progress.ackSent = true;
     await patchEventPayload(input.eventId, progress);
   } catch (error) {

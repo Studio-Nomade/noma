@@ -74,13 +74,107 @@ export function encodeBase64Url(value: string | Buffer): string {
     .replace(/=+$/, "");
 }
 
+// Windows-1252: caracteres de los bytes 0x80–0x9F (el resto coincide con
+// Latin-1). Sirve para volver a los bytes originales de un texto mal leído.
+const CP1252_HIGH: Record<string, number> = {
+  "\u20ac": 0x80,
+  "\u201a": 0x82,
+  "\u0192": 0x83,
+  "\u201e": 0x84,
+  "\u2026": 0x85,
+  "\u2020": 0x86,
+  "\u2021": 0x87,
+  "\u02c6": 0x88,
+  "\u2030": 0x89,
+  "\u0160": 0x8a,
+  "\u2039": 0x8b,
+  "\u0152": 0x8c,
+  "\u017d": 0x8e,
+  "\u2018": 0x91,
+  "\u2019": 0x92,
+  "\u201c": 0x93,
+  "\u201d": 0x94,
+  "\u2022": 0x95,
+  "\u2013": 0x96,
+  "\u2014": 0x97,
+  "\u02dc": 0x98,
+  "\u2122": 0x99,
+  "\u0161": 0x9a,
+  "\u203a": 0x9b,
+  "\u0153": 0x9c,
+  "\u017e": 0x9e,
+  "\u0178": 0x9f,
+};
+
+function cp1252Byte(char: string): number | null {
+  const code = char.charCodeAt(0);
+  if (code <= 0xff && !(code >= 0x80 && code <= 0x9f)) return code;
+  // Bytes sin carácter en Windows-1252: los decodificadores los dejan como C1.
+  if ([0x81, 0x8d, 0x8f, 0x90, 0x9d].includes(code)) return code;
+  return CP1252_HIGH[char] ?? null;
+}
+
+/**
+ * Repara texto UTF-8 que alguien leyó como Latin-1/Windows-1252
+ * («informaciÃ³n» → «información», «Â¿cÃ³mo estÃ¡n?» → «¿cómo están?»).
+ * Solo reemplaza tramos que vuelven a ser UTF-8 válido, así que el texto bien
+ * escrito (también mezclado con tramos rotos) queda igual.
+ */
+export function repairMojibake(value: string): string {
+  if (!/[\u00c2-\u00f4]/.test(value)) return value;
+  const chars = [...value];
+  const strict = new TextDecoder("utf-8", { fatal: true });
+  let out = "";
+  for (let i = 0; i < chars.length; i += 1) {
+    const char = chars[i]!;
+    const lead = char.charCodeAt(0);
+    // Inicial UTF-8 de 2, 3 o 4 bytes leída como un carácter Latin-1.
+    if (lead >= 0xc2 && lead <= 0xf4) {
+      const size = lead <= 0xdf ? 1 : lead <= 0xef ? 2 : 3;
+      const bytes = [lead];
+      for (const next of chars.slice(i + 1, i + 1 + size)) {
+        const byte = cp1252Byte(next);
+        if (byte === null || byte < 0x80 || byte > 0xbf) break;
+        bytes.push(byte);
+      }
+      if (bytes.length === size + 1) {
+        try {
+          out += strict.decode(Uint8Array.from(bytes));
+          i += size;
+          continue;
+        } catch {
+          // Secuencia inválida: se deja tal cual.
+        }
+      }
+    }
+    out += char;
+  }
+  return out;
+}
+
+const SINGLE_BYTE_CHARSET =
+  /^(?:us-ascii|ascii|iso-?8859-\d+|latin-?1|l1|windows-125\d|cp125\d)$/;
+
 function decodeCharset(buffer: Buffer, charset: string | null): string {
   const label = (charset ?? "utf-8").trim().toLowerCase();
-  try {
-    return new TextDecoder(label).decode(buffer);
-  } catch {
-    return buffer.toString("utf8");
+  // Outlook/Exchange a veces declara Latin-1 o Windows-1252 pero envía UTF-8:
+  // si los bytes son UTF-8 válido con caracteres no ASCII, se leen como UTF-8.
+  if (SINGLE_BYTE_CHARSET.test(label)) {
+    try {
+      const utf8 = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+      if (/[^\u0000-\u007f]/.test(utf8)) return repairMojibake(utf8);
+    } catch {
+      // No es UTF-8: se respeta el charset declarado.
+    }
   }
+  let decoded: string;
+  try {
+    decoded = new TextDecoder(label).decode(buffer);
+  } catch {
+    decoded = buffer.toString("utf8");
+  }
+  // Texto que ya venía roto (citas mal decodificadas por otro cliente).
+  return repairMojibake(decoded);
 }
 
 /** Decodifica encoded-words RFC 2047 (`=?UTF-8?B?...?=` / `?Q?`). */

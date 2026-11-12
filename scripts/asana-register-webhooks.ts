@@ -12,6 +12,7 @@
  *   npm run asana:register-webhooks -- --base-url ... --project 1200000000000001
  *   npm run asana:register-webhooks -- --base-url ... --apply
  *   npm run asana:register-webhooks -- --base-url ... --apply --force   # recrea
+ *   npm run asana:register-webhooks -- --base-url ... --apply --filters  # solo filtros
  *
  * Corre con `--conditions=react-server` (ver package.json) porque reutiliza
  * módulos marcados `server-only`.
@@ -26,6 +27,7 @@ import {
   createWebhook,
   deleteWebhook,
   listWebhooks,
+  updateWebhookFilters,
   type AsanaWebhookInfo,
 } from "@/features/asana/asana";
 import {
@@ -38,6 +40,8 @@ import {
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const force = args.includes("--force");
+// Actualiza los filtros de los webhooks sanos sin recrearlos (sin handshake).
+const filtersOnly = args.includes("--filters");
 const argValue = (name: string) =>
   args.includes(name) ? (args[args.indexOf(name) + 1] ?? null) : null;
 
@@ -97,6 +101,17 @@ async function main() {
     console.log(
       `  Asana: ${existing.length} webhook(s), ${sameTarget.length} con este target · Noma: ${local?.status ?? "sin registro"}`,
     );
+    if (healthy && filtersOnly) {
+      if (!apply) {
+        console.log("  → se actualizarían los filtros del webhook");
+        continue;
+      }
+      for (const hook of sameTarget.filter((item) => item.active)) {
+        await updateWebhookFilters(hook.gid);
+        console.log(`  ✓ filtros actualizados en ${hook.gid}`);
+      }
+      continue;
+    }
     if (healthy && !force) {
       console.log("  ✓ ya registrado (sin cambios)");
       continue;

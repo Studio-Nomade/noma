@@ -76,6 +76,10 @@ Ingreso Solicitud = Correo, Formato / Canal o Canal (multi), Cliente final o Cli
    asunto): se publica como **comentario** en la tarea original, sin el texto citado ni la
    firma (el comentario avisa cuando se omitió algo) y con los adjuntos subidos. Si la tarea estaba completada se reabre y `Estado`
    pasa a "Con ajustes" si existe. Nunca crea una tarea nueva.
+   - **Con ajustes** sobre una entrega: además del correo del cliente, Noma deja un
+     comentario con los ajustes extraídos (lista numerada, referencias y dudas por
+     confirmar) y el acuse 05 lleva en copia al responsable de la tarea.
+   - **Aprobación**: la tarea queda Aprobado, completada y con Ticket Finalizado.
 5. **Sin loops**: lo que envía la propia casilla/alias se ignora; las respuestas
    automáticas (fuera de oficina, rebotes) se ignoran; los comentarios del usuario de
    Asana de Noma (dueño de `ASANA_ACCESS_TOKEN` o `NOMA_ASANA_BOT_USER_GID`) nunca
@@ -142,6 +146,20 @@ acepta al solicitante o CC originales.
   avanza igual; no se envía ningún correo adicional por esto. `ai_fields` es la lista de campos que la IA puede
   completar; Estado, Prioridad, Ticket, Ingreso, Folio y Correo de contacto quedan
   siempre fuera. Las opciones que no existen en el proyecto se ignoran.
+- **Avisos al equipo en Slack** (`team-events.ts`, mismo webhook del canal): mensajes de
+  una línea con el folio y el link a la tarea, sin repetir el contenido.
+  - 📦 _Entrega NN enviada_ — al salir el correo de una entrega.
+  - 🔁 _El cliente pidió ajustes a la Entrega NN_ — etiqueta al responsable con su
+    usuario de **Slack** (no el de Asana), resuelto por correo con `NOMA_SLACK_USER_IDS`
+    (`correo=UXXXX,correo=UYYYY`); sin ID usa su nombre y, sin responsable, pide asignar.
+  - ✅ _Aprobada por el cliente y cerrada_ (respuesta de aprobación) o _Cerrada por
+    <nombre>_ (alguien del equipo completa la tarea en Asana).
+- **Asignación → Planificada** (`task-lifecycle.ts`): cuando alguien del equipo asigna
+  una tarea de un tablero con canal de correo que está en «Por revisar» (o sin Estado),
+  `Estado` pasa a «Planificada». Una tarea más avanzada no retrocede, y las
+  asignaciones del bot no cuentan. El webhook escucha `assigned` y `marked_complete`
+  además de comentarios y cambios de campo; para sumar los filtros a webhooks ya
+  registrados: `npm run asana:register-webhooks -- --base-url … --apply --filters`.
 - **Slack por canal** (`slack_webhook_env`): nombre de una variable
   `SLACK_<CANAL>_WEBHOOK_URL` definida en Vercel; los avisos del canal (solicitud nueva,
   remitente no autorizado, correo sin solicitud) van a ese webhook. Sin variable, o si
@@ -236,6 +254,8 @@ Nuevas:
   coma (por defecto `google.com,microsoft.com`). Vacío desactiva el respaldo ARC.
 - `NOMA_GMAIL_WATCH_LABEL_ID` — opcional; limita watch/history a una etiqueta.
 - `NOMA_ASANA_BOT_USER_GID` — opcional; si falta se usa `users/me` del token central.
+- `NOMA_SLACK_USER_IDS` — opcional; `correo=UXXXX,…` para etiquetar al responsable en
+  los avisos de ajustes. No es secreta, pero vive en Vercel para no versionar al equipo.
 
 Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
 `NOMA_TOKEN_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID`,
