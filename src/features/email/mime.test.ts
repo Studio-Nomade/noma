@@ -9,6 +9,7 @@ import {
   htmlToText,
   isAutomatedMessage,
   parseGmailMessage,
+  repairMojibake,
   stripHtmlQuote,
   type GmailMessage,
 } from "./mime";
@@ -269,4 +270,64 @@ test("From con encoded-word no puede inyectar otra dirección", () => {
   assert.equal(parsed.from?.name, "boss@client.cl,");
   assert.equal(parsed.replyTo[0]?.email, "otro@evil.com");
   assert.deepEqual(parsed.to, [{ name: "Pérez", email: "ana@client.cl" }]);
+});
+
+test("repara tildes de UTF-8 leído como Latin-1/Windows-1252", () => {
+  assert.equal(
+    repairMojibake("Â¡Muchas gracias por la confirmaciÃ³n!"),
+    "¡Muchas gracias por la confirmación!",
+  );
+  assert.equal(
+    repairMojibake(
+      "Hola chicas, Â¿cÃ³mo estÃ¡n? â€œPing IDâ€\u009d â€“ va â€™ok",
+    ),
+    "Hola chicas, ¿cómo están? “Ping ID” – va ’ok",
+  );
+  // Texto bien escrito o mezclado: lo correcto no cambia.
+  const ok = "Él pidió la sesión en España, ¿sí? Ñandú 100% ok";
+  assert.equal(repairMojibake(ok), ok);
+  assert.equal(
+    repairMojibake("Ya está la versión; la otra decía informaciÃ³n"),
+    "Ya está la versión; la otra decía información",
+  );
+});
+
+test("cuerpo declarado Latin-1/Windows-1252 que en realidad es UTF-8", () => {
+  const utf8 = "¿Podrían revisar la redistribución? Saludos";
+  const part = (charset: string, bytes: Buffer): GmailMessage => ({
+    id: "m1",
+    threadId: "t1",
+    payload: {
+      mimeType: "text/plain",
+      headers: [
+        { name: "From", value: "a@cliente.cl" },
+        { name: "Content-Type", value: `text/plain; charset="${charset}"` },
+      ],
+      body: { data: encodeBase64Url(bytes) },
+    },
+  });
+  // Etiqueta equivocada: los bytes son UTF-8.
+  assert.equal(
+    parseGmailMessage(part("iso-8859-1", Buffer.from(utf8, "utf8"))).text,
+    utf8,
+  );
+  assert.equal(
+    parseGmailMessage(part("Windows-1252", Buffer.from(utf8, "utf8"))).text,
+    utf8,
+  );
+  // Latin-1 de verdad sigue leyéndose como Latin-1.
+  assert.equal(
+    parseGmailMessage(part("iso-8859-1", Buffer.from(utf8, "latin1"))).text,
+    utf8,
+  );
+  // UTF-8 con el texto ya roto por otro cliente de correo.
+  assert.equal(
+    parseGmailMessage(
+      part(
+        "utf-8",
+        Buffer.from("Â¿PodrÃ­an revisar la redistribuciÃ³n?", "utf8"),
+      ),
+    ).text,
+    "¿Podrían revisar la redistribución?",
+  );
 });
