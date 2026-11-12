@@ -9,6 +9,7 @@ import {
   type CustomFieldValues,
   type CustomFieldWish,
 } from "./custom-fields";
+import { HANDLED_STORY_SUBTYPES } from "./webhook-events";
 
 /**
  * Asana: creación de tarea/proyecto al traspasar una oportunidad a operación.
@@ -712,16 +713,30 @@ export async function createWebhook(resourceGid: string, target: string) {
  * CONSULTA), cambios de Estado (Fuera de alcance → borrador del 07),
  * asignaciones (→ Planificada) y cierres (aviso en Slack).
  */
-export const WEBHOOK_FILTERS = [
-  "comment_added",
-  "enum_custom_field_changed",
-  "assigned",
-  "marked_complete",
-].map((resource_subtype) => ({
-  resource_type: "story",
-  resource_subtype,
-  action: "added",
-}));
+export const WEBHOOK_FILTERS = HANDLED_STORY_SUBTYPES.map(
+  (resource_subtype) => ({
+    resource_type: "story",
+    resource_subtype,
+    action: "added",
+  }),
+);
+
+/** Filtros actuales de un webhook (para saber si hay que actualizarlos). */
+export async function getWebhookFilters(webhookGid: string) {
+  const hook = await asanaRequest<{
+    gid: string;
+    active?: boolean;
+    filters?: {
+      resource_type?: string | null;
+      resource_subtype?: string | null;
+      action?: string | null;
+    }[];
+  }>(
+    "GET",
+    `/webhooks/${encodeURIComponent(webhookGid)}?opt_fields=active,filters.resource_type,filters.resource_subtype,filters.action`,
+  );
+  return { active: hook?.active ?? false, filters: hook?.filters ?? [] };
+}
 
 /** Actualiza los filtros de un webhook existente (sin nuevo handshake). */
 export async function updateWebhookFilters(webhookGid: string) {
