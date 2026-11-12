@@ -47,11 +47,14 @@ export type StoryAddedEvent = {
 export const HANDLED_STORY_SUBTYPES = [
   "comment_added",
   "enum_custom_field_changed",
+  // Asignación → Estado «Planificada»; cierre → aviso en Slack.
+  "assigned",
+  "marked_complete",
 ];
 
 /**
- * Eventos `story` `added` (comentarios nuevos y cambios de campos enum, como
- * Estado), sin duplicados.
+ * Eventos `story` `added` (comentarios nuevos, cambios de campos enum como
+ * Estado, asignaciones y cierres), sin duplicados.
  */
 export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
   const events = (payload as { events?: AsanaEventJson[] } | null)?.events;

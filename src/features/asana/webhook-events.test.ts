@@ -50,7 +50,7 @@ test("filtra eventos de comentarios agregados y sin duplicados", () => {
         resource: {
           gid: "s2",
           resource_type: "story",
-          resource_subtype: "assigned",
+          resource_subtype: "liked",
         },
         parent: { gid: "t1", resource_type: "task" },
       },
@@ -72,6 +72,24 @@ test("filtra eventos de comentarios agregados y sin duplicados", () => {
         },
         parent: { gid: "t3", resource_type: "task" },
       },
+      {
+        action: "added",
+        resource: {
+          gid: "s5",
+          resource_type: "story",
+          resource_subtype: "assigned",
+        },
+        parent: { gid: "t4", resource_type: "task" },
+      },
+      {
+        action: "added",
+        resource: {
+          gid: "s6",
+          resource_type: "story",
+          resource_subtype: "marked_complete",
+        },
+        parent: { gid: "t5", resource_type: "task" },
+      },
     ],
   });
   assert.deepEqual(events, [
@@ -82,6 +100,13 @@ test("filtra eventos de comentarios agregados y sin duplicados", () => {
       taskGid: "t3",
       userGid: null,
       subtype: "enum_custom_field_changed",
+    },
+    { storyGid: "s5", taskGid: "t4", userGid: null, subtype: "assigned" },
+    {
+      storyGid: "s6",
+      taskGid: "t5",
+      userGid: null,
+      subtype: "marked_complete",
     },
   ]);
   assert.deepEqual(storyAddedEvents(null), []);

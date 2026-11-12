@@ -72,7 +72,10 @@ export async function POST(request: Request) {
       for (const event of events) {
         if (event.userGid === botUserGid) continue;
         try {
-          await processAsanaStory(event.storyGid, { botUserGid });
+          await processAsanaStory(event.storyGid, {
+            botUserGid,
+            projectGid,
+          });
         } catch (error) {
           console.error("[asana:webhook:story]", event.storyGid, error);
         }
