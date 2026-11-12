@@ -5,6 +5,7 @@ import {
   signAsanaBody,
   storyAddedEvents,
   verifyAsanaSignature,
+  webhookFiltersCurrent,
 } from "./webhook-events";
 
 test("verifica X-Hook-Signature (HMAC-SHA256 hex)", () => {
@@ -140,4 +141,29 @@ test("resuelve opciones enum por nombre sin tildes ni mayúsculas", () => {
     findEnumOption(settings, "Estado", ["No existe", "En curso"])?.optionGid,
     "o1",
   );
+});
+
+test("detecta webhooks con filtros desactualizados", () => {
+  const story = (resource_subtype: string) => ({
+    resource_type: "story",
+    resource_subtype,
+    action: "added",
+  });
+  assert.equal(
+    webhookFiltersCurrent([
+      story("comment_added"),
+      story("enum_custom_field_changed"),
+    ]),
+    false,
+  );
+  assert.equal(
+    webhookFiltersCurrent([
+      story("comment_added"),
+      story("enum_custom_field_changed"),
+      story("assigned"),
+      story("marked_complete"),
+    ]),
+    true,
+  );
+  assert.equal(webhookFiltersCurrent(null), false);
 });
