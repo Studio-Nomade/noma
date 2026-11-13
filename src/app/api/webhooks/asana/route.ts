@@ -9,7 +9,10 @@ import {
   getWebhookSecret,
   touchWebhook,
 } from "@/features/asana/webhook-store";
-import { processAsanaStory } from "@/features/email/deliveries";
+import {
+  flushScheduledDeliveries,
+  processAsanaStory,
+} from "@/features/email/deliveries";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -80,6 +83,11 @@ export async function POST(request: Request) {
           console.error("[asana:webhook:story]", event.storyGid, error);
         }
       }
+      // De paso: entregas programadas fuera de horario que ya vencieron.
+      await flushScheduledDeliveries({
+        limit: 5,
+        deadline: Date.now() + 20_000,
+      }).catch((error) => console.error("[asana:webhook:flush]", error));
     });
   }
   return new Response(null, { status: 200 });
