@@ -18,6 +18,8 @@ import { timingSafeEqual } from "node:crypto";
  *   procesa la cola del canal correo (crea tareas y responde al cliente),
  *   marca entregas trabadas y reconcilia comentarios «ENTREGA NN» de Asana
  *   (puede enviar la entrega al cliente).
+ * - `scheduled-deliveries`: envía las entregas y consultas que quedaron
+ *   programadas para las 08:55 del siguiente día hábil.
  * - `cobranza-seguimiento`: seguimiento de cobranza a 7 días (P3). Con la
  *   bandera encendida deja borradores; además envía solo si
  *   `NOMA_COBRANZA_AUTOSEND=true`.
@@ -27,9 +29,15 @@ export const CRON_JOBS = {
   "retainers-open": "CRON_RETAINERS_OPEN_ENABLED",
   "email-maintenance": "CRON_EMAIL_MAINTENANCE_ENABLED",
   "cobranza-seguimiento": "CRON_COBRANZA_SEGUIMIENTO_ENABLED",
+  // Entregas programadas fuera del horario hábil: misma bandera que el
+  // mantenimiento del canal correo (lo llama pg_cron de Supabase a las 08:55).
+  "scheduled-deliveries": "CRON_EMAIL_MAINTENANCE_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;
+
+/** Crons que además acepta `Bearer NOMA_SCHEDULER_SECRET` (pg_cron). */
+const EXTERNAL_JOBS: ReadonlySet<CronJob> = new Set(["scheduled-deliveries"]);
 
 type Env = Record<string, string | undefined>;
 
@@ -71,7 +79,17 @@ export function gateCronRequest(
       body: { ok: false, error: "Cron no configurado." },
     };
   }
-  if (!safeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) {
+  const auth = request.headers.get("authorization");
+  // Programadores externos (pg_cron de Supabase) usan su propio secreto, así
+  // no hay que compartir CRON_SECRET de Vercel.
+  const external = env.NOMA_SCHEDULER_SECRET?.trim();
+  const authorized =
+    safeEqual(auth, `Bearer ${secret}`) ||
+    (EXTERNAL_JOBS.has(job) &&
+      !!external &&
+      external.length >= 32 &&
+      safeEqual(auth, `Bearer ${external}`));
+  if (!authorized) {
     return { ok: false, status: 401, body: { ok: false } };
   }
   if (!isCronEnabled(job, env)) {

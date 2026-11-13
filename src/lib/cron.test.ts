@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CRON_JOBS, gateCronRequest, isCronEnabled, type CronJob } from "./cron";
+import {
+  CRON_JOBS,
+  gateCronRequest,
+  isCronEnabled,
+  type CronJob,
+} from "./cron";
 
 const req = (auth?: string) =>
   new Request("https://noma.test/api/cron/x", {
@@ -64,4 +69,33 @@ test("credencial correcta y cron encendido: pasa", () => {
     CRON_WHATSAPP_DRAIN_ENABLED: "true",
   });
   assert.deepEqual(gate, { ok: true });
+});
+
+test("el secreto del programador externo solo abre scheduled-deliveries", () => {
+  const external = "x".repeat(40);
+  const env = {
+    CRON_SECRET: "s3cr3t",
+    NOMA_SCHEDULER_SECRET: external,
+    CRON_EMAIL_MAINTENANCE_ENABLED: "true",
+  };
+  const req = (token: string) =>
+    new Request("https://noma.test/api/cron/x", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+  assert.equal(
+    gateCronRequest(req(external), "scheduled-deliveries", env).ok,
+    true,
+  );
+  assert.equal(
+    gateCronRequest(req("s3cr3t"), "scheduled-deliveries", env).ok,
+    true,
+  );
+  const other = gateCronRequest(req(external), "email-maintenance", env);
+  assert.equal(other.ok, false);
+  // Un secreto corto no se acepta
+  const short = { ...env, NOMA_SCHEDULER_SECRET: "corto" };
+  assert.equal(
+    gateCronRequest(req("corto"), "scheduled-deliveries", short).ok,
+    false,
+  );
 });
