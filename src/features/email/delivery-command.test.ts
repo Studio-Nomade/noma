@@ -144,3 +144,27 @@ test("CONSULTA: preguntas por línea, ayuda entre paréntesis y BLOQUEA", () => 
   assert.equal(parseConsultaCommand("Tengo una CONSULTA"), null);
   assert.deepEqual(parseConsultaCommand("CONSULTA")?.questions, []);
 });
+
+test("Consulta en minúsculas: sola en la primera línea y con preguntas", () => {
+  assert.deepEqual(
+    parseConsultaCommand("Consulta\n¿Cuál versión es la aprobada?"),
+    {
+      blocking: false,
+      questions: [{ text: "¿Cuál versión es la aprobada?", hint: null }],
+    },
+  );
+  assert.equal(
+    parseConsultaCommand("consulta bloquea:\n¿Fecha del evento?")?.blocking,
+    true,
+  );
+  // Sin preguntas debajo, o con texto en la misma línea, es conversación interna.
+  assert.equal(parseConsultaCommand("Consulta"), null);
+  assert.equal(
+    parseConsultaCommand("Consulta: ¿lo vemos mañana?\nGracias"),
+    null,
+  );
+  assert.equal(
+    parseConsultaCommand("consulta para el equipo\n¿quién lo toma?"),
+    null,
+  );
+});

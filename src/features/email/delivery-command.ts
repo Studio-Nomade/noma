@@ -195,13 +195,21 @@ function anchorTexts(htmlText: string | null | undefined) {
 
 // ── CONSULTA ─────────────────────────────────────────────────
 /**
- * `CONSULTA` (en MAYÚSCULAS) al inicio de un comentario de Asana: cada línea
- * siguiente es una pregunta para el cliente. `CONSULTA BLOQUEA` avisa que la
- * entrega depende de la respuesta. Un texto entre paréntesis al final de una
- * línea se muestra como ayuda bajo la pregunta. Módulo puro.
+ * `CONSULTA` al inicio de un comentario de Asana: cada línea siguiente es una
+ * pregunta para el cliente. `CONSULTA BLOQUEA` avisa que la entrega depende de
+ * la respuesta. Un texto entre paréntesis al final de una línea se muestra
+ * como ayuda bajo la pregunta. Dos formas, igual que ENTREGA:
+ *   - En MAYÚSCULAS, siempre es el gatillo explícito.
+ *   - En minúsculas o mixto («Consulta», «consulta bloquea:») solo si es la
+ *     primera línea completa y debajo viene al menos una pregunta. Así
+ *     «Consulta: ¿lo vemos mañana?» sigue siendo conversación interna.
+ * Módulo puro.
  */
 export const CONSULTA_COMMAND_RE =
   /^\s*CONSULTA(\s+BLOQUEA)?(?=$|[\s:·\-–—.,;])/;
+
+/** «Consulta» / «consulta bloquea:» como primera línea completa. */
+const LOOSE_CONSULTA_LINE_RE = /^\s*consulta(\s+bloquea)?\s*:?\s*(?=\n|$)/i;
 
 export type ConsultaCommand = {
   blocking: boolean;
@@ -211,8 +219,10 @@ export type ConsultaCommand = {
 export function parseConsultaCommand(
   text: string | null | undefined,
 ): ConsultaCommand | null {
-  const match = text?.match(CONSULTA_COMMAND_RE);
-  if (!text || !match) return null;
+  if (!text) return null;
+  const strict = text.match(CONSULTA_COMMAND_RE);
+  const match = strict ?? text.match(LOOSE_CONSULTA_LINE_RE);
+  if (!match) return null;
   const questions = text
     .slice(match[0].length)
     .replace(/^[\s:·\-–—.]+/, "")
@@ -231,6 +241,8 @@ export function parseConsultaCommand(
       };
     })
     .filter((question) => question.text);
+  // La forma en minúsculas solo cuenta si trae preguntas.
+  if (!strict && !questions.length) return null;
   return { blocking: Boolean(match[1]), questions };
 }
 
