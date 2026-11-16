@@ -25,7 +25,7 @@ sobre los envíos reales del estudio.
   registra además `provider` e `iterations`.
 - Se mantienen las reglas de ADR-004: llamadas solo server-side, sin almacenar prompts ni
   salidas del modelo, y degradación al trabajo manual si la API no está configurada o falla.
-- WhatsApp y Propuestas siguen en OpenAI/Gemini según ADR-004.
+- WhatsApp sigue en OpenAI según ADR-004. Propuestas y brief pasan a Claude en [ADR-009](ADR-009-claude-cotizador.md).
 
 ## Consecuencias
 

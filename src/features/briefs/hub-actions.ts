@@ -7,7 +7,11 @@ import { briefs, briefNotes, briefVersions } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
-import { processBriefNotes } from "@/features/ai/brief-processor";
+import {
+  processBriefNotes,
+  type BriefExtraction,
+} from "@/features/ai/brief-processor";
+import { extractBriefWithAi } from "@/features/quoter/brief";
 import { ensureBrief } from "./brief-helpers";
 import { BRIEF_FIELDS_BY_AREA } from "./fields";
 import type { Area, NoteSource } from "@/types/enums";
@@ -74,10 +78,12 @@ export async function importNotes(
   }
 }
 
-// ── Procesar notas (IA mock) ─────────────────────────────────
+// ── Procesar notas (Claude; heurística si la IA no está o falla) ──
 export async function processNotes(
   projectId: string,
-): Promise<ActionResult> {
+): Promise<
+  ActionResult<{ engine: string; clientUpdated: string[]; warning?: string }>
+> {
   try {
     const user = await requireUser();
     const brief = await ensureBrief(projectId, user.id);
@@ -103,7 +109,34 @@ export async function processNotes(
 
     const mainArea = brief.area as Area;
     const involved = (brief.involvedAreas as Area[]) ?? [];
-    const x = await processBriefNotes({ text, mainArea, involvedAreas: involved });
+    let x: BriefExtraction;
+    let clientUpdated: string[] = [];
+    let warning: string | undefined;
+    try {
+      const ai = await extractBriefWithAi({
+        projectId,
+        clientId: brief.clientId,
+        text,
+        mainArea,
+        involvedAreas: involved,
+        user,
+      });
+      if (ai) {
+        x = ai.extraction;
+        clientUpdated = ai.clientUpdated;
+      } else {
+        x = await processBriefNotes({
+          text,
+          mainArea,
+          involvedAreas: involved,
+        });
+      }
+    } catch (error) {
+      console.error("[processNotes] IA", error);
+      warning =
+        "La IA no respondió; se usó la lectura básica. Puedes reintentar en unos minutos.";
+      x = await processBriefNotes({ text, mainArea, involvedAreas: involved });
+    }
 
     // Extracción → bloques del brief (todo editable después).
     const areaBlocks: Record<string, Record<string, string>> = {
@@ -157,7 +190,8 @@ export async function processNotes(
 
     revalidatePath(`/briefs/${projectId}`);
     revalidatePath(`/projects/${projectId}`);
-    return { ok: true, data: undefined };
+    if (clientUpdated.length) revalidatePath(`/clients/${brief.clientId}`);
+    return { ok: true, data: { engine: x.engine, clientUpdated, warning } };
   } catch (err) {
     return handleActionError(err, "processNotes");
   }
@@ -206,7 +240,9 @@ export async function saveBriefContent(
         involvedAreas: content.involvedAreas,
         // Al editar un brief sugerido pasa a revisión.
         status:
-          brief.status === "Brief sugerido" ? "Brief en revisión" : brief.status,
+          brief.status === "Brief sugerido"
+            ? "Brief en revisión"
+            : brief.status,
         updatedAt: new Date(),
       })
       .where(eq(briefs.id, brief.id));
@@ -226,9 +262,7 @@ export async function saveBriefContent(
 }
 
 // ── Aprobar brief (validaciones + versionado) ────────────────
-export async function approveBrief(
-  projectId: string,
-): Promise<ActionResult> {
+export async function approveBrief(projectId: string): Promise<ActionResult> {
   try {
     const user = await requireUser();
     const [brief] = await db
@@ -319,7 +353,9 @@ export async function deleteNote(
     await requireUser();
     await db
       .delete(briefNotes)
-      .where(and(eq(briefNotes.id, noteId), eq(briefNotes.projectId, projectId)));
+      .where(
+        and(eq(briefNotes.id, noteId), eq(briefNotes.projectId, projectId)),
+      );
     revalidatePath(`/briefs/${projectId}`);
     return { ok: true, data: undefined };
   } catch (err) {

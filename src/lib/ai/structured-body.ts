@@ -46,6 +46,47 @@ export function anthropicStructuredBody<T>(
   };
 }
 
+/** Bloque de system con caché opcional (contexto estable: catálogo, memoria). */
+export type ClaudeSystemBlock = { text: string; cache?: boolean };
+
+export type ClaudeStructuredRequest = {
+  model: string;
+  effort: string;
+  maxTokens: number;
+  system: ClaudeSystemBlock[];
+  input: string;
+  schema: z.ZodType;
+};
+
+/**
+ * Cuerpo general con JSON outputs y bloques de system. Los bloques marcados con
+ * `cache` llevan `cache_control` (caché efímera de 5 min): así varias llamadas
+ * seguidas del cotizador reutilizan el catálogo y la memoria sin re-cobrarlos.
+ */
+export function claudeStructuredBody(request: ClaudeStructuredRequest) {
+  return {
+    model: request.model,
+    max_tokens: request.maxTokens,
+    system: request.system
+      .filter((block) => block.text.trim())
+      .map((block) => ({
+        type: "text" as const,
+        text: block.text,
+        ...(block.cache
+          ? { cache_control: { type: "ephemeral" as const } }
+          : {}),
+      })),
+    messages: [{ role: "user" as const, content: request.input }],
+    output_config: {
+      effort: request.effort,
+      format: {
+        type: "json_schema" as const,
+        schema: outputJsonSchema(request.schema),
+      },
+    },
+  };
+}
+
 export type AnthropicMessage = {
   model?: string;
   content?: { type: string; text?: string }[];

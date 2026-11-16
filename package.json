@@ -24,7 +24,9 @@
     "email-studio:check": "tsx src/features/email-studio/check.ts",
     "email:seed-channels": "tsx scripts/email-channels-seed.ts",
     "asana:register-webhooks": "tsx --conditions=react-server scripts/asana-register-webhooks.ts",
-    "rates:sync": "tsx scripts/sync-rates.ts"
+    "rates:sync": "tsx scripts/sync-rates.ts",
+    "quoter:seed-learnings": "tsx scripts/quoter-seed-learnings.ts",
+    "quoter:import-precedents": "tsx --conditions=react-server scripts/quoter-import-precedents.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

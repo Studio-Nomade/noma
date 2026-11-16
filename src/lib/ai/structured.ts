@@ -7,8 +7,7 @@ import {
   type AnthropicMessage,
   usageFromMessage,
 } from "./structured-body";
-import { db } from "@/db";
-import { aiUsage } from "@/db/schema";
+import { anthropicErrorDetail, recordAiUsage } from "./claude";
 
 /**
  * Salida estructurada para el canal de solicitudes (extracción del correo y
@@ -86,41 +85,5 @@ async function anthropicStructured<T>(
       ok,
       ...usageFromMessage(body),
     });
-  }
-}
-
-/** Registro best-effort del consumo: nunca hace fallar la llamada. */
-async function recordAiUsage(row: {
-  feature: string;
-  model: string;
-  durationMs: number;
-  ok: boolean;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-}) {
-  console.info(
-    `[ai:usage] ${row.feature} ${row.model} in=${row.inputTokens} out=${row.outputTokens} ${row.durationMs}ms${row.ok ? "" : " (inválida)"}`,
-  );
-  try {
-    await db.insert(aiUsage).values({ provider: "anthropic", ...row });
-  } catch (error) {
-    console.error("[ai:usage] no se pudo registrar", error);
-  }
-}
-
-async function anthropicErrorDetail(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {
-      error?: { type?: string; message?: string };
-    };
-    const type = body.error?.type ?? "";
-    const message = (body.error?.message ?? "").slice(0, 160);
-    return type || message
-      ? ` (${[type, message].filter(Boolean).join(": ")})`
-      : "";
-  } catch {
-    return "";
   }
 }
