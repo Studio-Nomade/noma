@@ -324,3 +324,40 @@ export async function createDraftReply(
   );
   return { draftId: draft.id, messageId: draft.message.id };
 }
+
+/**
+ * Borrador de un correo nuevo (fuera de un hilo) en la casilla de servicio,
+ * desde el alias del cliente. Para envíos que la Dirección revisa y despacha,
+ * como el informe mensual.
+ */
+export async function createDraft(input: {
+  from: EmailAddress;
+  to: string[];
+  cc?: string[];
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<{ draftId: string; messageId: string }> {
+  const domain = input.from.email.split("@")[1] ?? "studionomade.cl";
+  const raw = buildMimeMessage({
+    from: input.from,
+    to: input.to,
+    cc: input.cc,
+    replyTo: input.from.email,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+    inReplyTo: null,
+    references: [],
+    messageId: generateMessageId(domain),
+  });
+  const draft = await gmailFetch<{ id: string; message: { id: string } }>(
+    "/drafts",
+    {
+      method: "POST",
+      body: { message: { raw: encodeBase64Url(raw) } },
+      timeoutMs: 20_000,
+    },
+  );
+  return { draftId: draft.id, messageId: draft.message.id };
+}

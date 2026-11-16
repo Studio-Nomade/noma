@@ -25,6 +25,9 @@ import { timingSafeEqual } from "node:crypto";
  *   `NOMA_COBRANZA_AUTOSEND=true`.
  * - `assistant-briefing`: resumen diario de cada persona del piloto del
  *   asistente (solo lectura de sus cuentas; no escribe a nadie).
+ * - `monthly-reports`: el día 1 arma el informe mensual de solicitudes de
+ *   cada canal con `monthly_report` activo: borrador del correo (no lo envía)
+ *   y tarea en «Mis tareas» del responsable.
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
@@ -35,6 +38,7 @@ export const CRON_JOBS = {
   // mantenimiento del canal correo (lo llama pg_cron de Supabase a las 08:55).
   "scheduled-deliveries": "CRON_EMAIL_MAINTENANCE_ENABLED",
   "assistant-briefing": "CRON_ASSISTANT_BRIEFING_ENABLED",
+  "monthly-reports": "CRON_MONTHLY_REPORTS_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;

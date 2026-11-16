@@ -120,6 +120,25 @@ export const emailChannelConfigSchema = z
      * con opciones de la pauta. Solo estos: nunca Estado, Prioridad ni Ticket.
      */
     ai_fields: z.array(z.string().trim().min(1).max(80)).max(10).default([]),
+    /**
+     * Informe mensual de solicitudes (job del día 1): destinatarios, servicio
+     * y responsable que revisa y envía el borrador. Sin esto, no hay informe.
+     */
+    monthly_report: z
+      .object({
+        enabled: z.boolean().default(true),
+        client_label: z.string().trim().min(1).max(80).nullable().optional(),
+        service: z.string().trim().min(1).max(120),
+        to: z.array(z.string().trim().toLowerCase().email()).min(1).max(20),
+        cc: z
+          .array(z.string().trim().toLowerCase().email())
+          .max(20)
+          .default([]),
+        assignee_gid: gid.nullable().optional(),
+        breakdown_field: z.string().trim().min(1).max(80).nullable().optional(),
+      })
+      .nullable()
+      .optional(),
     /** Marca de revisión humana: dominios aún sin confirmar con el cliente. */
     domains_to_confirm: z.boolean().default(false),
     status: z.enum(["active", "paused"]).default("active"),
