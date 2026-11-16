@@ -1,6 +1,6 @@
 # ADR-004 — Proveedores de IA centralizados
 
-**Estado:** Aceptado, modificado por [ADR-008](ADR-008-claude-email-studio.md) · **Fecha:** 2026-07-30
+**Estado:** Aceptado, modificado por [ADR-008](ADR-008-claude-email-studio.md) y [ADR-009](ADR-009-claude-cotizador.md) · **Fecha:** 2026-07-30
 
 ## Contexto
 

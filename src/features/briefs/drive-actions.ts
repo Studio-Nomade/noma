@@ -109,9 +109,7 @@ export async function associateDriveNote(
     if (!read.connected) {
       return {
         ok: false,
-        error:
-          read.reason +
-          " Cierra sesión y vuelve a entrar para conceder Google Drive.",
+        error: read.reason,
       };
     }
     if ("error" in read) return { ok: false, error: read.error };
@@ -172,7 +170,7 @@ export async function readNoteFromDrive(
     if (!read.connected) {
       return {
         ok: false,
-        error: read.reason + " Vuelve a iniciar sesión para conceder Drive.",
+        error: read.reason,
       };
     }
     if ("error" in read) return { ok: false, error: read.error };

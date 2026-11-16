@@ -9,6 +9,10 @@ export const GOOGLE_BASE_SCOPES = [
   "profile",
   // gmail.send: enviar correos como el usuario (propuestas, cobranza).
   "https://www.googleapis.com/auth/gmail.send",
+  // gmail.readonly: el asistente resume los correos pendientes de cada
+  // persona. Scope restringido, pero la app es Interna (solo studionomade.cl)
+  // y no requiere verificación de Google.
+  "https://www.googleapis.com/auth/gmail.readonly",
   // calendar.events: crear reuniones de brief con link de Meet.
   "https://www.googleapis.com/auth/calendar.events",
   // drive.readonly: leer notas de Gemini y buscar documentos.

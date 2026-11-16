@@ -76,6 +76,10 @@ Ingreso Solicitud = Correo, Formato / Canal o Canal (multi), Cliente final o Cli
    asunto): se publica como **comentario** en la tarea original, sin el texto citado ni la
    firma (el comentario avisa cuando se omitió algo) y con los adjuntos subidos. Si la tarea estaba completada se reabre y `Estado`
    pasa a "Con ajustes" si existe. Nunca crea una tarea nueva.
+   - **Con ajustes** sobre una entrega: además del correo del cliente, Noma deja un
+     comentario con los ajustes extraídos (lista numerada, referencias y dudas por
+     confirmar) y el acuse 05 lleva en copia al responsable de la tarea.
+   - **Aprobación**: la tarea queda Aprobado, completada y con Ticket Finalizado.
 5. **Sin loops**: lo que envía la propia casilla/alias se ignora; las respuestas
    automáticas (fuera de oficina, rebotes) se ignoran; los comentarios del usuario de
    Asana de Noma (dueño de `ASANA_ACCESS_TOKEN` o `NOMA_ASANA_BOT_USER_GID`) nunca
@@ -142,6 +146,20 @@ acepta al solicitante o CC originales.
   avanza igual; no se envía ningún correo adicional por esto. `ai_fields` es la lista de campos que la IA puede
   completar; Estado, Prioridad, Ticket, Ingreso, Folio y Correo de contacto quedan
   siempre fuera. Las opciones que no existen en el proyecto se ignoran.
+- **Avisos al equipo en Slack** (`team-events.ts`, mismo webhook del canal): mensajes de
+  una línea con el folio y el link a la tarea, sin repetir el contenido.
+  - 📦 _Entrega NN enviada_ — al salir el correo de una entrega.
+  - 🔁 _El cliente pidió ajustes a la Entrega NN_ — etiqueta al responsable con su
+    usuario de **Slack** (no el de Asana), resuelto por correo con `NOMA_SLACK_USER_IDS`
+    (`correo=UXXXX,correo=UYYYY`); sin ID usa su nombre y, sin responsable, pide asignar.
+  - ✅ _Aprobada por el cliente y cerrada_ (respuesta de aprobación) o _Cerrada por
+    <nombre>_ (alguien del equipo completa la tarea en Asana).
+- **Asignación → Planificada** (`task-lifecycle.ts`): cuando alguien del equipo asigna
+  una tarea de un tablero con canal de correo que está en «Por revisar» (o sin Estado),
+  `Estado` pasa a «Planificada». Una tarea más avanzada no retrocede, y las
+  asignaciones del bot no cuentan. El webhook escucha `assigned` y `marked_complete`
+  además de comentarios y cambios de campo; para sumar los filtros a webhooks ya
+  registrados: `npm run asana:register-webhooks -- --base-url … --apply --filters`.
 - **Slack por canal** (`slack_webhook_env`): nombre de una variable
   `SLACK_<CANAL>_WEBHOOK_URL` definida en Vercel; los avisos del canal (solicitud nueva,
   remitente no autorizado, correo sin solicitud) van a ese webhook. Sin variable, o si
@@ -236,6 +254,12 @@ Nuevas:
   coma (por defecto `google.com,microsoft.com`). Vacío desactiva el respaldo ARC.
 - `NOMA_GMAIL_WATCH_LABEL_ID` — opcional; limita watch/history a una etiqueta.
 - `NOMA_ASANA_BOT_USER_GID` — opcional; si falta se usa `users/me` del token central.
+- `NOMA_SCHEDULER_SECRET` — opcional; secreto (≥ 32 caracteres) con el que
+  pg_cron llama a `/api/cron/scheduled-deliveries`. Sin él, NOMA usa el de
+  Vault (`noma_scheduler_secret`).
+- `NOMA_BUSINESS_HOLIDAYS` — opcional; feriados `AAAA-MM-DD` separados por coma.
+- `NOMA_SLACK_USER_IDS` — opcional; `correo=UXXXX,…` para etiquetar al responsable en
+  los avisos de ajustes. No es secreta, pero vive en Vercel para no versionar al equipo.
 
 Reutilizadas: `ASANA_ACCESS_TOKEN`, `ASANA_WORKSPACE_GID` (script de webhooks),
 `NOMA_TOKEN_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID`,
@@ -256,6 +280,51 @@ incorrecto → 401).
 | `/api/cron/whatsapp-drain`    | 04:15 diario  | `CRON_WHATSAPP_DRAIN_ENABLED`    | Procesa la cola de mensajes entrantes de WhatsApp, incluidos fallidos: crea solicitudes y tareas en Asana, consume horas de bolsa y **responde por WhatsApp** al remitente (confirmación o aviso de número no autorizado).                       |
 | `/api/cron/retainers-open`    | 03:05 día 1   | `CRON_RETAINERS_OPEN_ENABLED`    | Abre el período del mes de cada bolsa activa y aplica el arrastre de horas. Idempotente por `retainer_periods_retainer_start_unique`.                                                                                                            |
 | `/api/cron/email-maintenance` | 10:40 diario  | `CRON_EMAIL_MAINTENANCE_ENABLED` | Renueva el watch de Gmail, recupera correos perdidos, procesa la cola del canal correo (crea tareas y **responde al cliente**), marca entregas trabadas y reconcilia comentarios «ENTREGA NN» de Asana (**puede enviar la entrega al cliente**). |
+
+### Horario hábil de entregas y consultas
+
+Las entregas («ENTREGA NN») y consultas («CONSULTA») que el equipo comenta en Asana
+salen solo en horario hábil: **lunes a viernes de 9:00 a 18:00, hora de Santiago**
+(`src/features/email/business-hours.ts`). Fuera de ese horario:
+
+- La fila de `request_deliveries` queda en `scheduled` y Noma comenta en la tarea
+  cuándo saldrá: las **08:55 del siguiente día hábil** (o del mismo día si el
+  comentario es de madrugada). Salta fines de semana y los feriados de
+  `NOMA_BUSINESS_HOLIDAYS` (`2026-12-08,2026-12-25`).
+- La decisión usa la hora del comentario, no la del proceso.
+- «ENVIAR AHORA» en el comentario salta el horario (urgencias); la frase no
+  llega al cliente.
+- El envío lo hace `flushScheduledDeliveries`: el endpoint
+  `/api/cron/scheduled-deliveries`, el cron de mantención y, de paso, cada
+  webhook de Asana. El borrador «fuera de alcance» (07) no se programa.
+
+Vercel Hobby no garantiza la hora de sus crons, así que el endpoint lo llama
+**pg_cron de Supabase** a las 08:55 (11:55 y 12:55 UTC cubren el horario de
+verano y de invierno; el endpoint solo envía lo vencido). Acepta
+`Bearer CRON_SECRET` o el secreto del programador (≥ 32 caracteres) y usa la
+bandera `CRON_EMAIL_MAINTENANCE_ENABLED`. El secreto se genera dentro de
+Supabase (Vault, `noma_scheduler_secret`) y NOMA lo lee de ahí, así que nadie
+lo copia; `NOMA_SCHEDULER_SECRET` en Vercel, si existe, tiene prioridad. En el
+SQL Editor de Supabase:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'noma_scheduler_secret');
+select cron.schedule(
+  'noma-entregas-0855',
+  '55 11,12 * * 1-5',
+  $$ select net.http_get(
+       url := 'https://noma.studionomade.cl/api/cron/scheduled-deliveries',
+       headers := jsonb_build_object(
+         'Authorization',
+         'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                       where name = 'noma_scheduler_secret')
+       ),
+       timeout_milliseconds := 55000
+     ) $$
+);
+```
 
 Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`

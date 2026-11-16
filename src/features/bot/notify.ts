@@ -1,5 +1,6 @@
 import "server-only";
 import { resolveSlackWebhook } from "@/features/email/channel-config";
+import { parseSlackUserIds } from "./team-events";
 
 const TIMEOUT_MS = 5_000;
 
@@ -87,6 +88,26 @@ export async function notifyNewClientRequest(input: {
     [{ type: "section", text: { type: "mrkdwn", text: body } }],
     input.slackWebhookEnv,
   );
+}
+
+/**
+ * Aviso corto del ciclo de una solicitud (entrega, ajustes, cierre) en el
+ * canal de Slack del cliente. Degradable: nunca lanza.
+ */
+export async function notifyTeamEvent(
+  message: { text: string; body: string },
+  slackWebhookEnv?: string | null,
+) {
+  return sendOperationsNotification(
+    message.text,
+    [{ type: "section", text: { type: "mrkdwn", text: message.body } }],
+    slackWebhookEnv,
+  );
+}
+
+/** Mapa correo → usuario de Slack (NOMA_SLACK_USER_IDS). */
+export function teamSlackUserIds() {
+  return parseSlackUserIds(process.env.NOMA_SLACK_USER_IDS);
 }
 
 export async function notifyUnknownWhatsAppSender(phone: string) {

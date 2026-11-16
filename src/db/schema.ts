@@ -989,6 +989,12 @@ export const services = pgTable("services", {
   isComposite: boolean("is_composite").default(false).notNull(),
   status: serviceStatusEnum("status").default("Activo").notNull(),
   relatedServices: uuid("related_services").array().default([]),
+  // Servicio nuevo/ajustado que propuso el cotizador con IA (queda "En revisión").
+  suggestedByAi: boolean("suggested_by_ai").default(false).notNull(),
+  originProposalId: uuid("origin_proposal_id").references(
+    (): AnyPgColumn => proposals.id,
+    { onDelete: "set null" },
+  ),
   // trazabilidad del insumo de origen (Excel/PDF)
   sourceFile: text("source_file"),
   sourceYear: text("source_year"),
@@ -1272,6 +1278,159 @@ export const proposalNotes = pgTable(
       .notNull(),
   },
   (t) => [index("proposal_notes_root_idx").on(t.rootId)],
+);
+
+// ── Cotizador con IA (ver docs/technical/ai-cotizador.md) ────
+// Cada llamada del cotizador: brief desde notas, borrador de propuesta o
+// aprendizajes. `output` guarda el borrador estructurado (contenido de negocio,
+// no el prompt) para comparar después con lo que el equipo envió.
+export const quoterRuns = pgTable(
+  "quoter_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // brief · draft · learning
+    kind: text("kind").notNull(),
+    // running · done · failed
+    status: text("status").default("running").notNull(),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    proposalId: uuid("proposal_id").references(() => proposals.id, {
+      onDelete: "set null",
+    }),
+    provider: text("provider"),
+    model: text("model"),
+    // Qué contexto se usó: ids de aprendizajes y precedentes, tamaño del catálogo.
+    contextRefs: jsonb("context_refs")
+      .$type<Record<string, unknown>>()
+      .default({}),
+    output: jsonb("output").$type<Record<string, unknown>>(),
+    error: text("error"),
+    durationMs: integer("duration_ms"),
+    createdBy: uuid("created_by"),
+    createdByEmail: text("created_by_email"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("quoter_runs_project_idx").on(t.projectId, t.createdAt),
+    index("quoter_runs_proposal_idx").on(t.proposalId),
+    check(
+      "quoter_runs_kind_check",
+      sql`${t.kind} in ('brief', 'draft', 'learning')`,
+    ),
+    check(
+      "quoter_runs_status_check",
+      sql`${t.status} in ('running', 'done', 'failed')`,
+    ),
+  ],
+);
+
+// Memoria del cotizador: reglas que Noma aprende de cada propuesta enviada,
+// aprobada o rechazada, y las que el equipo le enseña. Activas de inmediato.
+export const quoterLearnings = pgTable(
+  "quoter_learnings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    scope: text("scope").default("global").notNull(),
+    area: areaEnum("area"),
+    serviceId: uuid("service_id").references(() => services.id, {
+      onDelete: "set null",
+    }),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    industry: text("industry"),
+    statement: text("statement").notNull(),
+    rationale: text("rationale"),
+    // ia (deducido de una propuesta) · equipo (escrito por una persona)
+    origin: text("origin").notNull(),
+    sourceProposalId: uuid("source_proposal_id").references(
+      () => proposals.id,
+      { onDelete: "set null" },
+    ),
+    sourceRunId: uuid("source_run_id").references(() => quoterRuns.id, {
+      onDelete: "set null",
+    }),
+    active: boolean("active").default(true).notNull(),
+    timesApplied: integer("times_applied").default(0).notNull(),
+    lastAppliedAt: timestamp("last_applied_at", { withTimezone: true }),
+    createdByEmail: text("created_by_email"),
+    ...timestamps,
+  },
+  (t) => [
+    index("quoter_learnings_active_idx").on(t.active, t.scope),
+    check(
+      "quoter_learnings_kind_check",
+      sql`${t.kind} in ('precio', 'alcance', 'condiciones', 'redaccion', 'catalogo', 'proceso')`,
+    ),
+    check(
+      "quoter_learnings_scope_check",
+      sql`${t.scope} in ('global', 'area', 'servicio', 'cliente', 'rubro')`,
+    ),
+    check(
+      "quoter_learnings_origin_check",
+      sql`${t.origin} in ('ia', 'equipo')`,
+    ),
+    check(
+      "quoter_learnings_statement_not_blank",
+      sql`btrim(${t.statement}) <> ''`,
+    ),
+  ],
+);
+
+// Precedentes: presupuestos históricos (PDF importados desde noma-ops) y las
+// propuestas de Noma ya enviadas. Se buscan por texto para darle al cotizador
+// casos parecidos con sus valores reales.
+export const proposalPrecedents = pgTable(
+  "proposal_precedents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // historico · noma
+    source: text("source").notNull(),
+    proposalId: uuid("proposal_id")
+      .unique()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    // Clave del archivo histórico (ruta relativa) para re-importar sin duplicar.
+    sourceKey: text("source_key").unique(),
+    code: text("code"),
+    clientName: text("client_name"),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    issuedOn: date("issued_on"),
+    areas: areaEnum("areas").array().default([]).notNull(),
+    title: text("title"),
+    summary: text("summary"),
+    lines: jsonb("lines")
+      .$type<
+        {
+          name: string;
+          amount: number | null;
+          currency: string | null;
+          unit?: string | null;
+          quantity?: number | null;
+          note?: string | null;
+        }[]
+      >()
+      .default([]),
+    totalUf: numeric("total_uf", { precision: 14, scale: 2 }),
+    conditions: text("conditions"),
+    // enviada · aprobada · rechazada (null en históricos sin dato)
+    outcome: text("outcome"),
+    rawText: text("raw_text"),
+    ...timestamps,
+  },
+  (t) => [
+    index("proposal_precedents_client_idx").on(t.clientId),
+    check(
+      "proposal_precedents_source_check",
+      sql`${t.source} in ('historico', 'noma')`,
+    ),
+  ],
 );
 
 // ── resource_links (polimórfica) ─────────────────────────────
@@ -2598,6 +2757,9 @@ export type NewProposal = typeof proposals.$inferInsert;
 export type ProposalService = typeof proposalServices.$inferSelect;
 export type ProposalTeam = typeof proposalTeam.$inferSelect;
 export type ProposalNote = typeof proposalNotes.$inferSelect;
+export type QuoterRun = typeof quoterRuns.$inferSelect;
+export type QuoterLearning = typeof quoterLearnings.$inferSelect;
+export type ProposalPrecedent = typeof proposalPrecedents.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
 export type BotChannel = typeof botChannels.$inferSelect;
 export type BotAuthorizedSender = typeof botAuthorizedSenders.$inferSelect;
@@ -2704,5 +2866,27 @@ export const monthlyReports = pgTable(
       table.emailChannelId,
       table.month,
     ),
+  ],
+);
+
+// ── assistant_briefings (resumen diario del asistente, por persona) ──
+// Solo el resumen del día (títulos, remitentes, enlaces), nunca el cuerpo de
+// correos ni mensajes. Vence a los 7 días y se purga al generar uno nuevo.
+export const assistantBriefings = pgTable(
+  "assistant_briefings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(), // auth.users.id
+    day: date("day").notNull(), // fecha en America/Santiago
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    model: text("model"),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("assistant_briefings_user_day_idx").on(t.userId, t.day),
+    index("assistant_briefings_expires_idx").on(t.expiresAt),
   ],
 );

@@ -12,6 +12,11 @@
  *   npm run asana:register-webhooks -- --base-url ... --project 1200000000000001
  *   npm run asana:register-webhooks -- --base-url ... --apply
  *   npm run asana:register-webhooks -- --base-url ... --apply --force   # recrea
+ *   npm run asana:register-webhooks -- --base-url ... --apply --filters --project <gid>,<gid>
+ *
+ * `--filters` solo actualiza los filtros de los webhooks activos que ya
+ * apuntan a ese target (PUT, sin handshake): no lee ni escribe la base y nunca
+ * recrea un webhook, así que se puede correr con cualquier DATABASE_URL.
  *
  * Corre con `--conditions=react-server` (ver package.json) porque reutiliza
  * módulos marcados `server-only`.
@@ -26,6 +31,7 @@ import {
   createWebhook,
   deleteWebhook,
   listWebhooks,
+  updateWebhookFilters,
   type AsanaWebhookInfo,
 } from "@/features/asana/asana";
 import {
@@ -38,6 +44,8 @@ import {
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const force = args.includes("--force");
+// Actualiza los filtros de los webhooks sanos sin recrearlos (sin handshake).
+const filtersOnly = args.includes("--filters");
 const argValue = (name: string) =>
   args.includes(name) ? (args[args.indexOf(name) + 1] ?? null) : null;
 
@@ -56,6 +64,13 @@ async function main() {
   if (!workspaceGid) throw new Error("Falta ASANA_WORKSPACE_GID.");
 
   const onlyProject = argValue("--project");
+  if (filtersOnly) {
+    if (!onlyProject) {
+      throw new Error("Con --filters indica --project <gid>[,<gid>…].");
+    }
+    await updateFilters(baseUrl, workspaceGid, onlyProject.split(","));
+    process.exit(0);
+  }
   const projectGids = onlyProject
     ? [onlyProject]
     : [
@@ -125,6 +140,43 @@ async function main() {
     console.log(`  ✓ webhook ${created.gid} activo`);
   }
   process.exit(0);
+}
+
+/** Solo filtros: PUT a los webhooks activos con este target. Sin base. */
+async function updateFilters(
+  baseUrl: string,
+  workspaceGid: string,
+  projectGids: string[],
+) {
+  console.log(
+    `${apply ? "APLICANDO" : "DRY-RUN (usa --apply)"} · solo filtros · ${projectGids.length} proyecto(s)\n`,
+  );
+  for (const raw of projectGids) {
+    const projectGid = raw.trim();
+    if (!/^\d{1,32}$/.test(projectGid)) {
+      console.log(`• ${raw}: gid inválido, se omite`);
+      continue;
+    }
+    const target = `${baseUrl}/api/webhooks/asana?project=${projectGid}`;
+    const active = (await listWebhooks(workspaceGid, projectGid)).filter(
+      (hook) => hook.target === target && hook.active,
+    );
+    console.log(`• ${projectGid} → ${target}`);
+    if (!active.length) {
+      console.log(
+        "  ✗ sin webhook activo con este target (no se crea ni se recrea)",
+      );
+      continue;
+    }
+    for (const hook of active) {
+      if (!apply) {
+        console.log(`  → se actualizarían los filtros de ${hook.gid}`);
+        continue;
+      }
+      await updateWebhookFilters(hook.gid);
+      console.log(`  ✓ filtros actualizados en ${hook.gid}`);
+    }
+  }
 }
 
 main().catch((error) => {

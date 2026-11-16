@@ -188,3 +188,36 @@ export function buildDeliveryAuditStoryHtml(input: {
 }): string {
   return `<body><em>Noma envió la Entrega ${escapeHtml(input.round)} al cliente por correo · Para: ${escapeHtml(input.to.join(", "))}${input.cc.length ? ` · CC: ${escapeHtml(input.cc.join(", "))}` : ""}</em></body>`;
 }
+
+/**
+ * Comentario de Noma con los ajustes que pidió el cliente (extraídos de su
+ * respuesta), para que el responsable trabaje desde la tarea.
+ */
+export function buildAdjustmentsStoryHtml(input: {
+  round: number | null;
+  adjustments: { text: string; reference: string | null }[];
+  doubts: string[];
+}): string {
+  const round = input.round
+    ? ` a la Entrega ${String(input.round).padStart(2, "0")}`
+    : "";
+  const items = input.adjustments
+    .filter((item) => item.text.trim())
+    .map(
+      (item) =>
+        `<li>${item.reference ? `<strong>${escapeHtml(item.reference)}:</strong> ` : ""}${escapeHtml(item.text)}</li>`,
+    )
+    .join("");
+  const doubts = input.doubts
+    .filter((item) => item.trim())
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  return [
+    `<body><strong>Ajustes pedidos por el cliente${round}</strong>`,
+    items
+      ? `<ol>${items}</ol>`
+      : "\n<em>Sin detalle: revisar el correo del cliente arriba.</em>\n",
+    doubts ? `<strong>Por confirmar</strong><ul>${doubts}</ul>` : "",
+    `<em>Para enviar la corrección, comenta «ENTREGA ${String((input.round ?? 0) + 1).padStart(2, "0")}» con los links.</em></body>`,
+  ].join("");
+}

@@ -100,7 +100,12 @@ export async function updateSession(request: NextRequest) {
     Boolean(requestsMailbox) &&
     user?.email?.toLowerCase() === requestsMailbox;
 
-  if (user && pathname === "/login" && !isMailboxGrant) {
+  // /login?reconsent=google: cualquier usuario con sesión puede volver a la
+  // pantalla de Google para conceder permisos que falten (Mis conexiones).
+  const isReconsent =
+    request.nextUrl.searchParams.get("reconsent") === "google";
+
+  if (user && pathname === "/login" && !isMailboxGrant && !isReconsent) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";

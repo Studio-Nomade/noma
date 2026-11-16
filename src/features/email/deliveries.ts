@@ -18,6 +18,8 @@ import {
   type AsanaStory,
 } from "@/features/asana/asana";
 import { foldName } from "@/features/asana/custom-fields";
+import { notifyTeamEvent } from "@/features/bot/notify";
+import { deliverySentMessage } from "@/features/bot/team-events";
 import { logActivity } from "@/lib/activity";
 import { buildDeliveryAuditStoryHtml } from "./asana-content";
 import {
@@ -40,6 +42,14 @@ import {
   studioDomain,
 } from "./requests";
 import { getChannel } from "./store";
+import {
+  businessHoursFromEnv,
+  deferredSendAt,
+  formatBusinessSlot,
+  wantsImmediateSend,
+} from "./business-hours";
+import { isLifecycleStory } from "./lifecycle-rules";
+import { processLifecycleStory, type LifecycleOutcome } from "./task-lifecycle";
 import {
   escapeHtml,
   renderConsultaEmail,
@@ -64,7 +74,9 @@ export type DeliveryOutcome =
   | "skipped_not_delivery"
   | "skipped_no_request"
   | "skipped_duplicate"
-  | "rejected_no_links";
+  | "rejected_no_links"
+  | "scheduled"
+  | LifecycleOutcome;
 
 type Command =
   | {
@@ -105,10 +117,27 @@ function authorLabel(story: AsanaStory) {
 
 export async function processAsanaStory(
   storyGid: string,
-  options: { story?: AsanaStory; botUserGid?: string } = {},
+  options: {
+    story?: AsanaStory;
+    botUserGid?: string;
+    /** Proyecto del webhook que trajo el evento. */
+    projectGid?: string | null;
+    /**
+     * Envío de una entrega o consulta que quedó programada fuera del horario
+     * hábil y ya venció (lo llama `flushScheduledDeliveries`).
+     */
+    dueRun?: boolean;
+  } = {},
 ): Promise<DeliveryOutcome> {
   const botUserGid = options.botUserGid ?? (await resolveBotUserGid());
   const story = options.story ?? (await getStory(storyGid));
+  // Asignaciones y cierres hechos por el equipo (no por el bot).
+  if (isLifecycleStory(story)) {
+    if (!story.created_by || story.created_by.gid === botUserGid) {
+      return "skipped_bot";
+    }
+    return processLifecycleStory(story, { projectGid: options.projectGid });
+  }
   if (
     story.resource_subtype !== "comment_added" &&
     story.resource_subtype !== "enum_custom_field_changed"
@@ -169,11 +198,14 @@ export async function processAsanaStory(
       .update(requestDeliveries)
       .set({ status: "sending", error: null, updatedAt: new Date() })
       .where(
-        // Solo "failed" (Gmail rechazó: no salió). "sending"/"unknown" pueden
-        // haber salido y se dejan para revisión manual para no duplicar.
+        // Solo "failed" (Gmail rechazó: no salió) o una programada que ya
+        // venció. "sending"/"unknown" pueden haber salido y se dejan para
+        // revisión manual para no duplicar.
         and(
           eq(requestDeliveries.asanaStoryGid, story.gid),
-          eq(requestDeliveries.status, "failed"),
+          options.dueRun
+            ? inArray(requestDeliveries.status, ["failed", "scheduled"])
+            : eq(requestDeliveries.status, "failed"),
         ),
       )
       .returning();
@@ -309,6 +341,30 @@ export async function processAsanaStory(
     return "drafted";
   }
 
+  // Horario hábil (lun–vie 9:00–18:00, Santiago): fuera de él, entregas y
+  // consultas quedan programadas para las 08:55 del siguiente día hábil.
+  // «ENVIAR AHORA» en el comentario lo salta. Se decide con la hora del
+  // comentario, no con la del proceso (la reconciliación puede llegar tarde).
+  if (!options.dueRun && !wantsImmediateSend(story.text)) {
+    const commentedAt = story.created_at
+      ? new Date(story.created_at)
+      : new Date();
+    const sendAt = deferredSendAt(commentedAt, businessHoursFromEnv());
+    if (sendAt && sendAt.getTime() > Date.now()) {
+      await db
+        .update(requestDeliveries)
+        .set({ status: "scheduled", updatedAt: new Date() })
+        .where(eq(requestDeliveries.id, delivery.id));
+      const what =
+        command.kind === "delivery" ? `la Entrega ${padded}` : "la consulta";
+      await addStory(
+        taskGid,
+        `<body><em>Fuera del horario hábil (lunes a viernes, 9:00 a 18:00): Noma enviará ${what} al cliente ${escapeHtml(formatBusinessSlot(sendAt))}. Para enviarla de inmediato, escribe «ENVIAR AHORA» en el comentario de la entrega.</em></body>`,
+      ).catch((error) => console.error("[email:delivery:scheduled]", error));
+      return "scheduled";
+    }
+  }
+
   let sent: Awaited<ReturnType<typeof sendReply>>;
   try {
     sent = await sendReply(message);
@@ -392,12 +448,73 @@ export async function processAsanaStory(
       cc,
     }),
   ).catch((error) => console.error("[email:delivery:story]", error));
+  await notifyTeamEvent(
+    deliverySentMessage({
+      folio: request.folio,
+      clientName: channel.clientName,
+      round,
+      asanaUrl: request.asanaUrl,
+    }),
+    channel.slackWebhookEnv,
+  );
   await logActivity({
     entityType: "client_request",
     entityId: request.id,
     action: "email_delivery_sent",
   });
   return "sent";
+}
+
+/**
+ * Envía las entregas y consultas programadas cuyo horario hábil ya llegó.
+ * Idempotente: cada fila programada se reclama una vez (`dueRun`). Lo llaman
+ * el endpoint `/api/cron/scheduled-deliveries` (a las 08:55), el cron de
+ * mantención y, de paso, los webhooks de Asana y Gmail.
+ */
+export async function flushScheduledDeliveries({
+  limit = 20,
+  deadline = Date.now() + 40_000,
+}: { limit?: number; deadline?: number } = {}) {
+  const since = new Date(Date.now() - 21 * 24 * 60 * 60 * 1_000);
+  const rows = await db
+    .select({
+      storyGid: requestDeliveries.asanaStoryGid,
+      createdAt: requestDeliveries.createdAt,
+    })
+    .from(requestDeliveries)
+    .where(
+      and(
+        eq(requestDeliveries.status, "scheduled"),
+        gt(requestDeliveries.createdAt, since),
+      ),
+    )
+    .orderBy(requestDeliveries.createdAt)
+    .limit(100);
+  const hours = businessHoursFromEnv();
+  const due = rows
+    .filter((row) => {
+      const at = deferredSendAt(row.createdAt, hours);
+      return !at || at.getTime() <= Date.now();
+    })
+    .slice(0, limit);
+  if (!due.length) return { scheduled: rows.length, sent: 0, failed: 0 };
+  const botUserGid = await resolveBotUserGid();
+  let sent = 0;
+  let failed = 0;
+  for (const row of due) {
+    if (Date.now() > deadline) break;
+    try {
+      const outcome = await processAsanaStory(row.storyGid, {
+        botUserGid,
+        dueRun: true,
+      });
+      if (outcome === "sent") sent += 1;
+    } catch (error) {
+      failed += 1;
+      console.error("[email:delivery:flush]", error);
+    }
+  }
+  return { scheduled: rows.length, sent, failed };
 }
 
 /** Correo de quien comenta y responsable de la tarea (null si Asana falla). */

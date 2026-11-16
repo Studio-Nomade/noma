@@ -36,6 +36,8 @@ import { computeTotals, type LineItem } from "@/features/proposals/totals";
 import { roleFor } from "@/lib/roles";
 import { getSalesOrderByProposal } from "@/features/finance/sales-orders/queries";
 import { createSalesOrderAndOpen } from "@/features/finance/sales-orders/actions";
+import { AiDraftPanel } from "@/features/quoter/ai-draft-panel";
+import { getDraftRunForProposal } from "@/features/quoter/queries";
 
 export default async function ProposalDetailPage({
   params,
@@ -63,6 +65,7 @@ export default async function ProposalDetailPage({
     salesOrder,
     servicePackages,
     serviceVariants,
+    aiRun,
   ] = await Promise.all([
     requireUser(),
     getProposalServices(id),
@@ -79,6 +82,7 @@ export default async function ProposalDetailPage({
     getSalesOrderByProposal(id),
     listServicePackages(),
     listServiceVariantsForAreas(areas),
+    getDraftRunForProposal(id, root),
   ]);
 
   const ufClp = Number(rates.ufClp) || 0;
@@ -212,6 +216,9 @@ export default async function ProposalDetailPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Servicios + secciones */}
         <div className="space-y-6 lg:col-span-2">
+          <div className="glass rounded-xl p-6">
+            <AiDraftPanel run={aiRun} proposalId={id} area={projectArea} />
+          </div>
           {locked ? (
             <ProposalReadonly
               proposal={proposal}

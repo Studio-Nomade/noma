@@ -21,7 +21,10 @@ export function UserConnectionsCard({
         </h2>
         <p className="text-muted-foreground mt-1 text-xs">
           Cuentas personales. Los tokens se almacenan cifrados y nunca llegan al
-          navegador.
+          navegador.{" "}
+          <a href="/integrations" className="underline underline-offset-2">
+            Ver qué puede hacer Noma con cada una
+          </a>
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

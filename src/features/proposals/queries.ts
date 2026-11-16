@@ -88,16 +88,26 @@ export async function getProposalServices(proposalId: string) {
       name: services.name,
       subarea: services.subarea,
       area: services.area,
-      priceAmount: sql<string | null>`coalesce(${serviceVariants.priceMinAmount}, ${services.priceMinAmount})`,
+      priceAmount: sql<
+        string | null
+      >`coalesce(${serviceVariants.priceMinAmount}, ${services.priceMinAmount})`,
       priceCurrency: sql<
         typeof services.$inferSelect.priceCurrency
       >`coalesce(${serviceVariants.priceCurrency}, ${services.priceCurrency})`,
       priceType: services.priceType,
       unit: services.unit,
-      description: sql<string | null>`coalesce(${serviceVariants.description}, ${services.description})`,
-      methodology: sql<string | null>`coalesce(${serviceVariants.methodology}, ${services.methodology})`,
-      deliverables: sql<string | null>`coalesce(${serviceVariants.deliverables}, ${services.deliverables})`,
-      serviceExclusions: sql<string | null>`coalesce(${serviceVariants.exclusions}, ${services.exclusions})`,
+      description: sql<
+        string | null
+      >`coalesce(${serviceVariants.description}, ${services.description})`,
+      methodology: sql<
+        string | null
+      >`coalesce(${serviceVariants.methodology}, ${services.methodology})`,
+      deliverables: sql<
+        string | null
+      >`coalesce(${serviceVariants.deliverables}, ${services.deliverables})`,
+      serviceExclusions: sql<
+        string | null
+      >`coalesce(${serviceVariants.exclusions}, ${services.exclusions})`,
       requirements: services.requirements,
     })
     .from(proposalServices)
@@ -230,7 +240,8 @@ export async function listServicesForAreas(areas: string[]) {
     .where(
       and(
         inArray(services.area, list as never[]),
-        eq(services.status, "Activo"),
+        // "En revisión": servicios que propuso el cotizador con IA; se cotizan de inmediato.
+        inArray(services.status, ["Activo", "En revisión"]),
       ),
     )
     .orderBy(asc(services.area), asc(services.subarea), asc(services.name));
@@ -249,7 +260,8 @@ export async function listServiceVariantsForAreas(areas: string[]) {
     .where(
       and(
         inArray(services.area, list as never[]),
-        eq(services.status, "Activo"),
+        // "En revisión": servicios que propuso el cotizador con IA; se cotizan de inmediato.
+        inArray(services.status, ["Activo", "En revisión"]),
         eq(serviceVariants.enabled, true),
       ),
     )

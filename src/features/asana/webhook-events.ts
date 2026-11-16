@@ -47,11 +47,14 @@ export type StoryAddedEvent = {
 export const HANDLED_STORY_SUBTYPES = [
   "comment_added",
   "enum_custom_field_changed",
+  // Asignación → Estado «Planificada»; cierre → aviso en Slack.
+  "assigned",
+  "marked_complete",
 ];
 
 /**
- * Eventos `story` `added` (comentarios nuevos y cambios de campos enum, como
- * Estado), sin duplicados.
+ * Eventos `story` `added` (comentarios nuevos, cambios de campos enum como
+ * Estado, asignaciones y cierres), sin duplicados.
  */
 export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
   const events = (payload as { events?: AsanaEventJson[] } | null)?.events;
@@ -88,4 +91,30 @@ export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
     });
   }
   return out;
+}
+
+type WebhookFilter = {
+  resource_type?: string | null;
+  resource_subtype?: string | null;
+  action?: string | null;
+};
+
+/**
+ * ¿El webhook ya escucha todas las stories que Noma procesa? Si falta alguna
+ * (p. ej. webhooks registrados antes de sumar asignaciones y cierres), hay que
+ * actualizar sus filtros.
+ */
+export function webhookFiltersCurrent(
+  filters: readonly WebhookFilter[] | null | undefined,
+): boolean {
+  const have = new Set(
+    (filters ?? [])
+      .filter(
+        (filter) =>
+          filter.resource_type === "story" &&
+          (!filter.action || filter.action === "added"),
+      )
+      .map((filter) => filter.resource_subtype ?? ""),
+  );
+  return HANDLED_STORY_SUBTYPES.every((subtype) => have.has(subtype));
 }

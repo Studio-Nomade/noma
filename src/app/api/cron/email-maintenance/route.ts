@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { syncWebhookFilters } from "@/features/asana/webhook-store";
 import { gateCronRequest } from "@/lib/cron";
 import {
   flagStuckDeliveries,
+  flushScheduledDeliveries,
   reconcileAsanaDeliveries,
 } from "@/features/email/deliveries";
 import { processPendingEmails } from "@/features/email/processor";
@@ -57,6 +59,12 @@ export async function GET(request: Request) {
     };
   });
   await step("stuckDeliveries", () => flagStuckDeliveries());
+  // Respaldo de pg_cron: entregas programadas que ya vencieron.
+  await step("scheduledDeliveries", () =>
+    flushScheduledDeliveries({ limit: 10, deadline: deadline - 15_000 }),
+  );
+  // Webhooks antiguos sin los filtros nuevos (asignaciones, cierres).
+  await step("asanaWebhookFilters", () => syncWebhookFilters());
   await step("asanaReconcile", () =>
     reconcileAsanaDeliveries({ deadline: deadline - 5_000 }),
   );

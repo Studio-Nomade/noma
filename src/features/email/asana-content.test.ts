@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildCustomFieldValues } from "@/features/asana/custom-fields";
-import { aiFieldWishes } from "./asana-content";
+import { aiFieldWishes, buildAdjustmentsStoryHtml } from "./asana-content";
 
 const SETTINGS = [
   {
@@ -54,4 +54,27 @@ test("sin campos permitidos no hay deseos", () => {
     aiFieldWishes([{ field: "Formato", options: ["Video"] }], []),
     [],
   );
+});
+
+test("comentario de ajustes: lista numerada, referencias y siguiente entrega", () => {
+  const html = buildAdjustmentsStoryHtml({
+    round: 1,
+    adjustments: [
+      { text: "Cambiar el color del botón", reference: "Lámina 2" },
+      { text: "Subir el logo <grande>", reference: null },
+    ],
+    doubts: ["¿El botón va en azul o verde?"],
+  });
+  assert.match(
+    html,
+    /^<body><strong>Ajustes pedidos por el cliente a la Entrega 01<\/strong><ol>/,
+  );
+  assert.match(
+    html,
+    /<li><strong>Lámina 2:<\/strong> Cambiar el color del botón<\/li>/,
+  );
+  assert.match(html, /Subir el logo &lt;grande&gt;/);
+  assert.match(html, /<strong>Por confirmar<\/strong><ul><li>/);
+  assert.match(html, /«ENTREGA 02»/);
+  assert.match(html, /<\/body>$/);
 });

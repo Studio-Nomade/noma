@@ -153,6 +153,23 @@ al aplicarlo cada servicio sigue siendo una línea editable de `proposal_service
 `variant_tier` (default START), `custom_price_amount`, `custom_price_currency`. Único por
 (`proposal_id`, `service_id`).
 
+### Cotizador con IA (ver `ai-cotizador.md`)
+
+- `quoter_runs`: cada llamada del cotizador (`kind` brief · draft · learning; `status`
+  running · done · failed), con `project_id`, `proposal_id`, proveedor, modelo, duración,
+  `context_refs` (ids de memoria y precedentes usados) y `output` (el borrador estructurado,
+  para compararlo con lo que el equipo envía). No guarda prompts.
+- `quoter_learnings`: memoria del cotizador. `kind` (precio · alcance · condiciones ·
+  redaccion · catalogo · proceso), `scope` (global · area · servicio · cliente · rubro) con
+  `area` / `service_id` / `client_id` / `industry`, `statement*`, `rationale`, `origin`
+  (ia · equipo), `active` (default true), `times_applied`, `source_proposal_id`.
+- `proposal_precedents`: presupuestos históricos (`source` historico, `source_key` = ruta del
+  PDF) y propuestas de Noma enviadas/aprobadas/rechazadas (`source` noma, `proposal_id`
+  único) con `lines` (jsonb), `total_uf`, `conditions`, `outcome` y `raw_text` (búsqueda por
+  texto en español).
+- `services.status` suma `En revisión` (servicio propuesto por la IA) y `services` gana
+  `suggested_by_ai` y `origin_proposal_id`.
+
 ### resource_links (polimórfica)
 
 `entity_type` (client | project | proposal), `entity_id uuid`, `type` (link_type),
@@ -230,3 +247,7 @@ team_members 1 ──── 0..1 employees 1 ──── N employee_documents
 5. Todo proyecto tiene cliente (`client_id` obligatorio).
 6. Proyectos activos deben tener `next_action`.
 7. Servicios inactivos no aparecen en la selección de propuestas.
+
+## assistant_briefings
+
+Resumen diario del asistente por persona (`user_id`, `day` en America/Santiago, único por par). `data` guarda solo títulos, remitentes y enlaces, nunca el cuerpo de correos o mensajes. `expires_at` = generación + 7 días; se purga al generar. Ver `docs/technical/asistente.md`.

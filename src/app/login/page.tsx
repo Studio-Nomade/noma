@@ -13,7 +13,8 @@ import { toast } from "sonner";
 
 /** Motivos de rechazo que llegan como ?error= desde el callback o el middleware. */
 const ERROR_MESSAGES: Record<string, string> = {
-  domain: "Esa cuenta no pertenece a Studio Nomade. Ingresa con tu correo del estudio.",
+  domain:
+    "Esa cuenta no pertenece a Studio Nomade. Ingresa con tu correo del estudio.",
   auth: "No se pudo completar el inicio de sesión. Intenta nuevamente.",
   missing_code: "El enlace de acceso expiró. Intenta iniciar sesión otra vez.",
 };
@@ -21,12 +22,15 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [rejection, setRejection] = useState<string | null>(null);
+  const [reconsent, setReconsent] = useState(false);
 
   // Motivo del rechazo (si no, el usuario vuelve al login sin explicación).
   // Se muestra inline y no como toast: es un mensaje que debe permanecer visible.
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("error");
+    const search = new URLSearchParams(window.location.search);
+    const code = search.get("error");
     if (code) setRejection(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.auth);
+    setReconsent(search.get("reconsent") === "google");
   }, []);
 
   async function signInWithGoogle() {
@@ -71,8 +75,9 @@ export default function LoginPage() {
           Bienvenido a Noma
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          Plataforma interna de Studio Nomade. Ingresa con tu cuenta del
-          estudio.
+          {reconsent
+            ? "Vuelve a entrar con tu cuenta del estudio. En la pantalla de Google, deja marcadas todas las casillas para que tu asistente pueda leer tu correo, tu agenda y tu Drive."
+            : "Plataforma interna de Studio Nomade. Ingresa con tu cuenta del estudio."}
         </p>
 
         {rejection && (

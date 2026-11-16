@@ -10,6 +10,7 @@ import {
   type CustomFieldValues,
   type CustomFieldWish,
 } from "./custom-fields";
+import { HANDLED_STORY_SUBTYPES } from "./webhook-events";
 
 /**
  * Asana: creación de tarea/proyecto al traspasar una oportunidad a operación.
@@ -761,15 +762,23 @@ export function taskFieldValue(task: AsanaTaskState, fieldName: string) {
 /** Responsable actual de la tarea (gid y correo), o null si no tiene. */
 export async function getTaskAssignee(
   taskGid: string,
-): Promise<{ gid: string; email: string | null } | null> {
+): Promise<{ gid: string; email: string | null; name: string | null } | null> {
   const task = await asanaRequest<{
-    assignee?: { gid: string; email?: string | null } | null;
+    assignee?: {
+      gid: string;
+      email?: string | null;
+      name?: string | null;
+    } | null;
   }>(
     "GET",
-    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=assignee.gid,assignee.email`,
+    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=assignee.gid,assignee.email,assignee.name`,
   );
   if (!task?.assignee?.gid) return null;
-  return { gid: task.assignee.gid, email: task.assignee.email ?? null };
+  return {
+    gid: task.assignee.gid,
+    email: task.assignee.email ?? null,
+    name: task.assignee.name ?? null,
+  };
 }
 
 /** Correo de un usuario de Asana (null si el token no lo puede ver). */
@@ -816,22 +825,49 @@ export async function createWebhook(resourceGid: string, target: string) {
       body: {
         resource: resourceGid,
         target,
-        filters: [
-          {
-            resource_type: "story",
-            resource_subtype: "comment_added",
-            action: "added",
-          },
-          // Cambio de "Estado" a Fuera de alcance → borrador del correo 07.
-          {
-            resource_type: "story",
-            resource_subtype: "enum_custom_field_changed",
-            action: "added",
-          },
-        ],
+        filters: WEBHOOK_FILTERS,
       },
       timeoutMs: 30_000,
     },
+  );
+}
+
+/**
+ * Stories que escucha el webhook de cada tablero: comentarios (ENTREGA,
+ * CONSULTA), cambios de Estado (Fuera de alcance → borrador del 07),
+ * asignaciones (→ Planificada) y cierres (aviso en Slack).
+ */
+export const WEBHOOK_FILTERS = HANDLED_STORY_SUBTYPES.map(
+  (resource_subtype) => ({
+    resource_type: "story",
+    resource_subtype,
+    action: "added",
+  }),
+);
+
+/** Filtros actuales de un webhook (para saber si hay que actualizarlos). */
+export async function getWebhookFilters(webhookGid: string) {
+  const hook = await asanaRequest<{
+    gid: string;
+    active?: boolean;
+    filters?: {
+      resource_type?: string | null;
+      resource_subtype?: string | null;
+      action?: string | null;
+    }[];
+  }>(
+    "GET",
+    `/webhooks/${encodeURIComponent(webhookGid)}?opt_fields=active,filters.resource_type,filters.resource_subtype,filters.action`,
+  );
+  return { active: hook?.active ?? false, filters: hook?.filters ?? [] };
+}
+
+/** Actualiza los filtros de un webhook existente (sin nuevo handshake). */
+export async function updateWebhookFilters(webhookGid: string) {
+  return asanaRequest<AsanaWebhookInfo>(
+    "PUT",
+    `/webhooks/${encodeURIComponent(webhookGid)}?opt_fields=gid,active,target,resource.gid`,
+    { body: { filters: WEBHOOK_FILTERS }, timeoutMs: 30_000 },
   );
 }
 
