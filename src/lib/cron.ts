@@ -23,6 +23,8 @@ import { timingSafeEqual } from "node:crypto";
  * - `cobranza-seguimiento`: seguimiento de cobranza a 7 días (P3). Con la
  *   bandera encendida deja borradores; además envía solo si
  *   `NOMA_COBRANZA_AUTOSEND=true`.
+ * - `assistant-briefing`: resumen diario de cada persona del piloto del
+ *   asistente (solo lectura de sus cuentas; no escribe a nadie).
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
@@ -32,6 +34,7 @@ export const CRON_JOBS = {
   // Entregas programadas fuera del horario hábil: misma bandera que el
   // mantenimiento del canal correo (lo llama pg_cron de Supabase a las 08:55).
   "scheduled-deliveries": "CRON_EMAIL_MAINTENANCE_ENABLED",
+  "assistant-briefing": "CRON_ASSISTANT_BRIEFING_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;

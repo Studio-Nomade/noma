@@ -2816,3 +2816,25 @@ export type CobranzaTemplate = typeof cobranzaTemplates.$inferSelect;
 export type NewCobranzaTemplate = typeof cobranzaTemplates.$inferInsert;
 export type CobranzaMessage = typeof cobranzaMessages.$inferSelect;
 export type NewCobranzaMessage = typeof cobranzaMessages.$inferInsert;
+
+// ── assistant_briefings (resumen diario del asistente, por persona) ──
+// Solo el resumen del día (títulos, remitentes, enlaces), nunca el cuerpo de
+// correos ni mensajes. Vence a los 7 días y se purga al generar uno nuevo.
+export const assistantBriefings = pgTable(
+  "assistant_briefings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(), // auth.users.id
+    day: date("day").notNull(), // fecha en America/Santiago
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    model: text("model"),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("assistant_briefings_user_day_idx").on(t.userId, t.day),
+    index("assistant_briefings_expires_idx").on(t.expiresAt),
+  ],
+);
