@@ -13,8 +13,12 @@ import { listTeamMembers } from "@/features/projects/queries";
 import { getClientContacts } from "@/features/clients/queries";
 import { listServices } from "@/features/services/queries";
 import { BriefHub, type BriefHubData } from "@/features/briefs/brief-hub";
+import { quoterAiConfig } from "@/features/quoter/ai-config";
 
 export const metadata = { title: "Brief" };
+// "Cotizar con IA" corre como server action de esta página: Claude puede tardar
+// 1–3 minutos en armar el borrador (Fluid Compute admite hasta 300 s).
+export const maxDuration = 300;
 
 const GENERAL_KEYS = [
   "contextGeneral",
@@ -84,6 +88,7 @@ export default async function BriefEditorPage({
     risks: brief?.risks ?? "",
     nextSteps: brief?.nextSteps ?? "",
     aiExtraction: (brief?.aiExtraction as BriefHubData["aiExtraction"]) ?? null,
+    aiEnabled: quoterAiConfig("draft") != null,
     approved: {
       at: brief?.approvedAt ? brief.approvedAt.toISOString() : null,
       by: latestApproved?.approvedByEmail ?? null,

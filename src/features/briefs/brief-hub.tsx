@@ -31,6 +31,7 @@ import {
 } from "@/types/enums";
 import { BRIEF_FIELDS_BY_AREA } from "./fields";
 import { ScheduleMeetingDialog } from "./schedule-meeting-dialog";
+import { AiQuoteDialog } from "@/features/quoter/ai-quote-dialog";
 import {
   CreateFromBriefDialog,
   type ServiceOption,
@@ -77,6 +78,8 @@ export type BriefHubData = {
     engine?: string;
   } | null;
   approved: { at: string | null; by: string | null };
+  /** IA del cotizador configurada en el entorno (Claude por defecto). */
+  aiEnabled: boolean;
   meetings: {
     id: string;
     title: string;
@@ -199,7 +202,18 @@ export function BriefHub({ data }: { data: BriefHubData }) {
     const res = await processNotes(data.projectId);
     setBusy(false);
     if (res.ok) {
-      toast.success("Brief sugerido generado");
+      const { engine, clientUpdated, warning } = res.data;
+      if (warning) toast.warning(warning);
+      toast.success(
+        engine === "claude"
+          ? "Brief sugerido con IA. Revísalo antes de aprobar."
+          : "Brief sugerido generado",
+        clientUpdated.length
+          ? {
+              description: `Ficha del cliente completada: ${clientUpdated.length} dato(s) nuevo(s).`,
+            }
+          : undefined,
+      );
       setStatus("Brief sugerido");
       router.refresh();
     } else {
@@ -755,21 +769,37 @@ export function BriefHub({ data }: { data: BriefHubData }) {
             {approved ? (
               <>
                 <p className="text-muted-foreground text-sm">
-                  El brief está aprobado. La propuesta heredará contexto,
-                  objetivo, alcance, observaciones y los servicios sugeridos.
+                  El brief está aprobado. Con IA, Noma arma la propuesta
+                  completa en Borrador: servicios del catálogo con nivel y
+                  valor, servicios nuevos o ajustados (quedan «En revisión» en
+                  el catálogo), secciones, equipo y condiciones, usando
+                  propuestas anteriores y la memoria del cotizador. También
+                  puedes crearla a mano.
                 </p>
-                <CreateFromBriefDialog
-                  projectId={data.projectId}
-                  projectName={data.projectName}
-                  suggestedNames={data.suggestedServices}
-                  services={data.catalogServices}
-                  trigger={
-                    <Button>
-                      <FileSignature className="size-4" />
-                      Crear propuesta desde brief
-                    </Button>
-                  }
-                />
+                <div className="flex flex-wrap gap-2">
+                  <AiQuoteDialog
+                    projectId={data.projectId}
+                    enabled={data.aiEnabled}
+                    trigger={
+                      <Button>
+                        <Sparkles className="size-4" />
+                        Cotizar con IA
+                      </Button>
+                    }
+                  />
+                  <CreateFromBriefDialog
+                    projectId={data.projectId}
+                    projectName={data.projectName}
+                    suggestedNames={data.suggestedServices}
+                    services={data.catalogServices}
+                    trigger={
+                      <Button variant="outline">
+                        <FileSignature className="size-4" />
+                        Crear propuesta a mano
+                      </Button>
+                    }
+                  />
+                </div>
               </>
             ) : (
               <div className="text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm">

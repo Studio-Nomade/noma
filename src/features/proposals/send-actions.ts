@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { learnFromProposal } from "@/features/quoter/learn";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { proposals, proposalNotes } from "@/db/schema";
@@ -53,6 +55,8 @@ export async function sendProposalEmail(
       authorEmail: user.email,
       body: `Propuesta enviada a ${input.to.join(", ")}.`,
     });
+
+    after(() => learnFromProposal(id, "Enviada"));
 
     revalidatePath(`/proposals/${id}`);
     revalidatePath("/proposals");
