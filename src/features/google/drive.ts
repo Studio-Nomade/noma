@@ -1,5 +1,6 @@
 import "server-only";
 import { getGoogleAccessToken, GoogleAuthError } from "./auth";
+import { googleDenialFromResponse, type GoogleDenialKind } from "./errors";
 
 /**
  * Google Drive: lectura de documentos de notas y búsqueda de archivos recientes
@@ -19,7 +20,12 @@ export type DriveFile = {
   owners: string[];
 };
 
-export type DriveNotConnected = { connected: false; reason: string };
+export type DriveNotConnected = {
+  connected: false;
+  reason: string;
+  /** "scope" = el usuario debe volver a entrar; "api_disabled" = admin. */
+  kind?: GoogleDenialKind | "no_token";
+};
 
 /** Extrae el fileId de una URL de Drive/Docs, o devuelve el input si ya es un id. */
 export function parseDriveId(input: string): string | null {
@@ -60,7 +66,7 @@ export async function readDriveDoc(
     token = await getGoogleAccessToken(userId);
   } catch (err) {
     if (err instanceof GoogleAuthError)
-      return { connected: false, reason: err.message };
+      return { connected: false, reason: err.message, kind: "no_token" };
     throw err;
   }
   const auth = { Authorization: `Bearer ${token}` };
@@ -70,8 +76,10 @@ export async function readDriveDoc(
     `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType`,
     { headers: auth },
   );
-  if (metaRes.status === 401 || metaRes.status === 403)
-    return { connected: false, reason: "Falta permiso de Google Drive." };
+  if (metaRes.status === 401 || metaRes.status === 403) {
+    const denial = await googleDenialFromResponse(metaRes, "Google Drive");
+    return { connected: false, reason: denial.message, kind: denial.kind };
+  }
   if (!metaRes.ok)
     return { connected: true, error: "No se pudo acceder al documento." };
   const meta = (await metaRes.json()) as { name: string; mimeType: string };
@@ -104,7 +112,7 @@ export async function searchRecentDocs(
     token = await getGoogleAccessToken(userId);
   } catch (err) {
     if (err instanceof GoogleAuthError)
-      return { connected: false, reason: err.message };
+      return { connected: false, reason: err.message, kind: "no_token" };
     throw err;
   }
 
@@ -127,8 +135,10 @@ export async function searchRecentDocs(
     `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
-  if (res.status === 401 || res.status === 403)
-    return { connected: false, reason: "Falta permiso de Google Drive." };
+  if (res.status === 401 || res.status === 403) {
+    const denial = await googleDenialFromResponse(res, "Google Drive");
+    return { connected: false, reason: denial.message, kind: denial.kind };
+  }
   if (!res.ok) return { connected: false, reason: "Drive no respondió." };
 
   const json = (await res.json()) as {
