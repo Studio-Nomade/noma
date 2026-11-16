@@ -108,3 +108,28 @@ test("lee el consumo de tokens de la respuesta", () => {
     cacheWriteTokens: 0,
   });
 });
+
+test("claudeStructuredBody marca con caché solo los bloques indicados", async () => {
+  const { claudeStructuredBody } = await import("./structured-body");
+  const body = claudeStructuredBody({
+    model: "claude-opus-5-5",
+    effort: "medium",
+    maxTokens: 100,
+    system: [
+      { text: "método" },
+      { text: "catálogo", cache: true },
+      { text: "  " },
+    ],
+    input: "brief",
+    schema,
+  });
+  assert.equal(body.system.length, 2);
+  assert.equal("cache_control" in body.system[0], false);
+  assert.deepEqual(body.system[1], {
+    type: "text",
+    text: "catálogo",
+    cache_control: { type: "ephemeral" },
+  });
+  assert.equal(body.output_config.effort, "medium");
+  assert.equal("tool_choice" in body, false);
+});

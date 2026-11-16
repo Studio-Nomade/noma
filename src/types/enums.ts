@@ -285,8 +285,47 @@ export const PROPOSAL_STATUSES = [
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 
 // ── Servicio ─────────────────────────────────────────────────
-export const SERVICE_STATUSES = ["Activo", "Inactivo"] as const;
+// "En revisión": servicio nuevo o ajustado que propuso el cotizador con IA. Se
+// puede cotizar de inmediato; Dirección de Arte o superadmin lo pasa a Activo.
+export const SERVICE_STATUSES = ["Activo", "Inactivo", "En revisión"] as const;
 export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
+
+// ── Cotizador con IA: memoria ────────────────────────────────
+// Tipo de aprendizaje y alcance (a qué propuestas aplica).
+export const QUOTER_LEARNING_KINDS = [
+  "precio",
+  "alcance",
+  "condiciones",
+  "redaccion",
+  "catalogo",
+  "proceso",
+] as const;
+export type QuoterLearningKind = (typeof QUOTER_LEARNING_KINDS)[number];
+export const QUOTER_LEARNING_KIND_LABELS: Record<QuoterLearningKind, string> = {
+  precio: "Precio",
+  alcance: "Alcance",
+  condiciones: "Condiciones",
+  redaccion: "Redacción",
+  catalogo: "Catálogo",
+  proceso: "Proceso",
+};
+
+export const QUOTER_LEARNING_SCOPES = [
+  "global",
+  "area",
+  "servicio",
+  "cliente",
+  "rubro",
+] as const;
+export type QuoterLearningScope = (typeof QUOTER_LEARNING_SCOPES)[number];
+export const QUOTER_LEARNING_SCOPE_LABELS: Record<QuoterLearningScope, string> =
+  {
+    global: "Todas las propuestas",
+    area: "Área",
+    servicio: "Servicio",
+    cliente: "Cliente",
+    rubro: "Rubro",
+  };
 
 // Prioridad de un servicio dentro de una cotización: recargo sobre el valor base.
 export const SERVICE_PRIORITIES = [
@@ -480,11 +519,7 @@ export const LEDGER_ACCOUNT_TYPES = [
 ] as const;
 export type LedgerAccountType = (typeof LEDGER_ACCOUNT_TYPES)[number];
 
-export const LEDGER_ACCOUNT_KINDS = [
-  "CUENTA",
-  "SERVICIO",
-  "PRODUCTO",
-] as const;
+export const LEDGER_ACCOUNT_KINDS = ["CUENTA", "SERVICIO", "PRODUCTO"] as const;
 export type LedgerAccountKind = (typeof LEDGER_ACCOUNT_KINDS)[number];
 
 // Nota de venta y esquema de facturación

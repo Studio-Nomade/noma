@@ -2,6 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { isLearningEvent, learnFromProposal } from "@/features/quoter/learn";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -55,7 +57,9 @@ const EDITABLE_FIELDS = [
 ] as const;
 type EditableField = (typeof EDITABLE_FIELDS)[number];
 
-const proposalIdSchema = z.string().uuid("Identificador de propuesta inválido.");
+const proposalIdSchema = z
+  .string()
+  .uuid("Identificador de propuesta inválido.");
 const rowIdSchema = z.string().uuid("Identificador de fila inválido.");
 
 function failValidation(message: string): never {
@@ -298,6 +302,11 @@ export async function setProposalStatus(
       .update(proposals)
       .set({ status: input.status, updatedAt: new Date() })
       .where(eq(proposals.id, input.id));
+    // Memoria del cotizador: aprende de lo enviado, aprobado o rechazado.
+    const nextStatus = input.status;
+    if (isLearningEvent(nextStatus)) {
+      after(() => learnFromProposal(input.id, nextStatus));
+    }
     revalidatePath("/proposals");
     revalidatePath(`/proposals/${input.id}`);
     return { ok: true, data: undefined };
@@ -399,10 +408,12 @@ export async function addServicePackageToProposal(
 ): Promise<ActionResult> {
   try {
     await requireUser();
-    const ids = z.object({
-      proposalId: proposalIdSchema,
-      packageId: z.string().uuid("Identificador de paquete inválido."),
-    }).parse({ proposalId, packageId });
+    const ids = z
+      .object({
+        proposalId: proposalIdSchema,
+        packageId: z.string().uuid("Identificador de paquete inválido."),
+      })
+      .parse({ proposalId, packageId });
     await db.transaction(async (tx) => {
       await assertProposalEditable(tx, ids.proposalId);
       const [servicePackage] = await tx

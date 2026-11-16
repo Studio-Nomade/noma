@@ -1,4 +1,5 @@
-import { FileSignature } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, FileSignature } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { listProposals } from "@/features/proposals/queries";
@@ -14,6 +15,15 @@ export default async function ProposalsPage() {
       <PageHeader
         title="Propuestas"
         description={`${proposals.length} ${proposals.length === 1 ? "cotización" : "cotizaciones"}`}
+        action={
+          <Link
+            href="/proposals/memoria"
+            className="border-border hover:bg-accent inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium"
+          >
+            <BookOpen className="size-4" />
+            Memoria del cotizador
+          </Link>
+        }
       />
 
       {proposals.length === 0 ? (
