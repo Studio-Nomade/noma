@@ -254,8 +254,9 @@ Nuevas:
   coma (por defecto `google.com,microsoft.com`). Vacío desactiva el respaldo ARC.
 - `NOMA_GMAIL_WATCH_LABEL_ID` — opcional; limita watch/history a una etiqueta.
 - `NOMA_ASANA_BOT_USER_GID` — opcional; si falta se usa `users/me` del token central.
-- `NOMA_SCHEDULER_SECRET` — secreto (≥ 32 caracteres) con el que pg_cron llama a
-  `/api/cron/scheduled-deliveries`.
+- `NOMA_SCHEDULER_SECRET` — opcional; secreto (≥ 32 caracteres) con el que
+  pg_cron llama a `/api/cron/scheduled-deliveries`. Sin él, NOMA usa el de
+  Vault (`noma_scheduler_secret`).
 - `NOMA_BUSINESS_HOLIDAYS` — opcional; feriados `AAAA-MM-DD` separados por coma.
 - `NOMA_SLACK_USER_IDS` — opcional; `correo=UXXXX,…` para etiquetar al responsable en
   los avisos de ajustes. No es secreta, pero vive en Vercel para no versionar al equipo.
@@ -300,14 +301,16 @@ salen solo en horario hábil: **lunes a viernes de 9:00 a 18:00, hora de Santiag
 Vercel Hobby no garantiza la hora de sus crons, así que el endpoint lo llama
 **pg_cron de Supabase** a las 08:55 (11:55 y 12:55 UTC cubren el horario de
 verano y de invierno; el endpoint solo envía lo vencido). Acepta
-`Bearer CRON_SECRET` o `Bearer NOMA_SCHEDULER_SECRET` (≥ 32 caracteres) y usa
-la bandera `CRON_EMAIL_MAINTENANCE_ENABLED`. En el SQL Editor de Supabase, con
-el mismo valor de `NOMA_SCHEDULER_SECRET` que está en Vercel:
+`Bearer CRON_SECRET` o el secreto del programador (≥ 32 caracteres) y usa la
+bandera `CRON_EMAIL_MAINTENANCE_ENABLED`. El secreto se genera dentro de
+Supabase (Vault, `noma_scheduler_secret`) y NOMA lo lee de ahí, así que nadie
+lo copia; `NOMA_SCHEDULER_SECRET` en Vercel, si existe, tiene prioridad. En el
+SQL Editor de Supabase:
 
 ```sql
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
-select vault.create_secret('<NOMA_SCHEDULER_SECRET>', 'noma_scheduler_secret');
+select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'noma_scheduler_secret');
 select cron.schedule(
   'noma-entregas-0855',
   '55 11,12 * * 1-5',
