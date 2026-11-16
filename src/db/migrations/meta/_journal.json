@@ -393,6 +393,13 @@
       "when": 1794790440363,
       "tag": "0055_quoter_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794861085595,
+      "tag": "0056_assistant_briefings",
+      "breakpoints": true
     }
   ]
 }

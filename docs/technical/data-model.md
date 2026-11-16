@@ -247,3 +247,7 @@ team_members 1 ──── 0..1 employees 1 ──── N employee_documents
 5. Todo proyecto tiene cliente (`client_id` obligatorio).
 6. Proyectos activos deben tener `next_action`.
 7. Servicios inactivos no aparecen en la selección de propuestas.
+
+## assistant_briefings
+
+Resumen diario del asistente por persona (`user_id`, `day` en America/Santiago, único por par). `data` guarda solo títulos, remitentes y enlaces, nunca el cuerpo de correos o mensajes. `expires_at` = generación + 7 días; se purga al generar. Ver `docs/technical/asistente.md`.
