@@ -133,6 +133,9 @@ export function parseDeliveryCommand(
   }
   const note = noteLines
     .join("\n")
+    // «ENVIAR AHORA» es una orden para Noma (salta el horario hábil), no
+    // texto para el cliente.
+    .replace(/\benviar\s+ahora\b[.!]*/gi, "")
     .replace(/^[\s:·\-–—.]+/, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
