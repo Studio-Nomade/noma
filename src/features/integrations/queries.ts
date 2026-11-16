@@ -58,10 +58,9 @@ export async function getIntegrationOverview(
       updatedAt: connectionStates[provider]?.updatedAt.toISOString() ?? null,
     })),
     centralAsana: {
-      configured: Boolean(
-        process.env.ASANA_ACCESS_TOKEN?.trim() &&
-        process.env.ASANA_PROJECT_GID?.trim(),
-      ),
+      // El token central basta: el ingreso de solicitudes usa el proyecto de
+      // cada canal; ASANA_PROJECT_GID solo es el destino por defecto.
+      configured: Boolean(process.env.ASANA_ACCESS_TOKEN?.trim()),
     },
     encryptionConfigured: Boolean(
       process.env.NOMA_TOKEN_ENCRYPTION_KEY?.trim(),

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { CalendarClock, ListChecks, FileSignature } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -32,7 +33,14 @@ import { MyAsanaTasksCard } from "@/features/asana/my-tasks-card";
 import { getMySlackChannels } from "@/features/slack/my-channels";
 import { MySlackChannelsCard } from "@/features/slack/my-channels-card";
 
+import { BriefingSkeleton } from "@/features/assistant/briefing-card";
+import { BriefingSection } from "@/features/assistant/briefing-section";
+import { briefingUserFrom } from "@/features/assistant/briefing";
+import { isAssistantPilot } from "@/features/assistant/config";
+
 export const metadata = { title: "Dashboard" };
+// El resumen diario puede tardar (lectura de cuentas + Claude) la primera vez del día.
+export const maxDuration = 60;
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -75,6 +83,12 @@ export default async function DashboardPage() {
         title="Dashboard"
         description="Visión operativa del estudio: pipeline, próximas acciones y entregas."
       />
+
+      {isAssistantPilot(user.email) && (
+        <Suspense fallback={<BriefingSkeleton />}>
+          <BriefingSection user={briefingUserFrom(user)} />
+        </Suspense>
+      )}
 
       <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard
