@@ -5,6 +5,12 @@ Studio Nomade ya opera con un ecosistema de herramientas. Noma combina enlaces g
 
 ## Modelos de conexión
 
+**Mis conexiones** (`/integrations`) muestra, por cuenta personal, qué puede hacer Noma con
+ella (`features/integrations/capabilities.ts`) y qué falta conceder. Google se consulta en vivo
+con `tokeninfo`; Slack y Asana usan los scopes guardados en `user_connections.meta.scope` al
+conectar (Asana no los informa: se guardan los pedidos). Si falta algo, el botón «Reconectar»
+lleva a `/login?reconsent=google` o al flujo OAuth del proveedor.
+
 - **Google Workspace** ya es per-user mediante Supabase Auth. Su refresh token se mantiene en
   `user_integrations` para no romper Gmail, Calendar, Meet y Drive.
 - **Asana operacional** usa `ASANA_ACCESS_TOKEN` central para traspasos y resumen de proyectos.
@@ -24,7 +30,10 @@ revocar el acceso externo y siempre elimina el registro local.
 
 ### Asana personal
 
-La conexión personal solicita identidad y lectura de usuarios, proyectos y tareas. El callback
+La conexión personal solicita identidad, lectura de workspaces, proyectos y tareas, y escritura
+de tareas y comentarios (`tasks:write`, `stories:write`). Nunca pide scopes de borrado. Asana
+limita el acceso a los proyectos donde la persona ya tiene permiso. La app OAuth de Asana debe
+tener habilitados esos scopes. El callback
 guarda la identidad de la cuenta y el workspace principal dentro de la metadata cifrada de
 `user_connections`. El dashboard usa exclusivamente el token del usuario autenticado para
 mostrar sus tareas abiertas; nunca reutiliza `ASANA_ACCESS_TOKEN`, que permanece reservado para
@@ -35,6 +44,10 @@ duración, Noma aplica una vigencia conservadora de una hora. Una falla de red, 
 autorización degrada la tarjeta a un estado reconectable y no bloquea la carga del dashboard.
 
 ### Slack personal
+
+Scopes de usuario: lectura de canales y mensajes directos (`*:read`, `*:history`), búsqueda
+(`search:read`), escritura como la persona (`chat:write`) y `users:read`. La app de Slack debe
+declararlos como User Token Scopes antes de desplegar; si no, la autorización falla.
 
 Slack entrega el user token dentro de `authed_user`; Noma lo cifra y guarda junto al usuario y
 workspace conectados. El dashboard consulta hasta 20 conversaciones de las que el usuario es

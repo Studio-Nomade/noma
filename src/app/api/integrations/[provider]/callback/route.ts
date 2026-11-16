@@ -176,6 +176,12 @@ export async function GET(
       return errorRedirect(request, redirectTo, `${provider.id}_oauth_failed`);
     }
 
+    // Asana no informa los scopes concedidos: si la autorización pasó, son
+    // los que se pidieron. Se guardan para mostrar qué puede hacer Noma.
+    if (typeof tokens.meta.scope !== "string" || !tokens.meta.scope) {
+      tokens.meta.scope = provider.scopes.join(" ");
+    }
+
     if (provider.id === "asana") {
       const account = await getAsanaAccountMetadata(tokens.accessToken);
       tokens.externalAccountId =
