@@ -1,11 +1,8 @@
 import {
   Bot,
   BrainCircuit,
-  CalendarDays,
   CheckCircle2,
   CircleDashed,
-  FolderOpen,
-  MessagesSquare,
   Workflow,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -13,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { roleFor } from "@/lib/roles";
 import { AITestButton } from "@/features/integrations/ai-test-button";
-import { UserConnectionsCard } from "@/features/integrations/connections-card";
+import { PersonalConnectionsDetail } from "@/features/integrations/connections-detail";
 import { getIntegrationOverview } from "@/features/integrations/queries";
+import { getPersonalConnectionsStatus } from "@/features/integrations/status";
 
 export const metadata = { title: "Integraciones" };
 
@@ -57,8 +55,9 @@ export default async function IntegrationsPage({
   searchParams: Promise<{ error?: string; connected?: string }>;
 }) {
   const user = await requireUser();
-  const [overview, params] = await Promise.all([
+  const [overview, connections, params] = await Promise.all([
     getIntegrationOverview(user.id),
+    getPersonalConnectionsStatus(user.id),
     searchParams,
   ]);
   const canTestAI = roleFor(user.email).isAdmin;
@@ -152,10 +151,9 @@ export default async function IntegrationsPage({
         </div>
       </section>
 
-      <UserConnectionsCard
-        connections={overview.personal}
+      <PersonalConnectionsDetail
+        connections={connections}
         encryptionConfigured={overview.encryptionConfigured}
-        redirectTo="/integrations"
       />
 
       <section className="mt-8">
@@ -170,46 +168,13 @@ export default async function IntegrationsPage({
         <div className="grid gap-3 sm:grid-cols-2">
           {[
             {
-              name: "Google Workspace",
-              icon: CalendarDays,
-              active: overview.google.connected,
-              configured: overview.google.configured,
-              description:
-                "SSO, Gmail, Calendar, Meet y Drive mediante la cuenta Google de cada usuario.",
-              activeLabel: "Conectado",
-            },
-            {
               name: "Asana operacional",
               icon: Workflow,
               active: overview.centralAsana.configured,
               configured: overview.centralAsana.configured,
               description:
-                "Token central usado por el traspaso a operación y el resumen de proyectos.",
+                "Token central de operations@ para el ingreso de solicitudes, los traspasos y el resumen de proyectos.",
               activeLabel: "Activo",
-            },
-            {
-              name: "Google Drive",
-              icon: FolderOpen,
-              active: overview.google.connected,
-              configured: overview.google.configured,
-              description:
-                "Lectura autorizada por usuario; los enlaces de proyecto siguen viviendo en Noma.",
-              activeLabel: "Disponible",
-            },
-            {
-              name: "Canales y colaboración",
-              icon: MessagesSquare,
-              active: overview.personal.some(
-                (connection) =>
-                  connection.provider === "slack" && connection.connected,
-              ),
-              configured:
-                overview.personal.find(
-                  (connection) => connection.provider === "slack",
-                )?.configured ?? false,
-              description:
-                "Slack personal queda preparado aquí; los canales y no leídos se habilitan en P3.",
-              activeLabel: "Conectado",
             },
           ].map((integration) => {
             const Icon = integration.icon;
