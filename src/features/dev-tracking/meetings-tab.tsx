@@ -1,8 +1,16 @@
-import { CalendarPlus, ExternalLink, Plus, Video } from "lucide-react";
+import Link from "next/link";
+import {
+  CalendarPlus,
+  ExternalLink,
+  FileText,
+  Plus,
+  Video,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/shared/surface";
 import { cn } from "@/lib/utils";
 import { CancelMeetingButton } from "./cancel-meeting-button";
+import { MeetingProcessControls } from "./meeting-process-controls";
 import { MeetingTypeDialog } from "./meeting-type-dialog";
 import {
   CADENCE_LABELS,
@@ -26,11 +34,13 @@ const STATUS_TONE: Record<DevMeetingStatus, string> = {
 export function MeetingsTab({
   programId,
   programName,
+  projectId,
   data,
   today,
 }: {
   programId: string;
   programName: string;
+  projectId: string;
   data: DevMeetingsData;
   today: string;
 }) {
@@ -160,6 +170,7 @@ export function MeetingsTab({
           <MeetingList
             meetings={upcoming}
             empty="No hay reuniones agendadas."
+            projectId={projectId}
             withCancel
           />
         </Surface>
@@ -168,6 +179,7 @@ export function MeetingsTab({
           <MeetingList
             meetings={past}
             empty="Todavía no hay reuniones realizadas."
+            projectId={projectId}
           />
         </Surface>
       </section>
@@ -178,10 +190,12 @@ export function MeetingsTab({
 function MeetingList({
   meetings,
   empty,
+  projectId,
   withCancel,
 }: {
   meetings: DevMeetingsData["meetings"];
   empty: string;
+  projectId: string;
   withCancel?: boolean;
 }) {
   if (meetings.length === 0) {
@@ -245,9 +259,24 @@ function MeetingList({
                 )}
               </div>
             </div>
-            {withCancel && m.status === "agendada" && (
-              <CancelMeetingButton meetingId={m.id} />
-            )}
+            <div className="flex shrink-0 items-center gap-1">
+              {m.status !== "agendada" && m.status !== "cancelada" && (
+                <Link
+                  href={`/projects/${projectId}/seguimiento/reuniones/${m.id}`}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+                >
+                  <FileText className="size-3.5" /> Minuta
+                </Link>
+              )}
+              <MeetingProcessControls
+                meetingId={m.id}
+                status={m.status}
+                compact
+              />
+              {withCancel && m.status === "agendada" && (
+                <CancelMeetingButton meetingId={m.id} />
+              )}
+            </div>
           </li>
         );
       })}

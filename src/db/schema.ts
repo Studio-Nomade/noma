@@ -3141,3 +3141,128 @@ export type DevMeetingType = typeof devMeetingTypes.$inferSelect;
 export type NewDevMeetingType = typeof devMeetingTypes.$inferInsert;
 export type DevMeeting = typeof devMeetings.$inferSelect;
 export type NewDevMeeting = typeof devMeetings.$inferInsert;
+
+// ── Minutas, backlog y preguntas abiertas del programa ───────
+// La minuta la arma Claude desde la transcripción (Gemini en el Drive de la
+// casilla de operaciones). Las solicitudes nacen como «propuesta» y pasan a
+// Asana solo con aprobación. Las cifras dichas en la reunión se marcan como
+// «dicho» hasta que el arquitecto las verifique.
+
+export const devMeetingMinutes = pgTable(
+  "dev_meeting_minutes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => devMeetings.id, { onDelete: "cascade" }),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    attendees: jsonb("attendees")
+      .$type<{ name: string; area?: string; role?: string }[]>()
+      .default([])
+      .notNull(),
+    topics: jsonb("topics")
+      .$type<{ title: string; detail?: string; minute?: string }[]>()
+      .default([])
+      .notNull(),
+    agreements: text("agreements").array().default([]).notNull(),
+    pendingDecisions: text("pending_decisions").array().default([]).notNull(),
+    confirmedNoDev: text("confirmed_no_dev").array().default([]).notNull(),
+    quotedFigures: jsonb("quoted_figures")
+      .$type<
+        {
+          text: string;
+          status: "dicho" | "verificado" | "corregido";
+          note?: string;
+        }[]
+      >()
+      .default([])
+      .notNull(),
+    model: text("model"),
+    gmailDraftId: text("gmail_draft_id"),
+    driveDocId: text("drive_doc_id"),
+    // borrador · aprobada · enviada
+    status: text("status").default("borrador").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_meeting_minutes_meeting_uq").on(t.meetingId)],
+);
+
+export const devBacklog = pgTable(
+  "dev_backlog",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    meetingId: uuid("meeting_id").references(() => devMeetings.id, {
+      onDelete: "set null",
+    }),
+    code: text("code").notNull(), // OP-01 · CO-03 · RC-01 · EC-01
+    title: text("title").notNull(),
+    detail: text("detail"),
+    raisedBy: text("raised_by"),
+    // Técnicos · Comerciales · IoT/Telemetría
+    area: text("area"),
+    // Mejora funcional · Bug / error · Nuevo desarrollo · Soporte operativo ·
+    // Infraestructura / deploy · Data / base de datos
+    type: text("type"),
+    // Web · APK · Web/APK · No aplica
+    environment: text("environment"),
+    // Normal · Media · Alta · Crítica
+    priority: text("priority").default("Normal").notNull(),
+    evidence: text("evidence"),
+    // roadmap_en_curso · backlog_general · nuevo
+    destination: text("destination"),
+    roadmapCode: text("roadmap_code"),
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    dependencies: text("dependencies").array().default([]).notNull(),
+    // propuesta · aprobada · descartada · en_asana · verificada
+    status: text("status").default("propuesta").notNull(),
+    // ya_existe · bug · requiere_desarrollo · bloqueada (lo pone el arquitecto)
+    verdict: text("verdict"),
+    verdictNote: text("verdict_note"),
+    asanaTaskGid: text("asana_task_gid"),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("dev_backlog_program_status_idx").on(t.programId, t.status),
+    index("dev_backlog_meeting_idx").on(t.meetingId),
+  ],
+);
+
+export const devQuestions = pgTable(
+  "dev_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    meetingId: uuid("meeting_id").references(() => devMeetings.id, {
+      onDelete: "set null",
+    }),
+    question: text("question").notNull(),
+    forWhom: text("for_whom"), // persona o área
+    since: date("since").notNull(),
+    blocks: text("blocks"), // hito o roadmap que bloquea
+    // abierta · respondida · descartada
+    status: text("status").default("abierta").notNull(),
+    answer: text("answer"),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    // reunion · claude_code · manual
+    source: text("source").default("reunion").notNull(),
+    ...timestamps,
+  },
+  (t) => [index("dev_questions_program_status_idx").on(t.programId, t.status)],
+);
+
+export type DevMeetingMinutes = typeof devMeetingMinutes.$inferSelect;
+export type DevBacklogItem = typeof devBacklog.$inferSelect;
+export type NewDevBacklogItem = typeof devBacklog.$inferInsert;
+export type DevQuestion = typeof devQuestions.$inferSelect;
