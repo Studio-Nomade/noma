@@ -227,8 +227,12 @@ export async function applyArchitectResult(
             verdict: s.veredicto,
             verdictNote: s.nota ?? null,
             ...(s.asana_gid ? { asanaTaskGid: s.asana_gid } : {}),
+            // El roadmap del resultado solo completa: si Noma ya agrupó la
+            // solicitud en otro código, ese se respeta.
             ...(summary.roadmap && s.veredicto !== "ya_existe"
-              ? { roadmapCode: summary.roadmap }
+              ? {
+                  roadmapCode: sql`coalesce(${devBacklog.roadmapCode}, ${summary.roadmap})`,
+                }
               : {}),
             status: "verificada",
             updatedAt: new Date(),

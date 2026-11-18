@@ -166,6 +166,10 @@ export default async function SeguimientoPage({
               data={backlogData}
               programId={data.program.id}
               hasAsana={!!data.program.asanaProjectGid}
+              next={{
+                roadmap: data.program.nextRoadmapNumber,
+                module: data.program.nextModuleNumber,
+              }}
             />
             <Preguntas questions={backlogData.questions} />
           </div>

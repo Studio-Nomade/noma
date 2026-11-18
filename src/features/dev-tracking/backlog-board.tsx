@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Package, Pencil, Send, Tag, X } from "lucide-react";
+import { Check, Package, Pencil, Send, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,13 +19,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Surface } from "@/components/shared/surface";
 import { cn } from "@/lib/utils";
 import {
-  assignRoadmapToItem,
-  buildPackageForMeeting,
+  buildRoadmapPackages,
   sendBacklogToAsana,
   setBacklogStatus,
   updateBacklogItem,
 } from "./backlog-actions";
 import type { BacklogData } from "./backlog-queries";
+import { ungroupItems } from "./grouping-actions";
+import { GroupingPanel } from "./grouping-panel";
 import {
   BACKLOG_AREAS,
   BACKLOG_DESTINATIONS,
@@ -60,6 +61,7 @@ const DESTINATION_LABEL: Record<string, string> = {
   roadmap_en_curso: "Roadmap en curso",
   backlog_general: "Backlog general",
   nuevo: "Nuevo",
+  sin_roadmap: "Sin roadmap",
 };
 const VERDICT_LABEL: Record<string, string> = {
   ya_existe: "Ya existe",
@@ -80,10 +82,12 @@ export function BacklogBoard({
   data,
   programId,
   hasAsana,
+  next,
 }: {
   data: BacklogData;
   programId: string;
   hasAsana: boolean;
+  next: { roadmap: number; module: number };
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<string>("propuesta");
@@ -99,7 +103,23 @@ export function BacklogBoard({
     for (const it of data.items) c[it.status] = (c[it.status] ?? 0) + 1;
     return c;
   }, [data.items]);
-  const rows = data.items.filter((it) => it.status === filter);
+  const rows = data.items
+    .filter((it) => it.status === filter)
+    .sort((a, b) =>
+      filter === "aprobada" ? groupRank(a).localeCompare(groupRank(b)) : 0,
+    );
+  const ungrouped = data.items.filter(
+    (it) => it.status === "aprobada" && !it.groupedAt,
+  );
+  const packedIds = new Set(data.packages.flatMap((p) => p.itemIds));
+  const toPackage = data.items.filter(
+    (it) =>
+      ["aprobada", "en_asana"].includes(it.status) &&
+      it.groupedAt &&
+      it.roadmapCode &&
+      !packedIds.has(it.id),
+  );
+  const toPackageCodes = [...new Set(toPackage.map((it) => it.roadmapCode!))];
   const selectedRows = rows.filter((r) => selected.includes(r.id));
 
   function run(
@@ -145,39 +165,20 @@ export function BacklogBoard({
       router.refresh();
     });
   }
-  function assignCode(item: Item, kind: "mejora" | "modulo") {
+  function ungroup(ids: string[]) {
+    run("De vuelta a «por agrupar»", () => ungroupItems(ids));
+  }
+  function buildPackages() {
     start(async () => {
-      const r = await assignRoadmapToItem(item.id, kind);
+      const r = await buildRoadmapPackages(programId);
       if (!r.ok) {
         toast.error(r.error);
         return;
       }
-      toast.success(`Roadmap ${r.data.code} asignado`);
+      toast.success(`Paquetes armados: ${r.data.codes.join(", ")}`);
       router.refresh();
     });
   }
-  function buildPackage(meetingId: string) {
-    start(async () => {
-      const r = await buildPackageForMeeting(meetingId);
-      if (!r.ok) {
-        toast.error(r.error);
-        return;
-      }
-      toast.success(`Paquete ${r.data.code} armado`);
-      router.refresh();
-    });
-  }
-
-  const approvedMeetings = [
-    ...new Set(
-      data.items
-        .filter(
-          (i) =>
-            (i.status === "aprobada" || i.status === "en_asana") && i.meetingId,
-        )
-        .map((i) => i.meetingId as string),
-    ),
-  ];
 
   return (
     <div className="space-y-6">
@@ -258,29 +259,45 @@ export function BacklogBoard({
         </Surface>
       )}
 
-      {filter === "aprobada" && approvedMeetings.length > 0 && (
-        <Surface padding="md" className="text-sm">
-          <p className="mb-2 font-medium">Paquete para el arquitecto</p>
-          <div className="flex flex-wrap gap-2">
-            {approvedMeetings.map((mid) => (
-              <Button
-                key={mid}
-                variant="outline"
-                size="sm"
-                disabled={pending}
-                onClick={() => buildPackage(mid)}
-              >
-                <Package className="size-4" />
-                {meetingById.get(mid)?.title ?? "Reunión"}
-              </Button>
-            ))}
-          </div>
-          <p className="text-muted-foreground mt-2 text-xs">
-            Arma el YAML con las solicitudes aprobadas de esa reunión; Claude
-            Code lo recoge por la API y devuelve el veredicto por solicitud.
-          </p>
-        </Surface>
+      {filter === "aprobada" && ungrouped.length > 0 && (
+        <GroupingPanel
+          programId={programId}
+          next={next}
+          items={ungrouped.map((it) => ({
+            id: it.id,
+            code: it.code,
+            title: it.title,
+            priority: it.priority,
+          }))}
+        />
       )}
+
+      {["aprobada", "en_asana"].includes(filter) &&
+        toPackageCodes.length > 0 && (
+          <Surface
+            padding="md"
+            className="flex flex-wrap items-center gap-3 text-sm"
+          >
+            <Package className="text-muted-foreground size-4" />
+            <span className="flex-1">
+              <span className="font-medium">Paquetes para el arquitecto:</span>{" "}
+              <span className="text-muted-foreground">
+                uno por roadmap ({toPackageCodes.join(", ")}). Claude Code los
+                recoge por la API y decide el orden técnico dentro de cada uno.
+              </span>
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={buildPackages}
+            >
+              <Package className="size-4" />
+              Armar {toPackageCodes.length} paquete
+              {toPackageCodes.length === 1 ? "" : "s"}
+            </Button>
+          </Surface>
+        )}
 
       <Surface variant="solid" padding="none">
         {rows.length === 0 ? (
@@ -289,7 +306,12 @@ export function BacklogBoard({
           </p>
         ) : (
           <ul className="divide-border divide-y">
-            {rows.map((it) => {
+            {rows.map((it, idx) => {
+              const header =
+                filter === "aprobada" &&
+                (idx === 0 || groupLabel(rows[idx - 1]) !== groupLabel(it))
+                  ? groupLabel(it)
+                  : null;
               const meeting = it.meetingId
                 ? meetingById.get(it.meetingId)
                 : null;
@@ -299,157 +321,158 @@ export function BacklogBoard({
                 "descartada",
               ].includes(it.status);
               return (
-                <li key={it.id} className="flex items-start gap-3 p-4">
-                  {selectable ? (
-                    <Checkbox
-                      className="mt-1"
-                      checked={selected.includes(it.id)}
-                      onCheckedChange={(v) =>
-                        setSelected((prev) =>
-                          v
-                            ? [...prev, it.id]
-                            : prev.filter((x) => x !== it.id),
-                        )
-                      }
-                    />
-                  ) : (
-                    <span className="mt-1 size-4" />
+                <Fragment key={it.id}>
+                  {header && (
+                    <li className="bg-muted/40 text-muted-foreground px-4 py-1.5 text-xs font-medium">
+                      {header}
+                    </li>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-medium">
-                        <span className="text-muted-foreground mr-2 font-mono text-xs">
-                          {it.code}
-                        </span>
-                        {it.roadmapCode && (
-                          <span className="mr-2 font-mono text-xs">
-                            {it.roadmapCode}
+                  <li className="flex items-start gap-3 p-4">
+                    {selectable ? (
+                      <Checkbox
+                        className="mt-1"
+                        checked={selected.includes(it.id)}
+                        onCheckedChange={(v) =>
+                          setSelected((prev) =>
+                            v
+                              ? [...prev, it.id]
+                              : prev.filter((x) => x !== it.id),
+                          )
+                        }
+                      />
+                    ) : (
+                      <span className="mt-1 size-4" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          <span className="text-muted-foreground mr-2 font-mono text-xs">
+                            {it.code}
                           </span>
-                        )}
-                        {it.title}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Pill tone={PRIORITY_TONE[it.priority] ?? "slate"}>
-                          {it.priority}
-                        </Pill>
-                        <Pill tone={STATUS_TONE[it.status] ?? "slate"}>
-                          {STATUS_LABEL[it.status] ?? it.status}
-                        </Pill>
-                        {it.verdict && (
-                          <Pill
-                            tone={
-                              it.verdict === "bloqueada" ? "red" : "emerald"
-                            }
-                          >
-                            {VERDICT_LABEL[it.verdict] ?? it.verdict}
+                          {it.roadmapCode && (
+                            <span className="mr-2 font-mono text-xs">
+                              {it.roadmapCode}
+                            </span>
+                          )}
+                          {it.title}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Pill tone={PRIORITY_TONE[it.priority] ?? "slate"}>
+                            {it.priority}
                           </Pill>
+                          <Pill tone={STATUS_TONE[it.status] ?? "slate"}>
+                            {STATUS_LABEL[it.status] ?? it.status}
+                          </Pill>
+                          {it.verdict && (
+                            <Pill
+                              tone={
+                                it.verdict === "bloqueada" ? "red" : "emerald"
+                              }
+                            >
+                              {VERDICT_LABEL[it.verdict] ?? it.verdict}
+                            </Pill>
+                          )}
+                        </div>
+                      </div>
+                      {it.detail && (
+                        <p className="text-muted-foreground mt-1 text-sm">
+                          {it.detail}
+                        </p>
+                      )}
+                      {it.verdictNote && (
+                        <p className="mt-1 text-sm">
+                          <span className="text-muted-foreground">
+                            Arquitecto:{" "}
+                          </span>
+                          {it.verdictNote}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground mt-1.5 text-xs">
+                        {[
+                          it.area,
+                          it.type,
+                          it.environment,
+                          it.destination
+                            ? (DESTINATION_LABEL[it.destination] ??
+                              it.destination)
+                            : null,
+                          it.raisedBy ? `planteó ${it.raisedBy}` : null,
+                          meeting
+                            ? `${meeting.title} · ${meeting.startsAt.toLocaleDateString("es-CL", { timeZone: "America/Santiago" })}`
+                            : null,
+                          it.asanaTaskGid ? "en Asana" : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {["propuesta", "aprobada"].includes(it.status) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditing(it)}
+                          >
+                            <Pencil className="size-3.5" /> Editar
+                          </Button>
+                        )}
+                        {it.status === "propuesta" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={pending}
+                              onClick={() => approve([it.id])}
+                            >
+                              <Check className="size-3.5" /> Aprobar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={pending}
+                              onClick={() => discard([it.id])}
+                            >
+                              <X className="size-3.5" /> Descartar
+                            </Button>
+                          </>
+                        )}
+                        {it.status === "aprobada" &&
+                          it.groupedAt &&
+                          !it.asanaTaskGid && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={pending}
+                              onClick={() => ungroup([it.id])}
+                            >
+                              <Undo2 className="size-3.5" /> Desagrupar
+                            </Button>
+                          )}
+                        {it.status === "aprobada" &&
+                          it.groupedAt &&
+                          hasAsana && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={pending}
+                              onClick={() => toAsana([it.id])}
+                            >
+                              <Send className="size-3.5" /> Crear en Asana
+                            </Button>
+                          )}
+                        {it.asanaTaskGid && (
+                          <a
+                            href={`https://app.asana.com/0/0/${it.asanaTaskGid}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-muted-foreground hover:text-foreground self-center text-xs"
+                          >
+                            Abrir en Asana
+                          </a>
                         )}
                       </div>
                     </div>
-                    {it.detail && (
-                      <p className="text-muted-foreground mt-1 text-sm">
-                        {it.detail}
-                      </p>
-                    )}
-                    {it.verdictNote && (
-                      <p className="mt-1 text-sm">
-                        <span className="text-muted-foreground">
-                          Arquitecto:{" "}
-                        </span>
-                        {it.verdictNote}
-                      </p>
-                    )}
-                    <p className="text-muted-foreground mt-1.5 text-xs">
-                      {[
-                        it.area,
-                        it.type,
-                        it.environment,
-                        it.destination
-                          ? (DESTINATION_LABEL[it.destination] ??
-                            it.destination)
-                          : null,
-                        it.raisedBy ? `planteó ${it.raisedBy}` : null,
-                        meeting
-                          ? `${meeting.title} · ${meeting.startsAt.toLocaleDateString("es-CL", { timeZone: "America/Santiago" })}`
-                          : null,
-                        it.asanaTaskGid ? "en Asana" : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {["propuesta", "aprobada"].includes(it.status) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditing(it)}
-                        >
-                          <Pencil className="size-3.5" /> Editar
-                        </Button>
-                      )}
-                      {it.status === "propuesta" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => approve([it.id])}
-                          >
-                            <Check className="size-3.5" /> Aprobar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => discard([it.id])}
-                          >
-                            <X className="size-3.5" /> Descartar
-                          </Button>
-                        </>
-                      )}
-                      {it.status === "aprobada" && !it.roadmapCode && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => assignCode(it, "mejora")}
-                          >
-                            <Tag className="size-3.5" /> Asignar R##
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => assignCode(it, "modulo")}
-                          >
-                            <Tag className="size-3.5" /> Nuevo módulo NDes
-                          </Button>
-                        </>
-                      )}
-                      {it.status === "aprobada" && hasAsana && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={pending}
-                          onClick={() => toAsana([it.id])}
-                        >
-                          <Send className="size-3.5" /> Crear en Asana
-                        </Button>
-                      )}
-                      {it.asanaTaskGid && (
-                        <a
-                          href={`https://app.asana.com/0/0/${it.asanaTaskGid}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-muted-foreground hover:text-foreground self-center text-xs"
-                        >
-                          Abrir en Asana
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </li>
+                  </li>
+                </Fragment>
               );
             })}
           </ul>
@@ -687,4 +710,16 @@ function Pill({ tone, children }: { tone: string; children: React.ReactNode }) {
       {children}
     </span>
   );
+}
+
+function groupLabel(it: Item) {
+  if (!it.groupedAt) return "Por agrupar";
+  if (it.roadmapCode) return `${it.roadmapCode}`;
+  return "Sin roadmap";
+}
+
+function groupRank(it: Item) {
+  if (!it.groupedAt) return "0";
+  if (it.roadmapCode) return `1${it.roadmapCode.padStart(12, "0")}`;
+  return "2";
 }

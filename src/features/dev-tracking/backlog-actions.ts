@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -34,7 +34,6 @@ import {
   BACKLOG_TYPES,
 } from "./minutes-schema";
 import { buildPackageYaml } from "./package-yaml";
-import { reserveRoadmapCode } from "./roadmap-numbering";
 import { appBaseUrl } from "@/lib/app-url";
 
 function todayLocal() {
@@ -113,7 +112,12 @@ export async function setBacklogStatus(
     const clean = z.array(z.string().uuid()).min(1).parse(ids);
     const rows = await db
       .update(devBacklog)
-      .set({ status, updatedAt: new Date() })
+      .set({
+        status,
+        // Volver a propuesta o descartar deshace la agrupación.
+        ...(status === "aprobada" ? {} : { groupedAt: null }),
+        updatedAt: new Date(),
+      })
       .where(
         and(
           inArray(devBacklog.id, clean),
@@ -137,51 +141,6 @@ export async function setBacklogStatus(
     return { ok: true, data: { count: rows.length } };
   } catch (err) {
     return handleActionError(err, "dev-tracking/setBacklogStatus");
-  }
-}
-
-// ── Roadmap nuevo: Noma asigna el siguiente R## / NDes-### ───
-
-export async function assignRoadmapToItem(
-  itemId: string,
-  kind: "mejora" | "modulo",
-): Promise<ActionResult<{ code: string }>> {
-  try {
-    const user = await requireUser();
-    const ctx = await programOfItem(itemId);
-    if (!ctx) return { ok: false, error: "Solicitud no encontrada." };
-    if (ctx.item.roadmapCode) {
-      return { ok: false, error: `Ya tiene roadmap ${ctx.item.roadmapCode}.` };
-    }
-    const code = await reserveRoadmapCode(ctx.programId, kind);
-    const month = todayLocal().slice(0, 7);
-    await db.insert(devRoadmaps).values({
-      programId: ctx.programId,
-      code,
-      title: ctx.item.title,
-      month,
-      status: "pendiente",
-      kind,
-      createdBy: user.id,
-    });
-    await db
-      .update(devBacklog)
-      .set({ roadmapCode: code, destination: "nuevo", updatedAt: new Date() })
-      .where(eq(devBacklog.id, itemId));
-    await db
-      .insert(devLog)
-      .values({
-        programId: ctx.programId,
-        date: todayLocal(),
-        text: `Roadmap ${code} asignado a «${ctx.item.title}»`,
-        source: "manual",
-        createdBy: user.id,
-      })
-      .onConflictDoNothing();
-    revalidatePath(`/projects/${ctx.projectId}/seguimiento`);
-    return { ok: true, data: { code } };
-  } catch (err) {
-    return handleActionError(err, "dev-tracking/assignRoadmapToItem");
   }
 }
 
@@ -224,6 +183,13 @@ export async function sendBacklogToAsana(
       );
     if (!items.length) {
       return { ok: false, error: "Selecciona solicitudes aprobadas." };
+    }
+    const ungrouped = items.filter((i) => !i.groupedAt).map((i) => i.code);
+    if (ungrouped.length) {
+      return {
+        ok: false,
+        error: `Agrupa primero (roadmap o módulo): ${ungrouped.join(", ")}.`,
+      };
     }
     const [program] = await db
       .select()
@@ -301,6 +267,20 @@ export async function sendBacklogToAsana(
           customFields,
         });
         createdTasks.push({ itemId: item.id, taskGid: task.gid });
+        if (item.roadmapCode) {
+          await db
+            .update(devRoadmaps)
+            .set({
+              asanaTaskGids: sql`array_append(${devRoadmaps.asanaTaskGids}, ${task.gid})`,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(devRoadmaps.programId, program.id),
+                eq(devRoadmaps.code, item.roadmapCode),
+              ),
+            );
+        }
         await db
           .update(devBacklog)
           .set({
@@ -350,57 +330,106 @@ export async function sendBacklogToAsana(
   }
 }
 
-// ── Paquete para el arquitecto ───────────────────────────────
+// ── Paquetes para el arquitecto: uno por roadmap / módulo ────
 
-export async function buildPackageForMeeting(
-  meetingId: string,
-): Promise<ActionResult<{ code: string; id: string }>> {
+const PRIORITY_ORDER: Record<string, number> = {
+  Crítica: 0,
+  Alta: 1,
+  Media: 2,
+  Normal: 3,
+};
+
+/**
+ * Arma un paquete por cada roadmap (R## o NDes-###) con solicitudes agrupadas
+ * que aún no están en un paquete. Las solicitudes van por prioridad; el orden
+ * técnico lo decide el arquitecto dentro del paquete.
+ */
+export async function buildRoadmapPackages(
+  programId: string,
+): Promise<ActionResult<{ codes: string[] }>> {
   try {
     const user = await requireUser();
-    const [meeting] = await db
+    const id = z.string().uuid().parse(programId);
+    const [program] = await db
       .select({
-        meeting: devMeetings,
-        programId: devPrograms.id,
+        id: devPrograms.id,
         projectId: devPrograms.projectId,
-        programName: devPrograms.name,
+        name: devPrograms.name,
         clientName: clients.companyName,
       })
-      .from(devMeetings)
-      .innerJoin(devPrograms, eq(devPrograms.id, devMeetings.programId))
+      .from(devPrograms)
       .innerJoin(clients, eq(clients.id, devPrograms.clientId))
-      .where(eq(devMeetings.id, meetingId))
+      .where(eq(devPrograms.id, id))
       .limit(1);
-    if (!meeting) return { ok: false, error: "Reunión no encontrada." };
-    const items = await db
-      .select()
-      .from(devBacklog)
-      .where(
-        and(
-          eq(devBacklog.meetingId, meetingId),
-          inArray(devBacklog.status, ["aprobada", "en_asana"]),
-        ),
-      )
-      .orderBy(devBacklog.sortOrder);
-    if (!items.length) {
+    if (!program) return { ok: false, error: "Programa no encontrado." };
+
+    const packed = await db
+      .select({ itemIds: devPackages.itemIds })
+      .from(devPackages)
+      .where(eq(devPackages.programId, program.id));
+    const inPackage = new Set(packed.flatMap((p) => p.itemIds));
+    const candidates = (
+      await db
+        .select()
+        .from(devBacklog)
+        .where(
+          and(
+            eq(devBacklog.programId, program.id),
+            inArray(devBacklog.status, ["aprobada", "en_asana"]),
+            isNotNull(devBacklog.groupedAt),
+            isNotNull(devBacklog.roadmapCode),
+          ),
+        )
+        .orderBy(devBacklog.createdAt, devBacklog.sortOrder)
+    ).filter((it) => !inPackage.has(it.id));
+    if (!candidates.length) {
       return {
         ok: false,
-        error: "No hay solicitudes aprobadas en esta reunión.",
+        error:
+          "No hay solicitudes agrupadas en un roadmap pendientes de empaquetar.",
       };
     }
-    const [minutes] = await db
+    const byRoadmap = new Map<string, typeof candidates>();
+    for (const it of candidates) {
+      const key = it.roadmapCode!;
+      byRoadmap.set(key, [...(byRoadmap.get(key) ?? []), it]);
+    }
+    const roadmaps = await db
       .select()
-      .from(devMeetingMinutes)
-      .where(eq(devMeetingMinutes.meetingId, meetingId))
-      .limit(1);
-    const questions = await db
-      .select()
-      .from(devQuestions)
+      .from(devRoadmaps)
       .where(
         and(
-          eq(devQuestions.meetingId, meetingId),
-          eq(devQuestions.status, "abierta"),
+          eq(devRoadmaps.programId, program.id),
+          inArray(devRoadmaps.code, [...byRoadmap.keys()]),
         ),
       );
+    const roadmapByCode = new Map(roadmaps.map((r) => [r.code, r]));
+    const meetingIds = [
+      ...new Set(candidates.map((c) => c.meetingId).filter(Boolean)),
+    ] as string[];
+    const [meetings, minutes, questions] = meetingIds.length
+      ? await Promise.all([
+          db
+            .select()
+            .from(devMeetings)
+            .where(inArray(devMeetings.id, meetingIds)),
+          db
+            .select()
+            .from(devMeetingMinutes)
+            .where(inArray(devMeetingMinutes.meetingId, meetingIds)),
+          db
+            .select()
+            .from(devQuestions)
+            .where(
+              and(
+                inArray(devQuestions.meetingId, meetingIds),
+                eq(devQuestions.status, "abierta"),
+              ),
+            ),
+        ])
+      : [[], [], []];
+    const meetingById = new Map(meetings.map((m) => [m.id, m]));
+    const minutesByMeeting = new Map(minutes.map((m) => [m.meetingId, m]));
 
     const day = todayLocal();
     const [{ n }] = await db
@@ -408,78 +437,121 @@ export async function buildPackageForMeeting(
       .from(devPackages)
       .where(
         and(
-          eq(devPackages.programId, meeting.programId),
+          eq(devPackages.programId, program.id),
           sql`${devPackages.code} like ${`PKG-${day}-%`}`,
         ),
       );
-    const code = `PKG-${day}-${String(n + 1).padStart(2, "0")}`;
+    let seq = n;
     const appUrl = appBaseUrl();
-    const yaml = buildPackageYaml({
-      code,
-      origen: "reunion",
-      titulo: meeting.meeting.title,
-      fecha: meeting.meeting.startsAt.toISOString().slice(0, 10),
-      programa: meeting.programName,
-      cliente: meeting.clientName,
-      participantes: (minutes?.attendees ?? []).map((a) => ({
-        nombre: a.name,
-        area: a.area,
-      })),
-      transcripcion: meeting.meeting.transcriptFileId
-        ? `https://docs.google.com/document/d/${meeting.meeting.transcriptFileId}`
-        : null,
-      resumen: minutes?.summary ?? null,
-      confirmado_sin_desarrollo: minutes?.confirmedNoDev ?? [],
-      solicitudes: items.map((it) => ({
-        id: it.code,
-        titulo: it.title,
-        detalle: it.detail,
-        planteada_por: it.raisedBy,
-        area: it.area,
-        tipo: it.type,
-        entorno: it.environment,
-        prioridad: it.priority,
-        evidencia: it.evidence,
-        destino_sugerido: it.destination,
-        roadmap: it.roadmapCode,
-        dependencias: it.dependencies,
-        asana_gid: it.asanaTaskGid,
-      })),
-      preguntas_abiertas: questions.map((q) => ({
-        pregunta: q.question,
-        para: q.forWhom,
-        desde: q.since,
-      })),
-      prioridad_confirmada_por_sebastian: true,
-      resultado_endpoint: `${appUrl}/api/dev-tracking/${meeting.programId}/resultados`,
-    });
-    const [pkg] = await db
-      .insert(devPackages)
-      .values({
-        programId: meeting.programId,
+    const codes: string[] = [];
+    for (const [roadmapCode, list] of byRoadmap) {
+      const items = [...list].sort(
+        (a, b) =>
+          (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9),
+      );
+      const roadmap = roadmapByCode.get(roadmapCode);
+      const mids = [
+        ...new Set(items.map((i) => i.meetingId).filter(Boolean)),
+      ] as string[];
+      const sources = mids
+        .map((mid) => meetingById.get(mid))
+        .filter((m): m is NonNullable<typeof m> => !!m);
+      const first = sources[0];
+      const firstMinutes = first ? minutesByMeeting.get(first.id) : undefined;
+      seq += 1;
+      const code = `PKG-${day}-${String(seq).padStart(2, "0")}`;
+      const title = `${roadmapCode} · ${roadmap?.title ?? items[0].title}`;
+      const yaml = buildPackageYaml({
         code,
-        meetingId,
-        origin: "reunion",
-        title: meeting.meeting.title,
+        origen: first ? "reunion" : "manual",
+        titulo: title,
+        fecha: day,
+        programa: program.name,
+        cliente: program.clientName,
+        roadmap: {
+          codigo: roadmapCode,
+          titulo: roadmap?.title ?? null,
+          tipo:
+            roadmap?.kind ??
+            (roadmapCode.startsWith("NDes") ? "modulo" : "mejora"),
+          reservado_por_noma: true,
+        },
+        reuniones: sources.map((m) => ({
+          titulo: m.title,
+          fecha: m.startsAt.toISOString().slice(0, 10),
+          transcripcion: m.transcriptFileId
+            ? `https://docs.google.com/document/d/${m.transcriptFileId}`
+            : null,
+        })),
+        participantes: (firstMinutes?.attendees ?? []).map((a) => ({
+          nombre: a.name,
+          area: a.area,
+        })),
+        transcripcion: first?.transcriptFileId
+          ? `https://docs.google.com/document/d/${first.transcriptFileId}`
+          : null,
+        resumen:
+          sources
+            .map((m) => {
+              const s = minutesByMeeting.get(m.id)?.summary;
+              return s && sources.length > 1 ? `${m.title}:\n${s}` : s;
+            })
+            .filter(Boolean)
+            .join("\n\n") || null,
+        confirmado_sin_desarrollo: sources.flatMap(
+          (m) => minutesByMeeting.get(m.id)?.confirmedNoDev ?? [],
+        ),
+        solicitudes: items.map((it) => ({
+          id: it.code,
+          titulo: it.title,
+          detalle: it.detail,
+          planteada_por: it.raisedBy,
+          area: it.area,
+          tipo: it.type,
+          entorno: it.environment,
+          prioridad: it.priority,
+          evidencia: it.evidence,
+          destino_sugerido: it.destination,
+          roadmap: it.roadmapCode,
+          dependencias: it.dependencies,
+          asana_gid: it.asanaTaskGid,
+        })),
+        preguntas_abiertas: questions
+          .filter((q) => q.meetingId && mids.includes(q.meetingId))
+          .map((q) => ({
+            pregunta: q.question,
+            para: q.forWhom,
+            desde: q.since,
+          })),
+        prioridad_confirmada_por_sebastian: true,
+        resultado_endpoint: `${appUrl}/api/dev-tracking/${program.id}/resultados`,
+      });
+      await db.insert(devPackages).values({
+        programId: program.id,
+        code,
+        meetingId: first?.id ?? null,
+        origin: first ? "reunion" : "manual",
+        title,
         itemIds: items.map((i) => i.id),
         yaml,
         status: "armado",
         createdBy: user.id,
-      })
-      .returning({ id: devPackages.id });
+      });
+      codes.push(code);
+    }
     await db
       .insert(devLog)
       .values({
-        programId: meeting.programId,
+        programId: program.id,
         date: day,
-        text: `Paquete ${code} armado para el arquitecto (${items.length} solicitudes)`,
+        text: `Paquetes armados para el arquitecto: ${[...byRoadmap.keys()].join(", ")}`,
         source: "manual",
         createdBy: user.id,
       })
       .onConflictDoNothing();
-    revalidatePath(`/projects/${meeting.projectId}/seguimiento`);
-    return { ok: true, data: { code, id: pkg.id } };
+    revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    return { ok: true, data: { codes } };
   } catch (err) {
-    return handleActionError(err, "dev-tracking/buildPackageForMeeting");
+    return handleActionError(err, "dev-tracking/buildRoadmapPackages");
   }
 }

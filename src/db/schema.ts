@@ -3229,7 +3229,7 @@ export const devBacklog = pgTable(
     // Normal · Media · Alta · Crítica
     priority: text("priority").default("Normal").notNull(),
     evidence: text("evidence"),
-    // roadmap_en_curso · backlog_general · nuevo
+    // roadmap_en_curso · backlog_general · nuevo · sin_roadmap
     destination: text("destination"),
     roadmapCode: text("roadmap_code"),
     moduleId: uuid("module_id").references(() => devModules.id, {
@@ -3243,6 +3243,9 @@ export const devBacklog = pgTable(
     verdictNote: text("verdict_note"),
     asanaTaskGid: text("asana_task_gid"),
     sortOrder: integer("sort_order").default(0).notNull(),
+    // Agrupación confirmada (roadmap en curso, R## nuevo, NDes-### nuevo o
+    // sin roadmap). Null → aprobada pero aún sin agrupar.
+    groupedAt: timestamp("grouped_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [

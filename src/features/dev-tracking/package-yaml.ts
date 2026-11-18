@@ -100,6 +100,14 @@ export function buildPackageYaml(input: {
   fecha: string;
   programa: string;
   cliente: string;
+  /** Paquete por roadmap: el código ya está reservado por Noma. */
+  roadmap?: {
+    codigo: string;
+    titulo: string | null;
+    tipo: string;
+    reservado_por_noma: boolean;
+  };
+  reuniones?: { titulo: string; fecha: string; transcripcion: string | null }[];
   participantes: { nombre: string; area?: string }[];
   transcripcion: string | null;
   resumen: string | null;
@@ -121,6 +129,8 @@ export function buildPackageYaml(input: {
       fecha: input.fecha,
       programa: input.programa,
       cliente: input.cliente,
+      ...(input.roadmap ? { roadmap: input.roadmap } : {}),
+      ...(input.reuniones ? { reuniones: input.reuniones } : {}),
       participantes: input.participantes.map((p) => ({
         nombre: p.nombre,
         ...(p.area ? { area: p.area } : {}),

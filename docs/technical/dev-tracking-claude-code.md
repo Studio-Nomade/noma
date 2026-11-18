@@ -14,8 +14,9 @@ NOMA_PROGRAM_ID=<id de dev_programs del programa>
 
 1. Contexto: `GET $NOMA_URL/api/dev-tracking/$NOMA_PROGRAM_ID/modulos` (módulos, hitos, pelota, preguntas abiertas, siguiente código).
 2. Paquetes pendientes: `GET …/paquetes?estado=armado` y, por cada uno, `GET …/paquetes/<code>` (YAML). Guardar una copia en `Local/roadmaps/_entrada/<code>.yaml`.
-3. Verificar cada solicitud contra el código y los datos (solo lectura) y decidir el veredicto: `ya_existe` · `bug` · `requiere_desarrollo` · `bloqueada`.
-4. Si hace falta un roadmap nuevo: `POST …/siguiente-roadmap {"tipo":"mejora"|"correccion"|"modulo"}` y usar el código devuelto para la carpeta, la rama (`feat/r75-h1-slug`) y el PR (`Roadmap: R75 · H1`, `Asana: <gid>`).
+   Cada paquete corresponde a **un roadmap** (`paquete.roadmap.codigo`, p. ej. `R76` o `NDes-008`), ya reservado por Noma y ya usado en Asana (`R76 · título`). **No reservar otro código ni reagrupar**: usar ese para la carpeta, la rama (`feat/r76-h1-slug`) y el PR (`Roadmap: R76 · H1`, `Asana: <gid>`). Lo que sí decide el arquitecto es el **orden técnico** de las solicitudes dentro del paquete (dependencias, qué va en cada hito).
+3. Verificar cada solicitud contra el código y los datos (solo lectura) y decidir el veredicto: `ya_existe` · `bug` · `requiere_desarrollo` · `bloqueada`. Si una solicitud claramente no pertenece a ese roadmap, decirlo en su `nota` (Sebastián la mueve en Noma), sin cambiarla de código.
+4. Solo para trabajo que no viene en un paquete (p. ej. un hotfix): `POST …/siguiente-roadmap {"tipo":"mejora"|"correccion"|"modulo"}` y usar el código devuelto. Los paquetes antiguos (uno por reunión, sin `roadmap`) siguen la regla anterior: reservar el código antes de usarlo.
 
 ## Al cerrar la sesión
 
