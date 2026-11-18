@@ -1047,3 +1047,66 @@ export async function ensureEnumOption(
   fieldCache.delete(projectGid);
   return true;
 }
+
+// ── Proyectos (preparación de proyectos nuevos) ──────────────
+export type AsanaProjectInfo = {
+  gid: string;
+  name: string;
+  created_at?: string;
+  archived?: boolean;
+  html_notes?: string;
+  permalink_url?: string;
+  team?: { gid: string; name?: string } | null;
+  members?: { gid: string; email?: string | null }[];
+};
+
+/** Proyectos activos del workspace (paginado), con equipo y descripción. */
+export async function listWorkspaceProjects(
+  maxPages = 10,
+): Promise<AsanaProjectInfo[]> {
+  const workspace = process.env.ASANA_WORKSPACE_GID?.trim();
+  if (!workspace) throw new Error("Falta configurar ASANA_WORKSPACE_GID.");
+  const out: AsanaProjectInfo[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      workspace,
+      archived: "false",
+      limit: "100",
+      opt_fields:
+        "gid,name,created_at,archived,html_notes,permalink_url,team.gid,team.name,members.gid,members.email",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<AsanaProjectInfo[]>(
+      "GET",
+      `/projects?${params}`,
+    );
+    out.push(...(envelope?.data ?? []));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
+
+/** Reemplaza la descripción (html) de un proyecto. */
+export async function setProjectHtmlNotes(projectGid: string, html: string) {
+  await asanaRequest("PUT", `/projects/${encodeURIComponent(projectGid)}`, {
+    body: { html_notes: html },
+  });
+}
+
+/** Tareas (no completadas) de un proyecto, solo gid y nombre. */
+export async function listProjectOpenTasks(projectGid: string) {
+  const params = new URLSearchParams({
+    project: projectGid,
+    completed_since: "now",
+    limit: "100",
+    opt_fields: "gid,name",
+  });
+  return (
+    (await asanaRequest<{ gid: string; name?: string }[]>(
+      "GET",
+      `/tasks?${params}`,
+    )) ?? []
+  );
+}

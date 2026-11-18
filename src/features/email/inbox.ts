@@ -43,6 +43,11 @@ export function requestsMailbox(): string | null {
 
 let tokenCache: { token: string; expiresAt: number } | null = null;
 
+/** Access token de la casilla de servicio (operations@), para Drive. */
+export async function requestsMailboxAccessToken(): Promise<string> {
+  return mailboxAccessToken();
+}
+
 async function mailboxAccessToken(): Promise<string> {
   if (tokenCache && tokenCache.expiresAt > Date.now()) return tokenCache.token;
   const mailbox = requestsMailbox();
