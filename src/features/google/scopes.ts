@@ -30,6 +30,9 @@ export const GOOGLE_BASE_SCOPES = [
  */
 export const REQUESTS_MAILBOX_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
+  // drive: crear la carpeta del cliente y del proyecto en las unidades
+  // compartidas de cada área (proyectos nuevos de Asana).
+  "https://www.googleapis.com/auth/drive",
 ] as const;
 
 export const REQUESTS_MAILBOX_LOGIN_PARAM = "mailbox";
