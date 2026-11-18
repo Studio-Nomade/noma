@@ -3266,3 +3266,35 @@ export type DevMeetingMinutes = typeof devMeetingMinutes.$inferSelect;
 export type DevBacklogItem = typeof devBacklog.$inferSelect;
 export type NewDevBacklogItem = typeof devBacklog.$inferInsert;
 export type DevQuestion = typeof devQuestions.$inferSelect;
+
+// ── Paquetes para el arquitecto (dev_packages) ───────────────
+// Contrato Noma → Claude Code → Noma: las solicitudes aprobadas de una
+// reunión (o lote) se entregan como paquete YAML; el arquitecto devuelve el
+// veredicto por solicitud, el roadmap y los hitos.
+export const devPackages = pgTable(
+  "dev_packages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // PKG-2026-11-18-01
+    meetingId: uuid("meeting_id").references(() => devMeetings.id, {
+      onDelete: "set null",
+    }),
+    // reunion · whatsapp · correo · chat · manual
+    origin: text("origin").default("reunion").notNull(),
+    title: text("title").notNull(),
+    itemIds: uuid("item_ids").array().default([]).notNull(), // dev_backlog
+    yaml: text("yaml").notNull(),
+    // armado · entregado · con_resultado
+    status: text("status").default("armado").notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    resultAt: timestamp("result_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_packages_program_code_uq").on(t.programId, t.code)],
+);
+
+export type DevPackage = typeof devPackages.$inferSelect;
