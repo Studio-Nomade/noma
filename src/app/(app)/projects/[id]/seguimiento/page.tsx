@@ -30,6 +30,8 @@ import {
 } from "@/features/dev-tracking/constants";
 
 export const dynamic = "force-dynamic";
+// «Crear en Asana» espera ~20 s a la regla del tablero antes de fijar estado.
+export const maxDuration = 60;
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
