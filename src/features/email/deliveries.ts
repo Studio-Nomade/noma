@@ -30,8 +30,7 @@ import {
 } from "./delivery-command";
 import { ROUNDS_FIELD } from "@/features/reports/metrics";
 import { deliveryCc } from "./delivery-team";
-import { syncPiece } from "./piece-sync";
-import { pieceLabel } from "./pieces";
+import { findRequestAncestor, syncPiece } from "./piece-sync";
 import { replySubject } from "./folio";
 import { GmailApiError, createDraftReply, sendReply } from "./inbox";
 import { buildReplyThreadHeaders } from "./mime";
@@ -558,16 +557,16 @@ async function resolveDeliveryRequest(taskGid: string): Promise<{
     Boolean(row?.emailChannelId && row.requesterEmail);
   const direct = await findEmailRequestByTask(taskGid);
   if (direct) return usable(direct) ? { request: direct, piece: null } : null;
-  const task = await getTaskState(taskGid).catch(() => null);
-  const parentGid = task?.parent?.gid;
-  if (!parentGid) return null;
-  const parent = await findEmailRequestByTask(parentGid);
+  // Pieza (subtarea) o etapa de una pieza: sube hasta la solicitud.
+  const owner = await findRequestAncestor(taskGid);
+  if (!owner) return null;
+  const parent = await findEmailRequestByTask(owner.requestTaskGid);
   if (!usable(parent)) return null;
   return {
     request: parent,
     piece: {
       taskGid,
-      label: pieceLabel(task?.name) ?? (requestTitle(parent) || "la pieza"),
+      label: owner.piece.label ?? (requestTitle(parent) || "la pieza"),
     },
   };
 }
@@ -634,13 +633,19 @@ export async function reconcileAsanaDeliveries({
   for (const request of requests) {
     if (Date.now() > deadline) break;
     checked += 1;
-    // Las piezas (subtareas) entregan en sus propios comentarios.
+    // Las piezas (subtareas) y sus etapas entregan en sus propios
+    // comentarios: se revisan dos niveles bajo la solicitud.
     const pieces = await listSubtasks(request.taskGid!).catch(() => []);
+    const stages = (
+      await Promise.all(
+        pieces.map((piece) => listSubtasks(piece.gid).catch(() => [])),
+      )
+    ).flat();
     const stories = (
       await Promise.all(
-        [request.taskGid!, ...pieces.map((piece) => piece.gid)].map((gid) =>
-          listTaskStories(gid).catch(() => []),
-        ),
+        [request.taskGid!, ...pieces, ...stages]
+          .map((task) => (typeof task === "string" ? task : task.gid))
+          .map((gid) => listTaskStories(gid).catch(() => [])),
       )
     ).flat();
     for (const story of stories) {

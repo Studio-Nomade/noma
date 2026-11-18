@@ -1009,9 +1009,16 @@ async function piecePlanFor(taskGid: string, delivery: LastDelivery | null) {
     const story = delivery
       ? await getStory(delivery.asanaStoryGid).catch(() => null)
       : null;
+    const deliveredGid = story?.target?.gid ?? null;
+    const delivered =
+      deliveredGid && deliveredGid !== taskGid
+        ? await getTaskState(deliveredGid).catch(() => null)
+        : null;
     const plan = planPieceApproval({
       subtasks,
-      deliveredTaskGid: story?.target?.gid ?? null,
+      delivered: delivered
+        ? { gid: delivered.gid, name: delivered.name ?? "la pieza" }
+        : null,
     });
     return plan.closeRequest ? null : plan;
   } catch (error) {
