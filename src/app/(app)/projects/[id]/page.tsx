@@ -5,18 +5,14 @@ import {
   CalendarPlus,
   ExternalLink,
   FileText,
+  GitBranch,
   Mail,
   Pencil,
   Rocket,
   Video,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/lib/currency/format";
 import { requireUser } from "@/lib/auth";
@@ -53,6 +49,7 @@ import { getBotChannelForProject } from "@/features/bot/queries";
 import { AuthorizedSendersCard } from "@/features/bot/authorized-senders-card";
 import { getProjectRetainer } from "@/features/retainers/queries";
 import { RetainerCard } from "@/features/retainers/retainer-card";
+import { getDevProgramByProject } from "@/features/dev-tracking/queries";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -95,6 +92,7 @@ export default async function ProjectDetailPage({
     sla,
     botChannelState,
     retainerData,
+    devProgram,
   ] = await Promise.all([
     getProjectLinks(id),
     listClients(),
@@ -107,15 +105,14 @@ export default async function ProjectDetailPage({
     getProjectTimeline(id, { includeFinance: isFinance }),
     isFinance ? getProjectFinance(id) : Promise.resolve(null),
     isFinance ? getSalesOrdersForProject(id) : Promise.resolve([]),
-    isFinance
-      ? getSalesOrderBillingItemsForProject(id)
-      : Promise.resolve([]),
+    isFinance ? getSalesOrderBillingItemsForProject(id) : Promise.resolve([]),
     isFinance
       ? getProjectFinanceDetails(id)
       : Promise.resolve({ invoices: [], collections: [] }),
     isLegal ? getProjectSla(id) : Promise.resolve(null),
     getBotChannelForProject(id),
     getProjectRetainer(id),
+    getDevProgramByProject(id),
   ]);
   const asanaLink = links.find((link) => link.type === "asana") ?? null;
   const isHandedOff = project.commercialStage === "Traspasado a operación";
@@ -159,17 +156,28 @@ export default async function ProjectDetailPage({
             <StatusBadge value={project.priority} />
           </div>
         </div>
-        <ProjectDialog
-          project={project}
-          clients={clientOptions}
-          teamMembers={team}
-          trigger={
-            <Button variant="outline">
-              <Pencil className="size-4" />
-              Editar
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap gap-2">
+          {devProgram && (
+            <Link
+              href={`/projects/${project.id}/seguimiento`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <GitBranch className="size-4" />
+              Seguimiento de desarrollo
+            </Link>
+          )}
+          <ProjectDialog
+            project={project}
+            clients={clientOptions}
+            teamMembers={team}
+            trigger={
+              <Button variant="outline">
+                <Pencil className="size-4" />
+                Editar
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="summary">

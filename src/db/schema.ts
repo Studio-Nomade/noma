@@ -2890,3 +2890,411 @@ export const assistantBriefings = pgTable(
     index("assistant_briefings_expires_idx").on(t.expiresAt),
   ],
 );
+
+// ── Seguimiento de desarrollo (dev_*) ────────────────────────
+// Un «programa» por proyecto de desarrollo (p. ej. una plataforma que el
+// estudio opera para un cliente). Reemplaza el tablero HTML a mano: módulos
+// en curso con sus hitos, roadmaps numerados, PR integrados y bitácora.
+// Fuentes: Asana (qué), GitHub (cuándo), el arquitecto (plan). Clave común:
+// el código de roadmap (`R74`, `NDes-006`).
+
+export const devPrograms = pgTable(
+  "dev_programs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    startDate: date("start_date"),
+    // [{ name: "appscinco-backend", label: "back", countBase: "non_main" | "all" }]
+    repos: jsonb("repos")
+      .$type<{ name: string; label: string; countBase: "non_main" | "all" }[]>()
+      .default([])
+      .notNull(),
+    asanaProjectGid: text("asana_project_gid"),
+    portalVisible: boolean("portal_visible").default(false).notNull(),
+    // Prefijos de numeración: mejoras `R`, módulos nuevos `NDes-`
+    nextRoadmapNumber: integer("next_roadmap_number").default(1).notNull(),
+    nextModuleNumber: integer("next_module_number").default(1).notNull(),
+    sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_programs_project_uq").on(t.projectId)],
+);
+
+export const devModules = pgTable(
+  "dev_modules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // NDes-006 · TELEMETRIA · COT-FACT
+    name: text("name").notNull(),
+    objective: text("objective"),
+    startDate: date("start_date"),
+    targetDate: date("target_date"),
+    progress: integer("progress").default(0).notNull(), // 0–100
+    criteria: text("criteria"),
+    ballOwner: text("ball_owner"), // quién tiene la pelota
+    ballWhat: text("ball_what"), // qué se espera de esa persona
+    nextFollowUp: date("next_follow_up"),
+    inProduction: text("in_production").array().default([]).notNull(),
+    pending: text("pending").array().default([]).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_modules_program_code_uq").on(t.programId, t.code)],
+);
+
+export const devMilestones = pgTable(
+  "dev_milestones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => devModules.id, { onDelete: "cascade" }),
+    name: text("name").notNull(), // «H5 Ensayo e ingesta»
+    // en_prod · pr_abierto · en_desarrollo · pendiente · bloqueado
+    status: text("status").default("pendiente").notNull(),
+    date: date("date"),
+    asanaTaskGid: text("asana_task_gid"),
+    prNumbers: text("pr_numbers").array().default([]).notNull(), // «appscinco-backend#498»
+    sortOrder: integer("sort_order").default(0).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("dev_milestones_module_name_uq").on(t.moduleId, t.name),
+    index("dev_milestones_status_idx").on(t.status),
+  ],
+);
+
+export const devRoadmaps = pgTable(
+  "dev_roadmaps",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // R74 · NDes-006
+    title: text("title").notNull(),
+    month: text("month").notNull(), // «2026-11»
+    // en_prod · parcial · pendiente
+    status: text("status").default("pendiente").notNull(),
+    // modulo · mejora · correccion
+    kind: text("kind").default("mejora").notNull(),
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    asanaTaskGids: text("asana_task_gids").array().default([]).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("dev_roadmaps_program_code_uq").on(t.programId, t.code),
+    index("dev_roadmaps_month_idx").on(t.programId, t.month),
+  ],
+);
+
+export const devPrs = pgTable(
+  "dev_prs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    repo: text("repo").notNull(), // appscinco-backend
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    baseBranch: text("base_branch").notNull(), // develop · main
+    headBranch: text("head_branch"),
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    month: text("month").notNull(), // «2026-11» (mes del merge)
+    author: text("author"),
+    roadmapCode: text("roadmap_code"), // detectado del título o la rama
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    isPromotion: boolean("is_promotion").default(false).notNull(), // promote/* → main
+    source: text("source").default("import").notNull(), // import · webhook · backfill
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("dev_prs_program_repo_number_uq").on(
+      t.programId,
+      t.repo,
+      t.number,
+    ),
+    index("dev_prs_month_idx").on(t.programId, t.month),
+    index("dev_prs_roadmap_idx").on(t.programId, t.roadmapCode),
+  ],
+);
+
+export const devLog = pgTable(
+  "dev_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    moduleCode: text("module_code"), // texto libre cuando no hay módulo
+    text: text("text").notNull(),
+    // asana · github · claude · manual · import
+    source: text("source").default("manual").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("dev_log_program_date_idx").on(t.programId, t.date),
+    uniqueIndex("dev_log_program_date_text_uq").on(t.programId, t.date, t.text),
+  ],
+);
+
+export type DevProgram = typeof devPrograms.$inferSelect;
+export type NewDevProgram = typeof devPrograms.$inferInsert;
+export type DevModule = typeof devModules.$inferSelect;
+export type NewDevModule = typeof devModules.$inferInsert;
+export type DevMilestone = typeof devMilestones.$inferSelect;
+export type NewDevMilestone = typeof devMilestones.$inferInsert;
+export type DevRoadmap = typeof devRoadmaps.$inferSelect;
+export type NewDevRoadmap = typeof devRoadmaps.$inferInsert;
+export type DevPr = typeof devPrs.$inferSelect;
+export type NewDevPr = typeof devPrs.$inferInsert;
+export type DevLogEntry = typeof devLog.$inferSelect;
+export type NewDevLogEntry = typeof devLog.$inferInsert;
+
+// ── Reuniones del programa (dev_meeting_types, dev_meetings) ──
+// Tipos de reunión con cadencia y asistentes por defecto (revisión semanal,
+// comercial, operaciones, gerencia…). Los eventos se crean con Meet desde la
+// casilla de operaciones (NOMA_REQUESTS_MAILBOX) para que la transcripción de
+// Gemini quede en su Drive y el ciclo de minutas pueda tomarla.
+
+export const devMeetingTypes = pgTable(
+  "dev_meeting_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    // weekly · biweekly · monthly · adhoc
+    cadence: text("cadence").default("adhoc").notNull(),
+    weekday: integer("weekday"), // 0 = domingo … 6 = sábado
+    timeOfDay: text("time_of_day"), // «09:00» (America/Santiago)
+    durationMin: integer("duration_min").default(60).notNull(),
+    contactIds: uuid("contact_ids").array().default([]).notNull(), // client_contacts
+    extraEmails: text("extra_emails").array().default([]).notNull(),
+    agendaTemplate: text("agenda_template"),
+    producesBacklog: boolean("produces_backlog").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("dev_meeting_types_program_idx").on(t.programId)],
+);
+
+export const devMeetings = pgTable(
+  "dev_meetings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    meetingTypeId: uuid("meeting_type_id").references(
+      () => devMeetingTypes.id,
+      { onDelete: "set null" },
+    ),
+    title: text("title").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    durationMin: integer("duration_min").default(60).notNull(),
+    attendees: jsonb("attendees")
+      .$type<{ name?: string; email: string }[]>()
+      .default([])
+      .notNull(),
+    agenda: text("agenda"),
+    organizerEmail: text("organizer_email"),
+    calendarEventId: text("calendar_event_id"),
+    calendarLink: text("calendar_link"),
+    meetLink: text("meet_link"),
+    // agendada · realizada · transcrita · resumida · minuta_enviada · cancelada
+    status: text("status").default("agendada").notNull(),
+    transcriptFileId: text("transcript_file_id"),
+    minutesDocId: text("minutes_doc_id"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [
+    index("dev_meetings_program_starts_idx").on(t.programId, t.startsAt),
+    index("dev_meetings_status_idx").on(t.status),
+  ],
+);
+
+export type DevMeetingType = typeof devMeetingTypes.$inferSelect;
+export type NewDevMeetingType = typeof devMeetingTypes.$inferInsert;
+export type DevMeeting = typeof devMeetings.$inferSelect;
+export type NewDevMeeting = typeof devMeetings.$inferInsert;
+
+// ── Minutas, backlog y preguntas abiertas del programa ───────
+// La minuta la arma Claude desde la transcripción (Gemini en el Drive de la
+// casilla de operaciones). Las solicitudes nacen como «propuesta» y pasan a
+// Asana solo con aprobación. Las cifras dichas en la reunión se marcan como
+// «dicho» hasta que el arquitecto las verifique.
+
+export const devMeetingMinutes = pgTable(
+  "dev_meeting_minutes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => devMeetings.id, { onDelete: "cascade" }),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    attendees: jsonb("attendees")
+      .$type<{ name: string; area?: string; role?: string }[]>()
+      .default([])
+      .notNull(),
+    topics: jsonb("topics")
+      .$type<{ title: string; detail?: string; minute?: string }[]>()
+      .default([])
+      .notNull(),
+    agreements: text("agreements").array().default([]).notNull(),
+    pendingDecisions: text("pending_decisions").array().default([]).notNull(),
+    confirmedNoDev: text("confirmed_no_dev").array().default([]).notNull(),
+    quotedFigures: jsonb("quoted_figures")
+      .$type<
+        {
+          text: string;
+          status: "dicho" | "verificado" | "corregido";
+          note?: string;
+        }[]
+      >()
+      .default([])
+      .notNull(),
+    model: text("model"),
+    gmailDraftId: text("gmail_draft_id"),
+    driveDocId: text("drive_doc_id"),
+    // borrador · aprobada · enviada
+    status: text("status").default("borrador").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_meeting_minutes_meeting_uq").on(t.meetingId)],
+);
+
+export const devBacklog = pgTable(
+  "dev_backlog",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    meetingId: uuid("meeting_id").references(() => devMeetings.id, {
+      onDelete: "set null",
+    }),
+    code: text("code").notNull(), // OP-01 · CO-03 · RC-01 · EC-01
+    title: text("title").notNull(),
+    detail: text("detail"),
+    raisedBy: text("raised_by"),
+    // Técnicos · Comerciales · IoT/Telemetría
+    area: text("area"),
+    // Mejora funcional · Bug / error · Nuevo desarrollo · Soporte operativo ·
+    // Infraestructura / deploy · Data / base de datos
+    type: text("type"),
+    // Web · APK · Web/APK · No aplica
+    environment: text("environment"),
+    // Normal · Media · Alta · Crítica
+    priority: text("priority").default("Normal").notNull(),
+    evidence: text("evidence"),
+    // roadmap_en_curso · backlog_general · nuevo
+    destination: text("destination"),
+    roadmapCode: text("roadmap_code"),
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    dependencies: text("dependencies").array().default([]).notNull(),
+    // propuesta · aprobada · descartada · en_asana · verificada
+    status: text("status").default("propuesta").notNull(),
+    // ya_existe · bug · requiere_desarrollo · bloqueada (lo pone el arquitecto)
+    verdict: text("verdict"),
+    verdictNote: text("verdict_note"),
+    asanaTaskGid: text("asana_task_gid"),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("dev_backlog_program_status_idx").on(t.programId, t.status),
+    index("dev_backlog_meeting_idx").on(t.meetingId),
+  ],
+);
+
+export const devQuestions = pgTable(
+  "dev_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    meetingId: uuid("meeting_id").references(() => devMeetings.id, {
+      onDelete: "set null",
+    }),
+    question: text("question").notNull(),
+    forWhom: text("for_whom"), // persona o área
+    since: date("since").notNull(),
+    blocks: text("blocks"), // hito o roadmap que bloquea
+    // abierta · respondida · descartada
+    status: text("status").default("abierta").notNull(),
+    answer: text("answer"),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    // reunion · claude_code · manual
+    source: text("source").default("reunion").notNull(),
+    ...timestamps,
+  },
+  (t) => [index("dev_questions_program_status_idx").on(t.programId, t.status)],
+);
+
+export type DevMeetingMinutes = typeof devMeetingMinutes.$inferSelect;
+export type DevBacklogItem = typeof devBacklog.$inferSelect;
+export type NewDevBacklogItem = typeof devBacklog.$inferInsert;
+export type DevQuestion = typeof devQuestions.$inferSelect;
+
+// ── Paquetes para el arquitecto (dev_packages) ───────────────
+// Contrato Noma → Claude Code → Noma: las solicitudes aprobadas de una
+// reunión (o lote) se entregan como paquete YAML; el arquitecto devuelve el
+// veredicto por solicitud, el roadmap y los hitos.
+export const devPackages = pgTable(
+  "dev_packages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // PKG-2026-11-18-01
+    meetingId: uuid("meeting_id").references(() => devMeetings.id, {
+      onDelete: "set null",
+    }),
+    // reunion · whatsapp · correo · chat · manual
+    origin: text("origin").default("reunion").notNull(),
+    title: text("title").notNull(),
+    itemIds: uuid("item_ids").array().default([]).notNull(), // dev_backlog
+    yaml: text("yaml").notNull(),
+    // armado · entregado · con_resultado
+    status: text("status").default("armado").notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    resultAt: timestamp("result_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_packages_program_code_uq").on(t.programId, t.code)],
+);
+
+export type DevPackage = typeof devPackages.$inferSelect;

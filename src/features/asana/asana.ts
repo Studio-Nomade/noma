@@ -884,3 +884,34 @@ export async function listWebhooks(workspaceGid: string, resourceGid?: string) {
 export async function deleteWebhook(webhookGid: string) {
   await asanaRequest("DELETE", `/webhooks/${encodeURIComponent(webhookGid)}`);
 }
+
+/** Sección por nombre (la crea si no existe). */
+export async function ensureSectionByName(
+  projectGid: string,
+  name: string,
+): Promise<AsanaSection & { created: boolean }> {
+  const key = `${projectGid}:${normalizeSectionName(name)}`;
+  const cached = sectionCache.get(key);
+  if (cached) return { ...cached, created: false };
+  const sections = await listSections(projectGid);
+  const existing = sections.find(
+    (section) =>
+      normalizeSectionName(section.name) === normalizeSectionName(name),
+  );
+  if (existing) {
+    sectionCache.set(key, existing);
+    return { ...existing, created: false };
+  }
+  const created = await createSection(projectGid, name);
+  sectionCache.set(key, created);
+  return { ...created, created: true };
+}
+
+/** Mueve una tarea a una sección del proyecto. */
+export async function addTaskToSection(sectionGid: string, taskGid: string) {
+  await asanaRequest(
+    "POST",
+    `/sections/${encodeURIComponent(sectionGid)}/addTask`,
+    { body: { task: taskGid } },
+  );
+}
