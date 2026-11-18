@@ -9,6 +9,7 @@ import {
   getTaskAssignee,
   getTaskState,
   getUserEmail,
+  listSubtasks,
   listTaskStories,
   resolveBotUserGid,
   setEnumFieldByName,
@@ -29,6 +30,7 @@ import {
 } from "./delivery-command";
 import { ROUNDS_FIELD } from "@/features/reports/metrics";
 import { deliveryCc } from "./delivery-team";
+import { pieceLabel } from "./pieces";
 import { replySubject } from "./folio";
 import { GmailApiError, createDraftReply, sendReply } from "./inbox";
 import { buildReplyThreadHeaders } from "./mime";
@@ -152,21 +154,18 @@ export async function processAsanaStory(
 
   const taskGid = story.target?.gid;
   if (!taskGid) return "skipped_no_request";
-  const request = await db.query.clientRequests.findFirst({
-    where: and(
-      eq(clientRequests.channel, "email"),
-      eq(clientRequests.asanaTaskGid, taskGid),
-      isNotNull(clientRequests.emailThreadId),
-    ),
-  });
-  if (!request?.emailChannelId || !request.requesterEmail) {
-    return "skipped_no_request";
-  }
+  const resolved = await resolveDeliveryRequest(taskGid);
+  if (!resolved) return "skipped_no_request";
+  const { request, piece } = resolved;
+  // La evaluación (fuera de alcance) es de la solicitud completa.
+  if (piece && command.kind === "evaluacion") return "skipped_not_delivery";
 
   const round = command.kind === "delivery" ? command.delivery.round : 0;
   const files = command.kind === "delivery" ? command.delivery.files : [];
+  // Los ajustes pendientes son de la solicitud completa: una pieza no los
+  // da por aplicados (los reparte el equipo entre las subtareas).
   const applied =
-    command.kind === "delivery" && command.delivery.round > 1
+    !piece && command.kind === "delivery" && command.delivery.round > 1
       ? (request.emailPendingAdjustments ?? [])
       : [];
   const note =
@@ -248,7 +247,7 @@ export async function processAsanaStory(
       note: command.delivery.note,
       author: authorLabel(story),
       appliedAdjustments: applied.map((item) => item.text),
-      pieceLabel: requestTitle(request) || null,
+      pieceLabel: piece?.label ?? (requestTitle(request) || null),
     });
   } else if (command.kind === "consulta") {
     if (!command.consulta.questions.length) {
@@ -403,8 +402,11 @@ export async function processAsanaStory(
       emailLastMessageId: sent.messageId ?? request.emailLastMessageId,
       // El equipo que entró en copia sigue en el hilo para el seguimiento.
       ccEmails: cc,
-      // Los ajustes pendientes quedan registrados en esta entrega.
-      ...(command.kind === "delivery" ? { emailPendingAdjustments: [] } : {}),
+      // Los ajustes pendientes quedan registrados en esta entrega (solo si
+      // es de la solicitud completa, no de una pieza).
+      ...(command.kind === "delivery" && !piece
+        ? { emailPendingAdjustments: [] }
+        : {}),
       updatedAt: now,
     })
     .where(eq(clientRequests.id, request.id));
@@ -425,21 +427,24 @@ export async function processAsanaStory(
     return "sent";
   }
 
-  // Pasos posteriores degradables: el correo ya salió.
-  await setEnumFieldByName(
-    taskGid,
-    channel.asanaProjectGid,
-    ESTADO_FIELD,
-    ESTADO_SENT,
-  ).catch((error) => console.error("[email:delivery:estado]", error));
-  // Retrabajo: la ronda enviada queda en el campo numérico del tablero
-  // («Rondas de entrega»), que el panel de Métricas promedia por mes.
-  await setNumberFieldByName(
-    taskGid,
-    channel.asanaProjectGid,
-    ROUNDS_FIELD,
-    round,
-  ).catch((error) => console.error("[email:delivery:rondas]", error));
+  // Pasos posteriores degradables: el correo ya salió. Estado y rondas son
+  // de la solicitud: una pieza no los mueve (otras pueden seguir en curso).
+  if (!piece) {
+    await setEnumFieldByName(
+      taskGid,
+      channel.asanaProjectGid,
+      ESTADO_FIELD,
+      ESTADO_SENT,
+    ).catch((error) => console.error("[email:delivery:estado]", error));
+    // Retrabajo: la ronda enviada queda en el campo numérico del tablero
+    // («Rondas de entrega»), que el panel de Métricas promedia por mes.
+    await setNumberFieldByName(
+      taskGid,
+      channel.asanaProjectGid,
+      ROUNDS_FIELD,
+      round,
+    ).catch((error) => console.error("[email:delivery:rondas]", error));
+  }
   await addStory(
     taskGid,
     buildDeliveryAuditStoryHtml({
@@ -453,6 +458,7 @@ export async function processAsanaStory(
       folio: request.folio,
       clientName: channel.clientName,
       round,
+      piece: piece?.label ?? null,
       asanaUrl: request.asanaUrl,
     }),
     channel.slackWebhookEnv,
@@ -517,6 +523,49 @@ export async function flushScheduledDeliveries({
   return { scheduled: rows.length, sent, failed };
 }
 
+type EmailRequest = typeof clientRequests.$inferSelect;
+type UsableRequest = EmailRequest & {
+  emailChannelId: string;
+  requesterEmail: string;
+};
+
+async function findEmailRequestByTask(taskGid: string) {
+  return db.query.clientRequests.findFirst({
+    where: and(
+      eq(clientRequests.channel, "email"),
+      eq(clientRequests.asanaTaskGid, taskGid),
+      isNotNull(clientRequests.emailThreadId),
+    ),
+  });
+}
+
+/**
+ * Solicitud de correo de la tarea comentada. Si la tarea es una subtarea
+ * (una pieza que el equipo separó de la solicitud), sube a la tarea madre:
+ * la entrega sale en el mismo hilo, con el nombre de la subtarea como pieza.
+ */
+async function resolveDeliveryRequest(taskGid: string): Promise<{
+  request: UsableRequest;
+  piece: { taskGid: string; label: string } | null;
+} | null> {
+  const usable = (row: EmailRequest | undefined): row is UsableRequest =>
+    Boolean(row?.emailChannelId && row.requesterEmail);
+  const direct = await findEmailRequestByTask(taskGid);
+  if (direct) return usable(direct) ? { request: direct, piece: null } : null;
+  const task = await getTaskState(taskGid).catch(() => null);
+  const parentGid = task?.parent?.gid;
+  if (!parentGid) return null;
+  const parent = await findEmailRequestByTask(parentGid);
+  if (!usable(parent)) return null;
+  return {
+    request: parent,
+    piece: {
+      taskGid,
+      label: pieceLabel(task?.name) ?? (requestTitle(parent) || "la pieza"),
+    },
+  };
+}
+
 /** Correo de quien comenta y responsable de la tarea (null si Asana falla). */
 async function studioTeam(taskGid: string, commenterGid: string) {
   try {
@@ -579,7 +628,15 @@ export async function reconcileAsanaDeliveries({
   for (const request of requests) {
     if (Date.now() > deadline) break;
     checked += 1;
-    const stories = await listTaskStories(request.taskGid!);
+    // Las piezas (subtareas) entregan en sus propios comentarios.
+    const pieces = await listSubtasks(request.taskGid!).catch(() => []);
+    const stories = (
+      await Promise.all(
+        [request.taskGid!, ...pieces.map((piece) => piece.gid)].map((gid) =>
+          listTaskStories(gid).catch(() => []),
+        ),
+      )
+    ).flat();
     for (const story of stories) {
       if (
         settled.has(story.gid) ||

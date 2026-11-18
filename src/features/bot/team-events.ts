@@ -70,13 +70,16 @@ export function deliverySentMessage(input: {
   folio?: string | null;
   clientName: string;
   round: number;
+  /** Pieza (subtarea) entregada, si la solicitud está dividida. */
+  piece?: string | null;
   asanaUrl?: string | null;
 }): TeamEventMessage {
   const round = round2(input.round);
+  const piece = input.piece ? ` de «${clean(input.piece)}»` : "";
   return {
-    text: `Entrega ${round} enviada${input.folio ? ` · ${clean(input.folio)}` : ""}`,
+    text: `Entrega ${round}${piece} enviada${input.folio ? ` · ${clean(input.folio)}` : ""}`,
     body: [
-      `📦 ${head(input)} · *Entrega ${round} enviada* al cliente.`,
+      `📦 ${head(input)} · *Entrega ${round}${piece} enviada* al cliente.`,
       link(input.asanaUrl),
     ]
       .filter(Boolean)
@@ -126,6 +129,33 @@ export function requestClosedMessage(input: {
   return {
     text: `Solicitud cerrada${input.folio ? ` · ${clean(input.folio)}` : ""}`,
     body: [`✅ ${head(input)} · ${how}`, link(input.asanaUrl)]
+      .filter(Boolean)
+      .join(" "),
+  };
+}
+
+/** 🧩 El cliente aprobó una pieza; la solicitud sigue con otras abiertas. */
+export function pieceApprovedMessage(input: {
+  folio?: string | null;
+  clientName: string;
+  /** Pieza aprobada (null si la entrega fue de la tarea principal). */
+  piece: string | null;
+  /** Piezas que siguen abiertas. */
+  remaining: string[];
+  asanaUrl?: string | null;
+}): TeamEventMessage {
+  const what = input.piece
+    ? `*Aprobó «${clean(input.piece)}»*`
+    : "*Aprobó la última entrega*";
+  const rest = input.remaining.length
+    ? ` Siguen abiertas: ${input.remaining.map((name) => `«${clean(name)}»`).join(", ")}.`
+    : "";
+  return {
+    text: `Pieza aprobada${input.folio ? ` · ${clean(input.folio)}` : ""}`,
+    body: [
+      `🧩 ${head(input)} · ${what}; la solicitud sigue abierta.${rest}`,
+      link(input.asanaUrl),
+    ]
       .filter(Boolean)
       .join(" "),
   };

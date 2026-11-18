@@ -8,8 +8,10 @@ import {
   addStory,
   createTask,
   ensureMonthSection,
+  getStory,
   getTaskAssignee,
   getTaskState,
+  listSubtasks,
   resolveCustomFieldValues,
   setEnumFieldByName,
   setTaskCompleted,
@@ -26,6 +28,7 @@ import {
 } from "@/features/bot/notify";
 import {
   adjustmentsMessage,
+  pieceApprovedMessage,
   requestClosedMessage,
   slackMention,
 } from "@/features/bot/team-events";
@@ -48,6 +51,7 @@ import {
 import { formatSpanishDate } from "./dates";
 import { linkDesignTask } from "./design-link";
 import { deliveryCc } from "./delivery-team";
+import { planPieceApproval } from "./pieces";
 import {
   completeExtraction,
   extractEmailRequest,
@@ -75,6 +79,7 @@ import {
 } from "./store";
 import { classifyReply, type ReplyClassification } from "./reply-classify";
 import {
+  escapeHtml,
   priorityStyle,
   renderAdjustmentsAckEmail,
   renderApprovedEmail,
@@ -951,6 +956,7 @@ export async function handleEmailReply(input: {
 // ─────────────────────────────────────────────────────────────
 type LastDelivery = {
   round: number;
+  asanaStoryGid: string;
   files: { label: string; url: string; detail: string | null }[];
   links: string[];
   sentAt: Date | null;
@@ -962,6 +968,7 @@ async function lastSentDelivery(
   const rows = await db
     .select({
       round: requestDeliveries.round,
+      asanaStoryGid: requestDeliveries.asanaStoryGid,
       files: requestDeliveries.files,
       links: requestDeliveries.links,
       sentAt: requestDeliveries.sentAt,
@@ -974,9 +981,33 @@ async function lastSentDelivery(
         eq(requestDeliveries.status, "sent"),
       ),
     )
-    .orderBy(desc(requestDeliveries.round))
+    // La última enviada (con piezas, cada una lleva su propia ronda).
+    .orderBy(desc(requestDeliveries.sentAt), desc(requestDeliveries.round))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * Plan de aprobación por piezas, o null si la aprobación cierra la solicitud
+ * completa (sin subtareas, o sin otras piezas abiertas). Degradable: si Asana
+ * falla, se mantiene el flujo de siempre.
+ */
+async function piecePlanFor(taskGid: string, delivery: LastDelivery | null) {
+  try {
+    const subtasks = await listSubtasks(taskGid);
+    if (!subtasks.length) return null;
+    const story = delivery
+      ? await getStory(delivery.asanaStoryGid).catch(() => null)
+      : null;
+    const plan = planPieceApproval({
+      subtasks,
+      deliveredTaskGid: story?.target?.gid ?? null,
+    });
+    return plan.closeRequest ? null : plan;
+  } catch (error) {
+    console.error("[email:reply:pieces]", error);
+    return null;
+  }
 }
 
 async function lastConsultaQuestions(requestId: string): Promise<string[]> {
@@ -1112,6 +1143,16 @@ async function actOnClientReply(input: {
   notes.push(`Respuesta clasificada: ${reply.kind}`);
   if (reply.kind === "empty") return { notes, needsReview: false };
 
+  // Solicitud dividida en piezas (subtareas): una aprobación cierra solo la
+  // pieza entregada mientras queden otras abiertas.
+  const pieces =
+    reply.kind === "approval" ? await piecePlanFor(taskGid, delivery) : null;
+  if (pieces) {
+    notes.push(
+      `Pieza aprobada${pieces.approved ? ` «${pieces.approved.name}»` : ""}; siguen abiertas ${pieces.remaining.length}.`,
+    );
+  }
+
   // 2) Cambios en Asana (una sola vez por evento; degradables).
   const changes: FieldChange[] = [];
   if (!progress.replyApplied && projectGid) {
@@ -1125,7 +1166,17 @@ async function actOnClientReply(input: {
         },
       );
     try {
-      if (reply.kind === "approval") {
+      if (reply.kind === "approval" && pieces) {
+        if (pieces.approved) {
+          await setTaskCompleted(pieces.approved.gid, true);
+        }
+        await addStory(
+          taskGid,
+          `<body><em>${escapeHtml(
+            `El cliente aprobó ${pieces.approved ? `«${pieces.approved.name}»` : "la última entrega"}${delivery ? ` (Entrega ${String(delivery.round).padStart(2, "0")})` : ""}. La solicitud sigue abierta: ${pieces.remaining.map((piece) => `«${piece.name}»`).join(", ")}.`,
+          )}</em></body>`,
+        );
+      } else if (reply.kind === "approval") {
         await estado(ESTADO_APPROVED);
         await setEnumFieldByName(taskGid, projectGid, TICKET_FIELD, [
           "Finalizado",
@@ -1225,6 +1276,17 @@ async function actOnClientReply(input: {
           }),
           channel.slackWebhookEnv,
         );
+      } else if (pieces) {
+        await notifyTeamEvent(
+          pieceApprovedMessage({
+            folio: request.folio,
+            clientName: channel.clientName,
+            piece: pieces.approved?.name ?? null,
+            remaining: pieces.remaining.map((piece) => piece.name),
+            asanaUrl: request.asanaUrl,
+          }),
+          channel.slackWebhookEnv,
+        );
       } else {
         await notifyTeamEvent(
           requestClosedMessage({
@@ -1263,7 +1325,18 @@ async function actOnClientReply(input: {
     requesterName: request.requesterName,
   };
   let rendered: RenderedEmail;
-  if (reply.kind === "approval" && delivery) {
+  if (reply.kind === "approval" && pieces) {
+    rendered = renderCommentAckEmail({
+      ...common,
+      receivedAt: email.date,
+      stage: 2,
+      isQuestion: false,
+      points: [
+        `Aprobaste ${pieces.approved ? `«${pieces.approved.name}»` : "la última entrega"} como versión final.`,
+        `Seguimos trabajando en ${pieces.remaining.map((piece) => `«${piece.name}»`).join(", ")}; te las enviamos en este mismo hilo.`,
+      ],
+    });
+  } else if (reply.kind === "approval" && delivery) {
     rendered = renderApprovedEmail({
       ...common,
       finalRound: delivery.round,
