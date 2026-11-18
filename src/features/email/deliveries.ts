@@ -30,6 +30,7 @@ import {
 } from "./delivery-command";
 import { ROUNDS_FIELD } from "@/features/reports/metrics";
 import { deliveryCc } from "./delivery-team";
+import { syncPiece } from "./piece-sync";
 import { pieceLabel } from "./pieces";
 import { replySubject } from "./folio";
 import { GmailApiError, createDraftReply, sendReply } from "./inbox";
@@ -427,24 +428,29 @@ export async function processAsanaStory(
     return "sent";
   }
 
-  // Pasos posteriores degradables: el correo ya salió. Estado y rondas son
-  // de la solicitud: una pieza no los mueve (otras pueden seguir en curso).
-  if (!piece) {
-    await setEnumFieldByName(
-      taskGid,
-      channel.asanaProjectGid,
-      ESTADO_FIELD,
-      ESTADO_SENT,
-    ).catch((error) => console.error("[email:delivery:estado]", error));
-    // Retrabajo: la ronda enviada queda en el campo numérico del tablero
-    // («Rondas de entrega»), que el panel de Métricas promedia por mes.
-    await setNumberFieldByName(
-      taskGid,
-      channel.asanaProjectGid,
-      ROUNDS_FIELD,
-      round,
-    ).catch((error) => console.error("[email:delivery:rondas]", error));
+  // Pasos posteriores degradables: el correo ya salió. Estado y rondas van en
+  // la tarea comentada: con piezas, la subtarea (la solicitud no se mueve
+  // porque otras piezas pueden seguir en curso).
+  if (piece) {
+    // Respaldo: campos de la pieza completos y sin duplicado en el listado.
+    await syncPiece(taskGid).catch((error) =>
+      console.error("[email:delivery:pieza]", error),
+    );
   }
+  await setEnumFieldByName(
+    taskGid,
+    channel.asanaProjectGid,
+    ESTADO_FIELD,
+    ESTADO_SENT,
+  ).catch((error) => console.error("[email:delivery:estado]", error));
+  // Retrabajo: la ronda enviada queda en el campo numérico del tablero
+  // («Rondas de entrega»), que el panel de Métricas promedia por mes.
+  await setNumberFieldByName(
+    taskGid,
+    channel.asanaProjectGid,
+    ROUNDS_FIELD,
+    round,
+  ).catch((error) => console.error("[email:delivery:rondas]", error));
   await addStory(
     taskGid,
     buildDeliveryAuditStoryHtml({

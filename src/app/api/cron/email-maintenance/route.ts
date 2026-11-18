@@ -8,6 +8,7 @@ import {
 } from "@/features/email/deliveries";
 import { processPendingEmails } from "@/features/email/processor";
 import { renewMailboxWatch, syncMailboxHistory } from "@/features/email/sync";
+import { sortRequestSections } from "@/features/email/requests";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -65,6 +66,8 @@ export async function GET(request: Request) {
   );
   // Webhooks antiguos sin los filtros nuevos (asignaciones, cierres).
   await step("asanaWebhookFilters", () => syncWebhookFilters());
+  // La sección del mes ordenada por folio (la solicitud más nueva primero).
+  await step("asanaSectionOrder", () => sortRequestSections());
   await step("asanaReconcile", () =>
     reconcileAsanaDeliveries({ deadline: deadline - 5_000 }),
   );
