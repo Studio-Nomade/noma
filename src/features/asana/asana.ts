@@ -11,6 +11,7 @@ import {
   type CustomFieldWish,
 } from "./custom-fields";
 import { HANDLED_STORY_SUBTYPES } from "./webhook-events";
+import { planFolioOrder } from "./section-order";
 
 /**
  * Asana: creación de tarea/proyecto al traspasar una oportunidad a operación.
@@ -750,6 +751,95 @@ export async function getTaskState(taskGid: string) {
     "GET",
     `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,name,completed,due_on,projects.gid,parent.gid,custom_fields.gid,custom_fields.name,custom_fields.display_value,custom_fields.enum_value.name`,
   );
+}
+
+export type AsanaFieldValue = {
+  gid: string;
+  name?: string;
+  resource_subtype?: string;
+  text_value?: string | null;
+  number_value?: number | null;
+  enum_value?: { gid: string } | null;
+  multi_enum_values?: { gid: string }[] | null;
+};
+
+export type AsanaTaskFields = {
+  gid: string;
+  completed?: boolean;
+  parent?: { gid: string } | null;
+  projects?: { gid: string }[];
+  custom_fields?: AsanaFieldValue[];
+};
+
+/** Tarea con los valores crudos de sus campos (para copiarlos). */
+export async function getTaskFields(taskGid: string) {
+  return asanaRequest<AsanaTaskFields>(
+    "GET",
+    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,completed,parent.gid,projects.gid,custom_fields.gid,custom_fields.name,custom_fields.resource_subtype,custom_fields.text_value,custom_fields.number_value,custom_fields.enum_value.gid,custom_fields.multi_enum_values.gid`,
+  );
+}
+
+/** Saca la tarea de un proyecto (sigue existiendo, p. ej. como subtarea). */
+export async function removeTaskFromProject(
+  taskGid: string,
+  projectGid: string,
+) {
+  await asanaRequest(
+    "POST",
+    `/tasks/${encodeURIComponent(taskGid)}/removeProject`,
+    { body: { project: projectGid } },
+  );
+}
+
+/** Tareas de una sección, en el orden en que se ven en Asana. */
+export async function listSectionTasks(
+  sectionGid: string,
+  maxPages = 5,
+): Promise<{ gid: string; name: string }[]> {
+  const out: { gid: string; name: string }[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      opt_fields: "gid,name",
+      limit: "100",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<
+      { gid: string; name?: string }[]
+    >("GET", `/sections/${encodeURIComponent(sectionGid)}/tasks?${params}`);
+    for (const task of envelope?.data ?? []) {
+      out.push({ gid: task.gid, name: task.name ?? "" });
+    }
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
+
+/** Mueve una tarea dentro de su sección, justo antes de otra. */
+export async function moveTaskBefore(
+  sectionGid: string,
+  taskGid: string,
+  beforeGid: string,
+) {
+  await asanaRequest(
+    "POST",
+    `/sections/${encodeURIComponent(sectionGid)}/addTask`,
+    { body: { task: taskGid, insert_before: beforeGid } },
+  );
+}
+
+/**
+ * Ordena la sección por folio, de mayor a menor (la solicitud más nueva
+ * primero; las tareas sin folio al final). Devuelve cuántas movió.
+ */
+export async function sortSectionByFolio(sectionGid: string) {
+  const tasks = await listSectionTasks(sectionGid);
+  const moves = planFolioOrder(tasks);
+  for (const move of moves) {
+    await moveTaskBefore(sectionGid, move.task, move.before);
+  }
+  return moves.length;
 }
 
 export type AsanaSubtask = { gid: string; name: string; completed: boolean };

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isLifecycleStory, shouldPlanOnAssign } from "./lifecycle-rules";
+import {
+  isLifecycleStory,
+  isPieceStory,
+  shouldPlanOnAssign,
+} from "./lifecycle-rules";
 
 test("al asignar, solo pasa a Planificada desde Por revisar o sin Estado", () => {
   assert.equal(shouldPlanOnAssign(null), true);
@@ -18,4 +22,11 @@ test("reconoce asignaciones y cierres", () => {
   assert.equal(isLifecycleStory({ resource_subtype: "unassigned" }), false);
   assert.equal(isLifecycleStory({ resource_subtype: "comment_added" }), false);
   assert.equal(isLifecycleStory({ resource_subtype: null }), false);
+});
+
+test("reconoce subtareas agregadas a una solicitud", () => {
+  assert.equal(isLifecycleStory({ resource_subtype: "added_to_task" }), true);
+  assert.equal(isPieceStory({ resource_subtype: "added_to_task" }), true);
+  assert.equal(isPieceStory({ resource_subtype: "added_to_project" }), true);
+  assert.equal(isPieceStory({ resource_subtype: "assigned" }), false);
 });

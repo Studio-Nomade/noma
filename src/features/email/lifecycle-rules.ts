@@ -6,7 +6,22 @@
 import { foldName } from "@/features/asana/custom-fields";
 
 /** Stories del equipo que Noma procesa fuera de los comentarios. */
-export const LIFECYCLE_SUBTYPES = ["assigned", "marked_complete"] as const;
+export const LIFECYCLE_SUBTYPES = [
+  "assigned",
+  "marked_complete",
+  // Subtarea creada o movida dentro de una solicitud (pieza), o agregada
+  // también al proyecto: Noma completa sus campos y evita el duplicado.
+  "added_to_task",
+  "added_to_project",
+] as const;
+
+/** Stories que ponen una subtarea (pieza) dentro de una solicitud. */
+export function isPieceStory(story: { resource_subtype?: string | null }) {
+  return (
+    story.resource_subtype === "added_to_task" ||
+    story.resource_subtype === "added_to_project"
+  );
+}
 
 export function isLifecycleStory(story: { resource_subtype?: string | null }) {
   return (LIFECYCLE_SUBTYPES as readonly string[]).includes(

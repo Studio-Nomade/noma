@@ -330,6 +330,13 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Orden de la sección del mes
+
+Cada solicitud nueva queda **primera** en su sección: tras crear la tarea,
+Noma ordena la sección por folio de mayor a menor (las tareas sin folio
+quedan al final, en su orden). El cron de mantención repite el orden una vez
+al día como respaldo (paso `asanaSectionOrder`).
+
 ### Solicitudes divididas en piezas (subtareas)
 
 Cuando una solicitud trae varias piezas, el equipo puede dividirla en
@@ -340,14 +347,22 @@ subtareas de Asana (una por pieza y responsable). Noma las trata así:
   la subtarea es la pieza que lee el cliente («la primera versión de …»), y va
   en copia el responsable de la subtarea. Cada pieza lleva su propia ronda.
   Horario hábil y «ENVIAR AHORA» funcionan igual.
-- Una pieza **no** mueve Estado ni «Rondas de entrega» de la solicitud, ni da
-  por aplicados los ajustes pendientes (son de la solicitud completa; los
-  reparte el equipo).
-- **Aprobación del cliente** con otras piezas abiertas: se completa la
-  subtarea de la última entrega, se comenta en la tarea madre, aviso 🧩 en
-  Slack y acuse corto en el hilo. Al aprobar la última pieza abierta se cierra
-  la solicitud con el flujo de siempre.
-- Asignar una subtarea no la pasa a Planificada; cerrarla no avisa al cliente.
+- **Al crear o mover la subtarea** (`added_to_task` / `added_to_project`):
+  Noma copia desde la solicitud los campos vacíos (folio siempre igual al de
+  la solicitud; prioridad, ticket, correo, ingreso, área…). Estado, rondas,
+  formato y brief son de cada pieza. Si la subtarea también quedó en el
+  proyecto de la solicitud, la saca del listado principal para que no se vea
+  duplicada. Respaldo: se repite en cada entrega de la pieza.
+- Asignar una subtarea la pasa a Planificada (igual que una tarea).
+- La entrega de una pieza mueve Estado («Enviado a cliente») y «Rondas de
+  entrega» **de la subtarea**; la solicitud no se mueve ni se dan por
+  aplicados los ajustes pendientes (son de la solicitud completa; los reparte
+  el equipo).
+- **Aprobación del cliente** con otras piezas abiertas: la subtarea de la
+  última entrega pasa a Aprobado / Finalizado y se completa, se comenta en la
+  tarea madre, aviso 🧩 en Slack y acuse corto en el hilo. Al aprobar la
+  última pieza abierta se cierra la solicitud con el flujo de siempre.
+- Cerrar una subtarea a mano no avisa al cliente.
 - El webhook del proyecto recibe los comentarios de subtareas; la
   reconciliación (`reconcileAsanaDeliveries`) también revisa las subtareas.
 - La evaluación (fuera de alcance) solo se dispara desde la tarea madre.

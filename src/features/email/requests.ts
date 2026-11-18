@@ -17,6 +17,7 @@ import {
   setTaskCompleted,
   setTaskCustomFields,
   setTaskDueOn,
+  sortSectionByFolio,
   taskFieldValue,
   uploadAttachment,
 } from "@/features/asana/asana";
@@ -72,6 +73,7 @@ import {
 import { stripQuotedReplyDetailed, type StrippedReply } from "./quote-strip";
 import {
   isTrustedSender,
+  listActiveChannels,
   nextFolio,
   patchEventPayload,
   type EmailRequestRow,
@@ -779,6 +781,14 @@ async function createAsanaTaskForRequest(
     throw error;
   }
 
+  // La solicitud nueva queda primera en la sección (orden por folio, de
+  // mayor a menor). Degradable: la tarea ya existe.
+  if (sectionGid) {
+    await sortSectionByFolio(sectionGid).catch((error) =>
+      console.error("[email:asana:orden]", error),
+    );
+  }
+
   const [updated] = await db
     .update(clientRequests)
     .set({
@@ -1168,7 +1178,17 @@ async function actOnClientReply(input: {
     try {
       if (reply.kind === "approval" && pieces) {
         if (pieces.approved) {
-          await setTaskCompleted(pieces.approved.gid, true);
+          const piece = pieces.approved.gid;
+          await setEnumFieldByName(
+            piece,
+            projectGid,
+            ESTADO_FIELD,
+            ESTADO_APPROVED,
+          ).catch(() => false);
+          await setEnumFieldByName(piece, projectGid, TICKET_FIELD, [
+            "Finalizado",
+          ]).catch(() => false);
+          await setTaskCompleted(piece, true);
         }
         await addStory(
           taskGid,
@@ -1394,4 +1414,31 @@ async function actOnClientReply(input: {
     return { notes, needsReview: true };
   }
   return { notes, needsReview: false };
+}
+
+/**
+ * Respaldo diario: deja la sección vigente de cada tablero con canal de correo
+ * ordenada por folio, de mayor a menor (incluye tareas creadas o movidas a
+ * mano). Devuelve las tareas movidas por proyecto.
+ */
+export async function sortRequestSections(now = new Date()) {
+  const channels = await listActiveChannels();
+  const moved: Record<string, number> = {};
+  const done = new Set<string>();
+  for (const channel of channels) {
+    const sectionGid =
+      channel.sectionStrategy === "fixed"
+        ? channel.fixedSectionGid
+        : (
+            await ensureMonthSection(
+              channel.asanaProjectGid,
+              now,
+              channel.monthSectionTemplate,
+            )
+          ).gid;
+    if (!sectionGid || done.has(sectionGid)) continue;
+    done.add(sectionGid);
+    moved[channel.alias] = await sortSectionByFolio(sectionGid);
+  }
+  return moved;
 }
