@@ -35,6 +35,7 @@ import {
 } from "./minutes-schema";
 import { buildPackageYaml } from "./package-yaml";
 import { reserveRoadmapCode } from "./roadmap-numbering";
+import { appBaseUrl } from "@/lib/app-url";
 
 function todayLocal() {
   return new Intl.DateTimeFormat("sv-SE", {
@@ -245,7 +246,7 @@ export async function sendBacklogToAsana(
     await ensureEnumOption(projectGid, "Mes de Trabajo", monthName).catch(
       (err) => console.error("[dev-backlog:asana:mes]", err),
     );
-    const appUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
+    const appUrl = appBaseUrl();
 
     let created = 0;
     const skipped: string[] = [];
@@ -412,7 +413,7 @@ export async function buildPackageForMeeting(
         ),
       );
     const code = `PKG-${day}-${String(n + 1).padStart(2, "0")}`;
-    const appUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
+    const appUrl = appBaseUrl();
     const yaml = buildPackageYaml({
       code,
       origen: "reunion",

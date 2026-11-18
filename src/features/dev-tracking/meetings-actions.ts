@@ -18,6 +18,7 @@ import {
   createCalendarEvent,
   deleteCalendarEvent,
 } from "@/features/google/calendar";
+import { SLACK_WEBHOOK_ENV_RE } from "@/features/email/channel-config";
 import { MEETING_CADENCES } from "./meetings-constants";
 import { buildAgenda, operationsMailboxStatus } from "./meetings-queries";
 
@@ -531,5 +532,44 @@ export async function setMeetingArchived(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "dev-tracking/setMeetingArchived");
+  }
+}
+
+// ── Canal de Slack de los avisos del programa ────────────────
+
+const slackSchema = z.object({
+  programId: z.string().uuid(),
+  env: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v === "" || SLACK_WEBHOOK_ENV_RE.test(v), {
+      message: "Debe ser SLACK_…_WEBHOOK_URL (el nombre, no la URL).",
+    }),
+});
+
+/** Guarda el nombre de la variable del webhook (nunca la URL). */
+export async function setProgramSlackWebhook(
+  raw: z.input<typeof slackSchema>,
+): Promise<ActionResult<{ defined: boolean }>> {
+  try {
+    const user = await requireUser();
+    const d = slackSchema.parse(raw);
+    const program = await programById(d.programId);
+    if (!program) return { ok: false, error: "Programa no encontrado." };
+    await db
+      .update(devPrograms)
+      .set({ slackWebhookEnv: d.env || null, updatedAt: new Date() })
+      .where(eq(devPrograms.id, program.id));
+    await logActivity({
+      entityType: "dev_program",
+      entityId: program.id,
+      action: `slack_webhook:${d.env || "operativo"}`,
+      actorId: user.id,
+    });
+    revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    return { ok: true, data: { defined: !!(d.env && process.env[d.env]) } };
+  } catch (err) {
+    return handleActionError(err, "dev-tracking/setProgramSlackWebhook");
   }
 }

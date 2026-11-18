@@ -14,6 +14,7 @@ Módulo `src/features/dev-tracking/`. Un **programa** por proyecto de desarrollo
 3. **Resumir**: `readDriveDoc` → Claude (`callClaudeStructured`, modelo `DEV_MINUTES_ANTHROPIC_MODEL`, por defecto `claude-sonnet-5-5`) con el schema `minutes-schema.ts`: resumen, asistentes, temas, acuerdos, decisiones pendientes, **confirmado sin desarrollo**, **cifras dichas** (siempre marcadas `dicho` hasta verificación), **solicitudes** con prefijo por canal (`OP-01`, `CO-01`…), área, tipo, entorno, prioridad, evidencia y destino, y **preguntas abiertas** con la persona que debe responder. Reglas en el prompt: lenguaje de negocio, planificación de Operaciones solo como sugerencia, sin observaciones sobre personas.
 4. **Guardar** (`persistMinutes`): `dev_meeting_minutes`, `dev_backlog` (estado `propuesta`), `dev_questions` (`abierta`); reprocesar reemplaza la minuta y las propuestas no tocadas. La reunión pasa a `resumida`, queda línea en `dev_log`.
 5. **Avisar**: borrador del correo de minuta en la casilla (`createDraft`, **no se envía**) y aviso en Slack con el enlace a la minuta en Noma. Nada sale al cliente sin aprobación.
+   El aviso va al canal del programa: `dev_programs.slack_webhook_env` (se edita en **Reuniones → Avisos en Slack** o con `slackWebhookEnv` en `program.json`); si está vacío, el `slack_webhook_env` del canal de correo del proyecto; si tampoco hay, `SLACK_OPERATIONS_WEBHOOK_URL`. Se guarda el **nombre** de la variable, nunca la URL. El enlace usa `NEXT_PUBLIC_SITE_URL` o, si falta, el dominio de producción de Vercel (`VERCEL_PROJECT_PRODUCTION_URL`); sin URL absoluta el aviso va sin enlace.
 
 ### Reuniones creadas fuera de Noma
 
@@ -28,7 +29,8 @@ Siguiente fase (F8): aprobar/editar/descartar solicitudes en la pestaña Backlog
 | `NOMA_REQUESTS_MAILBOX` | Casilla que organiza las reuniones y recibe los borradores (ya existe). |
 | `CRON_MEETINGS_DIGEST_ENABLED` | Enciende el cron (parte apagado). |
 | `DEV_MINUTES_ANTHROPIC_MODEL`, `DEV_MINUTES_ANTHROPIC_EFFORT` | Opcionales; por defecto `claude-sonnet-5-5` / `medium`. |
-| `SLACK_OPERATIONS_WEBHOOK_URL` | Aviso de minuta lista (ya existe). |
+| `SLACK_OPERATIONS_WEBHOOK_URL` | Aviso de minuta lista si el programa no tiene canal propio (ya existe). |
+| `SLACK_<PROGRAMA>_WEBHOOK_URL` | Webhook del canal del programa (p. ej. `SLACK_APPSCINCO_WEBHOOK_URL`); su nombre se guarda en el programa. |
 
 ## Importar un programa existente
 

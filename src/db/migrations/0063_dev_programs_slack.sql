@@ -1,0 +1,1 @@
+ALTER TABLE "dev_programs" ADD COLUMN "slack_webhook_env" text;

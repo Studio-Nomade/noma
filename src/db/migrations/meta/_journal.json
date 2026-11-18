@@ -442,6 +442,13 @@
       "when": 1795020673033,
       "tag": "0062_dev_meetings_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795024379280,
+      "tag": "0063_dev_programs_slack",
+      "breakpoints": true
     }
   ]
 }
