@@ -342,8 +342,9 @@ al día como respaldo (paso `asanaSectionOrder`).
 Cuando una solicitud trae varias piezas, el equipo puede dividirla en
 subtareas de Asana (una por pieza y responsable). Noma las trata así:
 
-- **Entrega o consulta en una subtarea** (`ENTREGA NN` / `CONSULTA`): Noma
-  sube a la tarea madre y envía en el **mismo hilo** del cliente. El nombre de
+- **Entrega o consulta en una subtarea** (`ENTREGA NN` / `CONSULTA`), o en
+  una subtarea de la pieza (etapa: storyboard, animatic…; hasta 3 niveles):
+  Noma sube hasta la solicitud y envía en el **mismo hilo** del cliente. El nombre de
   la subtarea es la pieza que lee el cliente («la primera versión de …»), y va
   en copia el responsable de la subtarea. Cada pieza lleva su propia ronda.
   Horario hábil y «ENVIAR AHORA» funcionan igual.

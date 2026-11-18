@@ -28,23 +28,25 @@ export type PieceApprovalPlan = {
  * solicitud sigue abierta. Sin piezas, o con todas cerradas, se cierra entera.
  */
 export function planPieceApproval(input: {
+  /** Subtareas directas de la solicitud (primer nivel). */
   subtasks: readonly PieceSubtask[];
-  /** Tarea donde se comentó la última entrega enviada (null si no se sabe). */
-  deliveredTaskGid: string | null;
+  /**
+   * Tarea donde se comentó la última entrega enviada, si fue una pieza (de
+   * cualquier nivel bajo la solicitud). null si fue la tarea principal.
+   */
+  delivered: { gid: string; name: string } | null;
 }): PieceApprovalPlan {
-  const delivered = input.deliveredTaskGid
-    ? (input.subtasks.find((task) => task.gid === input.deliveredTaskGid) ??
-      null)
+  const approved = input.delivered
+    ? { gid: input.delivered.gid, name: input.delivered.name }
     : null;
   const remaining = input.subtasks
-    .filter((task) => !task.completed && task.gid !== delivered?.gid)
+    .filter((task) => !task.completed && task.gid !== approved?.gid)
     .map(({ gid, name }) => ({ gid, name }));
-  return {
-    approved: delivered ? { gid: delivered.gid, name: delivered.name } : null,
-    remaining,
-    closeRequest: remaining.length === 0,
-  };
+  return { approved, remaining, closeRequest: remaining.length === 0 };
 }
+
+/** Niveles de subtareas bajo la solicitud que Noma recorre (pieza → etapa). */
+export const MAX_PIECE_DEPTH = 3;
 
 export type PieceFieldValue = {
   gid: string;
