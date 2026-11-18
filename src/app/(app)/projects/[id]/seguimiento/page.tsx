@@ -20,6 +20,8 @@ import {
 import { MilestoneStatusSelect } from "@/features/dev-tracking/milestone-status-select";
 import { ModuleBallDialog } from "@/features/dev-tracking/module-ball-dialog";
 import { LogForm } from "@/features/dev-tracking/log-form";
+import { MeetingsTab } from "@/features/dev-tracking/meetings-tab";
+import { getDevMeetingsData } from "@/features/dev-tracking/meetings-queries";
 import {
   ROADMAP_KINDS,
   ROADMAP_STATUSES,
@@ -71,6 +73,10 @@ export default async function SeguimientoPage({
     );
   }
 
+  const meetingsData = await getDevMeetingsData(
+    data.program.id,
+    data.program.clientId,
+  );
   const estado = typeof sp.estado === "string" ? sp.estado : "";
   const tipo = typeof sp.tipo === "string" ? sp.tipo : "";
   const mes = typeof sp.mes === "string" ? sp.mes : "";
@@ -121,6 +127,7 @@ export default async function SeguimientoPage({
           <TabsTrigger value="ruta">Hoja de ruta</TabsTrigger>
           <TabsTrigger value="roadmaps">Roadmaps</TabsTrigger>
           <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
+          <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen">
@@ -141,6 +148,14 @@ export default async function SeguimientoPage({
         </TabsContent>
         <TabsContent value="bitacora">
           <Bitacora data={data} />
+        </TabsContent>
+        <TabsContent value="reuniones">
+          <MeetingsTab
+            programId={data.program.id}
+            programName={data.program.name}
+            data={meetingsData}
+            today={today}
+          />
         </TabsContent>
       </Tabs>
     </>

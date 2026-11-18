@@ -414,6 +414,13 @@
       "when": 1794975602197,
       "tag": "0058_dev_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1794976551823,
+      "tag": "0059_dev_meetings",
+      "breakpoints": true
     }
   ]
 }

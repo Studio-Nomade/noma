@@ -246,3 +246,44 @@ export async function createCalendarEvent(
     meetLink: json.hangoutLink ?? meetFromConf ?? null,
   };
 }
+
+/**
+ * Elimina (cancela) un evento del calendario principal del usuario y avisa a
+ * los invitados. Devuelve `{ connected: false }` si no hay token o permiso.
+ */
+export async function deleteCalendarEvent(
+  userId: string,
+  eventId: string,
+): Promise<{ connected: true } | { connected: false; reason: string }> {
+  let token: string;
+  try {
+    token = await getGoogleAccessToken(userId);
+  } catch (err) {
+    if (err instanceof GoogleAuthError) {
+      return { connected: false, reason: err.message };
+    }
+    throw err;
+  }
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(8_000),
+      },
+    );
+  } catch {
+    return {
+      connected: false,
+      reason: "No se pudo conectar con Google Calendar.",
+    };
+  }
+  // 410 = ya estaba eliminado.
+  if (res.ok || res.status === 410) return { connected: true };
+  return {
+    connected: false,
+    reason: "Google Calendar no permitió cancelar el evento.",
+  };
+}

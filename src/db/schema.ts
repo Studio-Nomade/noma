@@ -3069,3 +3069,75 @@ export type DevPr = typeof devPrs.$inferSelect;
 export type NewDevPr = typeof devPrs.$inferInsert;
 export type DevLogEntry = typeof devLog.$inferSelect;
 export type NewDevLogEntry = typeof devLog.$inferInsert;
+
+// ── Reuniones del programa (dev_meeting_types, dev_meetings) ──
+// Tipos de reunión con cadencia y asistentes por defecto (revisión semanal,
+// comercial, operaciones, gerencia…). Los eventos se crean con Meet desde la
+// casilla de operaciones (NOMA_REQUESTS_MAILBOX) para que la transcripción de
+// Gemini quede en su Drive y el ciclo de minutas pueda tomarla.
+
+export const devMeetingTypes = pgTable(
+  "dev_meeting_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    // weekly · biweekly · monthly · adhoc
+    cadence: text("cadence").default("adhoc").notNull(),
+    weekday: integer("weekday"), // 0 = domingo … 6 = sábado
+    timeOfDay: text("time_of_day"), // «09:00» (America/Santiago)
+    durationMin: integer("duration_min").default(60).notNull(),
+    contactIds: uuid("contact_ids").array().default([]).notNull(), // client_contacts
+    extraEmails: text("extra_emails").array().default([]).notNull(),
+    agendaTemplate: text("agenda_template"),
+    producesBacklog: boolean("produces_backlog").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("dev_meeting_types_program_idx").on(t.programId)],
+);
+
+export const devMeetings = pgTable(
+  "dev_meetings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    meetingTypeId: uuid("meeting_type_id").references(
+      () => devMeetingTypes.id,
+      { onDelete: "set null" },
+    ),
+    title: text("title").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    durationMin: integer("duration_min").default(60).notNull(),
+    attendees: jsonb("attendees")
+      .$type<{ name?: string; email: string }[]>()
+      .default([])
+      .notNull(),
+    agenda: text("agenda"),
+    organizerEmail: text("organizer_email"),
+    calendarEventId: text("calendar_event_id"),
+    calendarLink: text("calendar_link"),
+    meetLink: text("meet_link"),
+    // agendada · realizada · transcrita · resumida · minuta_enviada · cancelada
+    status: text("status").default("agendada").notNull(),
+    transcriptFileId: text("transcript_file_id"),
+    minutesDocId: text("minutes_doc_id"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [
+    index("dev_meetings_program_starts_idx").on(t.programId, t.startsAt),
+    index("dev_meetings_status_idx").on(t.status),
+  ],
+);
+
+export type DevMeetingType = typeof devMeetingTypes.$inferSelect;
+export type NewDevMeetingType = typeof devMeetingTypes.$inferInsert;
+export type DevMeeting = typeof devMeetings.$inferSelect;
+export type NewDevMeeting = typeof devMeetings.$inferInsert;
