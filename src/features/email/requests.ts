@@ -131,7 +131,7 @@ export const ESTADO_REVIEW = ["Por revisar"];
 export const ESTADO_PLANNED = ["Planificada"];
 export const ESTADO_OUT_OF_SCOPE = "Fuera de alcance";
 const PRIORITY_FIELD = "Prioridad";
-const TICKET_FIELD = "¿Ticket Activo?";
+export const TICKET_FIELD = "¿Ticket Activo?";
 
 /** Opciones de Prioridad en Asana, en orden de preferencia. */
 export function priorityOptions(priority: EmailExtraction["priority"]) {
@@ -245,7 +245,7 @@ export function studioDomain() {
   );
 }
 
-function structuredGenerator(): StructuredGenerator | null {
+export function structuredGenerator(): StructuredGenerator | null {
   return requestsStructuredGenerator();
 }
 
@@ -964,7 +964,7 @@ export async function handleEmailReply(input: {
 // ─────────────────────────────────────────────────────────────
 // Acuse de la respuesta del cliente (02 · 05 · 06) y cambios en Asana
 // ─────────────────────────────────────────────────────────────
-type LastDelivery = {
+export type LastDelivery = {
   round: number;
   asanaStoryGid: string;
   files: { label: string; url: string; detail: string | null }[];
@@ -972,7 +972,7 @@ type LastDelivery = {
   sentAt: Date | null;
 };
 
-async function lastSentDelivery(
+export async function lastSentDelivery(
   requestId: string,
 ): Promise<LastDelivery | null> {
   const rows = await db
@@ -1027,7 +1027,9 @@ async function piecePlanFor(taskGid: string, delivery: LastDelivery | null) {
   }
 }
 
-async function lastConsultaQuestions(requestId: string): Promise<string[]> {
+export async function lastConsultaQuestions(
+  requestId: string,
+): Promise<string[]> {
   const rows = await db
     .select({ note: requestDeliveries.note })
     .from(requestDeliveries)
