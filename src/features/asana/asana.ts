@@ -915,3 +915,26 @@ export async function addTaskToSection(sectionGid: string, taskGid: string) {
     { body: { task: taskGid } },
   );
 }
+
+/**
+ * Garantiza que un campo enum del proyecto tenga la opción `optionName`
+ * (p. ej. «Noviembre» en «Mes de Trabajo»). La crea si falta y limpia el caché
+ * de campos del proyecto. Devuelve false si el campo no existe en el proyecto.
+ */
+export async function ensureEnumOption(
+  projectGid: string,
+  fieldName: string,
+  optionName: string,
+): Promise<boolean> {
+  const settings = await getProjectCustomFields(projectGid);
+  if (findEnumOption(settings, fieldName, [optionName])) return true;
+  const field = findCustomField(settings, fieldName);
+  if (!field || field.resource_subtype !== "enum") return false;
+  await asanaRequest(
+    "POST",
+    `/custom_fields/${encodeURIComponent(field.gid)}/enum_options`,
+    { body: { name: optionName, enabled: true } },
+  );
+  fieldCache.delete(projectGid);
+  return true;
+}

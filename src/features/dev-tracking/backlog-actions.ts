@@ -21,6 +21,7 @@ import { requireUser } from "@/lib/auth";
 import {
   addTaskToSection,
   createTask,
+  ensureEnumOption,
   ensureSectionByName,
   resolveCustomFieldValues,
   setTaskCustomFields,
@@ -209,7 +210,11 @@ export async function sendBacklogToAsana(
 ): Promise<ActionResult<{ created: number; skipped: string[] }>> {
   try {
     const user = await requireUser();
-    const clean = z.array(z.string().uuid()).min(1).max(50).parse(ids);
+    const clean = z
+      .array(z.string().uuid())
+      .min(1)
+      .max(15, "Envía a Asana de a 15 solicitudes como máximo.")
+      .parse(ids);
     const items = await db
       .select()
       .from(devBacklog)
@@ -231,13 +236,20 @@ export async function sendBacklogToAsana(
       };
     }
     const projectGid = program.asanaProjectGid;
-    const section = await ensureSectionByName(projectGid, "Backlog");
+    // Flujo del proyecto: Solicitudes / Inbox → Backlog priorizado → En curso
+    // → Validación / QA → Completadas → «<Mes> (cerradas)». Una solicitud
+    // aprobada por Sebastián ya está priorizada.
+    const section = await ensureSectionByName(projectGid, "Backlog priorizado");
     const today = new Date();
     const monthName = MONTHS_ES[today.getMonth()];
+    await ensureEnumOption(projectGid, "Mes de Trabajo", monthName).catch(
+      (err) => console.error("[dev-backlog:asana:mes]", err),
+    );
     const appUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
 
     let created = 0;
     const skipped: string[] = [];
+    const createdTasks: { itemId: string; taskGid: string }[] = [];
     for (const item of items) {
       try {
         const meetingLink = item.meetingId
@@ -249,7 +261,6 @@ export async function sendBacklogToAsana(
           `${esc(item.detail ?? "")}\n\n` +
           (item.raisedBy ? `Planteó: ${esc(item.raisedBy)}\n` : "") +
           (item.evidence ? `Evidencia: ${esc(item.evidence)}\n` : "") +
-          (item.area ? `Área: ${esc(item.area)}\n` : "") +
           (meetingLink
             ? `\nMinuta: <a href="${meetingLink}">${meetingLink}</a>`
             : "") +
@@ -272,6 +283,11 @@ export async function sendBacklogToAsana(
             options: item.area ? [item.area] : [],
           },
           { kind: "enum", fields: ["Mes de Trabajo"], options: [monthName] },
+          {
+            kind: "enum",
+            fields: ["¿Ticket Activo?", "Ticket Activo"],
+            options: ["Si", "Sí"],
+          },
           { kind: "text", fields: ["Roadmap"], value: item.roadmapCode ?? "" },
         ]);
         const task = await createTask({
@@ -283,17 +299,7 @@ export async function sendBacklogToAsana(
           htmlNotes,
           customFields,
         });
-        // La regla del tablero fija Estado al crear; se corrige después y se
-        // reafirma la sección (orden que esquiva la regla).
-        const estado = await resolveCustomFieldValues(projectGid, [
-          {
-            kind: "enum",
-            fields: ["Estado"],
-            options: ["Backlog", "Priorizado"],
-          },
-        ]);
-        await setTaskCustomFields(task.gid, estado);
-        await addTaskToSection(section.gid, task.gid);
+        createdTasks.push({ itemId: item.id, taskGid: task.gid });
         await db
           .update(devBacklog)
           .set({
@@ -306,6 +312,24 @@ export async function sendBacklogToAsana(
       } catch (err) {
         console.error("[dev-backlog:asana]", item.code, err);
         skipped.push(item.code);
+      }
+    }
+
+    // La regla del tablero fija Estado y mueve de sección al crear. Se espera a
+    // que corra (≈20 s) y recién entonces se fijan Estado = Priorizado y la
+    // sección, el orden que la regla respeta.
+    if (createdTasks.length) {
+      await new Promise((resolve) => setTimeout(resolve, 20_000));
+      const estado = await resolveCustomFieldValues(projectGid, [
+        { kind: "enum", fields: ["Estado"], options: ["Priorizado"] },
+      ]);
+      for (const t of createdTasks) {
+        try {
+          await setTaskCustomFields(t.taskGid, estado);
+          await addTaskToSection(section.gid, t.taskGid);
+        } catch (err) {
+          console.error("[dev-backlog:asana:seccion]", t.taskGid, err);
+        }
       }
     }
     await db

@@ -12,6 +12,10 @@ test("detecta el código en títulos de PR", () => {
   assert.equal(detectRoadmapCode("NDes-006 etapa 1 (APK): placa"), "NDes-006");
   assert.equal(detectRoadmapCode("ndes-002 telemetría"), "NDes-002");
   assert.equal(detectRoadmapCode("OT-05: fecha límite"), null);
+  assert.equal(
+    detectRoadmapCode("Ajustes Operaciones y Comercial (roadmap 42): 14 hitos"),
+    "R42",
+  );
 });
 
 test("detecta el código y el hito en nombres de rama", () => {
