@@ -28,6 +28,12 @@ import { timingSafeEqual } from "node:crypto";
  * - `monthly-reports`: el día 1 arma el informe mensual de solicitudes de
  *   cada canal con `monthly_report` activo: borrador del correo (no lo envía)
  *   y tarea en «Mis tareas» del responsable.
+ * - `meetings-digest`: cada media hora en horario hábil marca como realizadas
+ *   las reuniones del seguimiento de desarrollo que terminaron, busca la
+ *   transcripción de Gemini en el Drive de la casilla de operaciones, la
+ *   resume con Claude y deja minuta, solicitudes propuestas y preguntas en
+ *   Noma, un borrador del correo en la casilla (no lo envía) y un aviso en
+ *   Slack. Nada sale al cliente.
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
@@ -39,6 +45,7 @@ export const CRON_JOBS = {
   "scheduled-deliveries": "CRON_EMAIL_MAINTENANCE_ENABLED",
   "assistant-briefing": "CRON_ASSISTANT_BRIEFING_ENABLED",
   "monthly-reports": "CRON_MONTHLY_REPORTS_ENABLED",
+  "meetings-digest": "CRON_MEETINGS_DIGEST_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;

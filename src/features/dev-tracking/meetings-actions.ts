@@ -357,3 +357,78 @@ export async function cancelDevMeeting(
     return handleActionError(err, "dev-tracking/cancelDevMeeting");
   }
 }
+
+// ── Minuta: procesar ahora y vincular transcripción ──────────
+
+export async function processMeetingNow(
+  meetingId: string,
+): Promise<
+  ActionResult<{ status: string; detail?: string; requests?: number }>
+> {
+  try {
+    const user = await requireUser();
+    const [meeting] = await db
+      .select({ id: devMeetings.id, programId: devMeetings.programId })
+      .from(devMeetings)
+      .where(eq(devMeetings.id, meetingId))
+      .limit(1);
+    if (!meeting) return { ok: false, error: "Reunión no encontrada." };
+    const { runMeetingsDigest } = await import("./minutes");
+    const [result] = await runMeetingsDigest({
+      deadline: Date.now() + 170_000,
+      meetingId,
+    });
+    const program = await programById(meeting.programId);
+    if (program) revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    await logActivity({
+      entityType: "dev_meeting",
+      entityId: meetingId,
+      action: `digest:${result?.status ?? "none"}`,
+      actorId: user.id,
+    });
+    if (!result) return { ok: false, error: "No había nada que procesar." };
+    return {
+      ok: true,
+      data: {
+        status: result.status,
+        detail: result.detail,
+        requests: result.requests,
+      },
+    };
+  } catch (err) {
+    return handleActionError(err, "dev-tracking/processMeetingNow");
+  }
+}
+
+const linkSchema = z.object({
+  meetingId: z.string().uuid(),
+  driveUrlOrId: z.string().trim().min(10),
+});
+
+export async function linkTranscript(
+  raw: z.input<typeof linkSchema>,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const d = linkSchema.parse(raw);
+    const { parseDriveId } = await import("@/features/google/drive");
+    const fileId = parseDriveId(d.driveUrlOrId);
+    if (!fileId)
+      return { ok: false, error: "No se reconoció el enlace de Drive." };
+    const [row] = await db
+      .update(devMeetings)
+      .set({
+        transcriptFileId: fileId,
+        status: "transcrita",
+        updatedAt: new Date(),
+      })
+      .where(eq(devMeetings.id, d.meetingId))
+      .returning({ programId: devMeetings.programId });
+    if (!row) return { ok: false, error: "Reunión no encontrada." };
+    const program = await programById(row.programId);
+    if (program) revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "dev-tracking/linkTranscript");
+  }
+}

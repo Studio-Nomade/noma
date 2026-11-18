@@ -153,6 +153,7 @@ export default async function SeguimientoPage({
           <MeetingsTab
             programId={data.program.id}
             programName={data.program.name}
+            projectId={id}
             data={meetingsData}
             today={today}
           />
