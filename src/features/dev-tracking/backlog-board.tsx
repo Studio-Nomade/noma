@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Package, Pencil, Send, Tag, X } from "lucide-react";
+import { Check, Package, Pencil, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,13 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Surface } from "@/components/shared/surface";
 import { cn } from "@/lib/utils";
 import {
-  assignRoadmapToItem,
   buildPackageForMeeting,
   sendBacklogToAsana,
   setBacklogStatus,
   updateBacklogItem,
 } from "./backlog-actions";
 import type { BacklogData } from "./backlog-queries";
+import { STAGE_LABEL, needsAsanaTask, type Stage } from "./stages";
 import {
   BACKLOG_AREAS,
   BACKLOG_DESTINATIONS,
@@ -41,7 +41,7 @@ const STATUS_LABEL: Record<string, string> = {
   aprobada: "Aprobada",
   descartada: "Descartada",
   en_asana: "En Asana",
-  verificada: "Verificada",
+  verificada: "Revisada",
 };
 const STATUS_TONE: Record<string, string> = {
   propuesta: "amber",
@@ -145,17 +145,6 @@ export function BacklogBoard({
       router.refresh();
     });
   }
-  function assignCode(item: Item, kind: "mejora" | "modulo") {
-    start(async () => {
-      const r = await assignRoadmapToItem(item.id, kind);
-      if (!r.ok) {
-        toast.error(r.error);
-        return;
-      }
-      toast.success(`Roadmap ${r.data.code} asignado`);
-      router.refresh();
-    });
-  }
   function buildPackage(meetingId: string) {
     start(async () => {
       const r = await buildPackageForMeeting(meetingId);
@@ -226,15 +215,17 @@ export function BacklogBoard({
               </Button>
             </>
           )}
+          {filter === "verificada" && hasAsana && (
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={() => toAsana(selected)}
+            >
+              <Send className="size-4" /> Crear en Asana (las que falten)
+            </Button>
+          )}
           {filter === "aprobada" && (
             <>
-              <Button
-                size="sm"
-                disabled={pending || !hasAsana}
-                onClick={() => toAsana(selected)}
-              >
-                <Send className="size-4" /> Crear en Asana
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -276,8 +267,11 @@ export function BacklogBoard({
             ))}
           </div>
           <p className="text-muted-foreground mt-2 text-xs">
-            Arma el YAML con las solicitudes aprobadas de esa reunión; Claude
-            Code lo recoge por la API y devuelve el veredicto por solicitud.
+            Arma el YAML con las aprobadas de esa reunión y su prioridad
+            sugerida. Claude Code lo recoge por la API, las ordena en roadmaps
+            (R##, NDes-###) e hitos y publica el resultado; con eso Noma crea
+            las tareas en Asana y, con cada merge y deploy, les cambia el
+            estado.
           </p>
         </Surface>
       )}
@@ -297,6 +291,7 @@ export function BacklogBoard({
                 "propuesta",
                 "aprobada",
                 "descartada",
+                "verificada",
               ].includes(it.status);
               return (
                 <li key={it.id} className="flex items-start gap-3 p-4">
@@ -324,6 +319,7 @@ export function BacklogBoard({
                         {it.roadmapCode && (
                           <span className="mr-2 font-mono text-xs">
                             {it.roadmapCode}
+                            {it.milestone ? ` · ${it.milestone}` : ""}
                           </span>
                         )}
                         {it.title}
@@ -335,6 +331,11 @@ export function BacklogBoard({
                         <Pill tone={STATUS_TONE[it.status] ?? "slate"}>
                           {STATUS_LABEL[it.status] ?? it.status}
                         </Pill>
+                        {it.stage && (
+                          <Pill tone="violet">
+                            {STAGE_LABEL[it.stage as Stage] ?? it.stage}
+                          </Pill>
+                        )}
                         {it.verdict && (
                           <Pill
                             tone={
@@ -407,27 +408,7 @@ export function BacklogBoard({
                           </Button>
                         </>
                       )}
-                      {it.status === "aprobada" && !it.roadmapCode && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => assignCode(it, "mejora")}
-                          >
-                            <Tag className="size-3.5" /> Asignar R##
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => assignCode(it, "modulo")}
-                          >
-                            <Tag className="size-3.5" /> Nuevo módulo NDes
-                          </Button>
-                        </>
-                      )}
-                      {it.status === "aprobada" && hasAsana && (
+                      {hasAsana && needsAsanaTask(it) && (
                         <Button
                           variant="ghost"
                           size="sm"

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -14,7 +14,6 @@ import {
   devQuestions,
   devRoadmaps,
 } from "@/db/schema";
-import { MILESTONE_STATUSES } from "./constants";
 import { normalizeRoadmapCode } from "./roadmap-code";
 
 /**
@@ -29,98 +28,8 @@ function todayLocal() {
   }).format(new Date());
 }
 
-const moduleSchema = z.object({
-  codigo: z.string().min(2).max(40),
-  nombre: z.string().min(2).max(200).optional(),
-  objetivo: z.string().max(2000).optional(),
-  inicio: z.string().date().optional(),
-  entrega_objetivo: z.string().date().optional(),
-  avance: z.number().int().min(0).max(100).optional(),
-  criterio: z.string().max(1000).optional(),
-  pelota: z
-    .object({
-      quien: z.string().max(200).optional(),
-      que: z.string().max(2000).optional(),
-    })
-    .optional(),
-  proximo_seguimiento: z.string().date().optional(),
-  en_produccion: z.array(z.string().max(500)).optional(),
-  pendientes: z.array(z.string().max(500)).optional(),
-  hitos: z
-    .array(
-      z.object({
-        nombre: z.string().min(1).max(200),
-        estado: z.enum(MILESTONE_STATUSES),
-        fecha: z.string().date().optional(),
-        asana_gid: z.string().max(40).optional(),
-        prs: z.array(z.string().max(60)).optional(),
-      }),
-    )
-    .optional(),
-});
-
-export const resultSchema = z.object({
-  paquete: z.string().max(40).optional(),
-  roadmap: z
-    .object({
-      codigo: z.string().min(2).max(40),
-      titulo: z.string().max(200).optional(),
-      tipo: z.enum(["modulo", "mejora", "correccion"]).optional(),
-      estado: z.enum(["en_prod", "parcial", "pendiente"]).optional(),
-      mes: z
-        .string()
-        .regex(/^\d{4}-\d{2}$/)
-        .optional(),
-    })
-    .optional(),
-  solicitudes: z
-    .array(
-      z.object({
-        id: z.string().min(2).max(20), // CO-01
-        veredicto: z.enum([
-          "ya_existe",
-          "bug",
-          "requiere_desarrollo",
-          "bloqueada",
-        ]),
-        hito: z.string().max(40).optional(),
-        asana_gid: z.string().max(40).optional(),
-        nota: z.string().max(2000).optional(),
-      }),
-    )
-    .default([]),
-  preguntas_nuevas: z
-    .array(
-      z.object({
-        pregunta: z.string().min(3).max(1000),
-        para: z.string().max(200).optional(),
-        bloquea: z.string().max(100).optional(),
-      }),
-    )
-    .default([]),
-  modulos: z.array(moduleSchema).default([]),
-  bitacora: z
-    .array(
-      z.object({
-        modulo: z.string().max(40).optional(),
-        texto: z.string().min(3).max(2000),
-      }),
-    )
-    .default([]),
-  desplegado: z
-    .array(
-      z.object({
-        repo: z.string().min(2).max(80),
-        numero: z.number().int().positive().optional(),
-        titulo: z.string().max(300).optional(),
-        fecha: z.string().date().optional(),
-        roadmap: z.string().max(40).optional(),
-      }),
-    )
-    .default([]),
-});
-
-export type ArchitectResult = z.infer<typeof resultSchema>;
+export { resultSchema, type ArchitectResult } from "./result-schema";
+import { roadmapSchema, type ArchitectResult } from "./result-schema";
 
 export async function applyArchitectResult(
   programId: string,
@@ -135,40 +44,40 @@ export async function applyArchitectResult(
     bitacora: 0,
     desplegado: 0,
     roadmap: null as string | null,
+    sin_encontrar: [] as string[],
+    // Solicitudes a reflejar en Asana (tarea nueva o cambio de etapa).
+    asanaItemIds: [] as string[],
   };
 
   await db.transaction(async (tx) => {
-    // Roadmap: crea o actualiza por código.
-    if (result.roadmap) {
-      const code = normalizeRoadmapCode(result.roadmap.codigo);
+    // Roadmaps: crea o actualiza por código (el principal y los adicionales).
+    async function registerRoadmap(r: z.infer<typeof roadmapSchema>) {
+      const code = normalizeRoadmapCode(r.codigo);
       await tx
         .insert(devRoadmaps)
         .values({
           programId,
           code,
-          title: result.roadmap.titulo ?? code,
-          month: result.roadmap.mes ?? today.slice(0, 7),
-          status: result.roadmap.estado ?? "pendiente",
-          kind:
-            result.roadmap.tipo ??
-            (code.startsWith("NDes") ? "modulo" : "mejora"),
+          title: r.titulo ?? code,
+          month: r.mes ?? today.slice(0, 7),
+          status: r.estado ?? "pendiente",
+          kind: r.tipo ?? (code.startsWith("NDes") ? "modulo" : "mejora"),
         })
         .onConflictDoUpdate({
           target: [devRoadmaps.programId, devRoadmaps.code],
           set: {
-            ...(result.roadmap.titulo ? { title: result.roadmap.titulo } : {}),
-            ...(result.roadmap.estado ? { status: result.roadmap.estado } : {}),
-            ...(result.roadmap.tipo ? { kind: result.roadmap.tipo } : {}),
-            ...(result.roadmap.mes ? { month: result.roadmap.mes } : {}),
+            ...(r.titulo ? { title: r.titulo } : {}),
+            ...(r.estado ? { status: r.estado } : {}),
+            ...(r.tipo ? { kind: r.tipo } : {}),
+            ...(r.mes ? { month: r.mes } : {}),
             updatedAt: new Date(),
           },
         });
-      summary.roadmap = code;
 
       // Si el arquitecto usó un código sin reservarlo antes, el contador del
       // programa avanza igual, para que el siguiente no salga repetido.
       const n = Number(code.replace(/^(R|NDes-)/, ""));
-      if (Number.isFinite(n) && n > 0) {
+      if (/^(R|NDes-)\d+$/.test(code) && Number.isFinite(n) && n > 0) {
         await tx
           .update(devPrograms)
           .set(
@@ -184,7 +93,10 @@ export async function applyArchitectResult(
           )
           .where(eq(devPrograms.id, programId));
       }
+      return code;
     }
+    if (result.roadmap) summary.roadmap = await registerRoadmap(result.roadmap);
+    for (const r of result.roadmaps) await registerRoadmap(r);
 
     // Veredictos por solicitud (código dentro del paquete / reunión).
     if (result.solicitudes.length) {
@@ -214,28 +126,72 @@ export async function applyArchitectResult(
         }
       }
       for (const s of result.solicitudes) {
-        const where = itemIds
-          ? and(inArray(devBacklog.id, itemIds), eq(devBacklog.code, s.id))
-          : and(
-              eq(devBacklog.programId, programId),
-              eq(devBacklog.code, s.id),
-              inArray(devBacklog.status, ["aprobada", "en_asana"]),
-            );
-        const rows = await tx
+        // Dentro del paquete, por código; sin paquete, la más reciente del
+        // programa con ese código (los códigos se repiten entre reuniones).
+        const [target] = await tx
+          .select({ id: devBacklog.id })
+          .from(devBacklog)
+          .where(
+            itemIds
+              ? and(inArray(devBacklog.id, itemIds), eq(devBacklog.code, s.id))
+              : and(
+                  eq(devBacklog.programId, programId),
+                  eq(devBacklog.code, s.id),
+                  inArray(devBacklog.status, [
+                    "aprobada",
+                    "en_asana",
+                    "verificada",
+                  ]),
+                ),
+          )
+          .orderBy(desc(devBacklog.createdAt))
+          .limit(1);
+        if (!target) {
+          summary.sin_encontrar.push(s.id);
+          continue;
+        }
+        let roadmapCode: unknown = undefined;
+        if (s.roadmap !== undefined) {
+          roadmapCode = s.roadmap ? normalizeRoadmapCode(s.roadmap) : null;
+          if (s.roadmap) {
+            await tx
+              .insert(devRoadmaps)
+              .values({
+                programId,
+                code: roadmapCode as string,
+                title: roadmapCode as string,
+                month: today.slice(0, 7),
+                kind: (roadmapCode as string).startsWith("NDes")
+                  ? "modulo"
+                  : "mejora",
+              })
+              .onConflictDoNothing();
+          }
+        } else if (
+          summary.roadmap &&
+          s.veredicto &&
+          s.veredicto !== "ya_existe"
+        ) {
+          roadmapCode = sql`coalesce(${devBacklog.roadmapCode}, ${summary.roadmap})`;
+        }
+        await tx
           .update(devBacklog)
           .set({
-            verdict: s.veredicto,
-            verdictNote: s.nota ?? null,
-            ...(s.asana_gid ? { asanaTaskGid: s.asana_gid } : {}),
-            ...(summary.roadmap && s.veredicto !== "ya_existe"
-              ? { roadmapCode: summary.roadmap }
+            ...(s.veredicto
+              ? { verdict: s.veredicto, status: "verificada" }
               : {}),
-            status: "verificada",
+            ...(s.nota !== undefined ? { verdictNote: s.nota } : {}),
+            ...(s.asana_gid ? { asanaTaskGid: s.asana_gid } : {}),
+            ...(s.hito ? { milestone: s.hito } : {}),
+            ...(s.estado ? { stage: s.estado } : {}),
+            ...(roadmapCode !== undefined
+              ? { roadmapCode: roadmapCode as string | null }
+              : {}),
             updatedAt: new Date(),
           })
-          .where(where)
-          .returning({ id: devBacklog.id });
-        summary.solicitudes += rows.length;
+          .where(eq(devBacklog.id, target.id));
+        summary.solicitudes++;
+        if (s.veredicto || s.estado) summary.asanaItemIds.push(target.id);
       }
     }
 

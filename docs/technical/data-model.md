@@ -273,7 +273,7 @@ La clave común entre Asana, GitHub y el arquitecto es el **código de roadmap**
 
 ### Minutas, backlog y preguntas (`dev_meeting_minutes`, `dev_backlog`, `dev_questions`)
 
-`dev_meeting_minutes` (una por reunión): resumen, asistentes, temas, acuerdos, decisiones pendientes, `confirmed_no_dev`, `quoted_figures` (`dicho · verificado · corregido`), modelo, `gmail_draft_id`, estado `borrador · aprobada · enviada`. `dev_backlog`: solicitudes con código por canal (`OP-01`), área, tipo, entorno, prioridad, evidencia, destino (`roadmap_en_curso · backlog_general · nuevo`), roadmap/módulo, estado `propuesta · aprobada · descartada · en_asana · verificada`, veredicto del arquitecto y `asana_task_gid`. `dev_questions`: preguntas abiertas con a quién esperan, desde cuándo y qué bloquean. Ver `docs/technical/dev-tracking.md`.
+`dev_meeting_minutes` (una por reunión): resumen, asistentes, temas, acuerdos, decisiones pendientes, `confirmed_no_dev`, `quoted_figures` (`dicho · verificado · corregido`), modelo, `gmail_draft_id`, estado `borrador · aprobada · enviada`. `dev_backlog`: solicitudes con código por canal (`OP-01`), área, tipo, entorno, prioridad, evidencia, destino (`roadmap_en_curso · backlog_general · nuevo`), roadmap/módulo, estado `propuesta · aprobada · descartada · en_asana · verificada`, veredicto del arquitecto, `milestone` (hito), `stage` (`priorizado · en_desarrollo · en_qa · con_ajustes · cerrado`, se refleja en Asana) y `asana_task_gid`. `dev_questions`: preguntas abiertas con a quién esperan, desde cuándo y qué bloquean. Ver `docs/technical/dev-tracking.md`.
 
 ### Paquetes (`dev_packages`)
 
