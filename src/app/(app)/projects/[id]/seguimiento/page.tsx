@@ -153,6 +153,10 @@ export default async function SeguimientoPage({
         </TabsContent>
         <TabsContent value="bitacora">
           <Bitacora data={data} />
+          <p className="text-muted-foreground mt-6 text-xs">
+            ID del programa (para la API del arquitecto):{" "}
+            <code className="select-all">{data.program.id}</code>
+          </p>
         </TabsContent>
         <TabsContent value="backlog">
           <div className="space-y-6">
