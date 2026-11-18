@@ -252,3 +252,38 @@ export function parseConsultaCommand(
 export function formatRound(round: number) {
   return String(round).padStart(2, "0");
 }
+
+/**
+ * «CLIENTE» en un comentario de Asana: el equipo registra un mensaje que el
+ * cliente mandó por otro canal (WhatsApp, llamada, reunión). Formas:
+ *   CLIENTE: texto…            (canal WhatsApp por defecto)
+ *   CLIENTE (llamada): texto…
+ *   CLIENTE                     ← texto en las líneas siguientes
+ */
+export const CLIENT_RELAY_RE =
+  /^\s*CLIENTE(?:\s*\(([^)\n]{1,40})\))?(?=$|[\s:·\-–—.,;])\s*[:·\-–—]?\s*/;
+
+export type ClientRelayCommand = {
+  /** Canal por donde llegó («WhatsApp» si no se indica). */
+  via: string;
+  /** Mensaje del cliente, tal como lo pegó el equipo. */
+  text: string;
+};
+
+export function parseClientRelayCommand(
+  text: string | null | undefined,
+): ClientRelayCommand | null {
+  if (!text) return null;
+  const match = text.match(CLIENT_RELAY_RE);
+  if (!match) return null;
+  const body = text
+    .slice(match[0].length)
+    .replace(/^\s*["“«]?|["”»]?\s*$/g, "")
+    .trim();
+  if (!body) return null;
+  const via = match[1]?.trim();
+  return {
+    via: via ? via[0].toUpperCase() + via.slice(1) : "WhatsApp",
+    text: body.slice(0, 4000),
+  };
+}

@@ -25,11 +25,14 @@ import { logActivity } from "@/lib/activity";
 import { buildDeliveryAuditStoryHtml } from "./asana-content";
 import {
   formatRound,
+  parseClientRelayCommand,
+  type ClientRelayCommand,
   parseConsultaCommand,
   parseDeliveryCommand,
 } from "./delivery-command";
 import { ROUNDS_FIELD } from "@/features/reports/metrics";
 import { deliveryCc } from "./delivery-team";
+import { processClientRelay, type ClientRelayOutcome } from "./client-relay";
 import { findRequestAncestor, syncPiece } from "./piece-sync";
 import { replySubject } from "./folio";
 import { GmailApiError, createDraftReply, sendReply } from "./inbox";
@@ -78,6 +81,7 @@ export type DeliveryOutcome =
   | "skipped_duplicate"
   | "rejected_no_links"
   | "scheduled"
+  | ClientRelayOutcome
   | LifecycleOutcome;
 
 type Command =
@@ -89,11 +93,14 @@ type Command =
       kind: "consulta";
       consulta: NonNullable<ReturnType<typeof parseConsultaCommand>>;
     }
-  | { kind: "evaluacion" };
+  | { kind: "evaluacion" }
+  | { kind: "cliente"; relay: ClientRelayCommand };
 
 /** Qué hace Noma con una story de Asana (null: nada). Módulo puro. */
 export function storyCommand(story: AsanaStory): Command | null {
   if (story.resource_subtype === "comment_added") {
+    const relay = parseClientRelayCommand(story.text);
+    if (relay) return { kind: "cliente", relay };
     const delivery = parseDeliveryCommand(story.text, story.html_text);
     if (delivery) return { kind: "delivery", delivery };
     const consulta = parseConsultaCommand(story.text);
@@ -157,6 +164,17 @@ export async function processAsanaStory(
   const resolved = await resolveDeliveryRequest(taskGid);
   if (!resolved) return "skipped_no_request";
   const { request, piece } = resolved;
+  // Mensaje del cliente por otro canal (WhatsApp, llamada): entra al flujo
+  // como una respuesta del hilo (ver client-relay.ts).
+  if (command.kind === "cliente") {
+    return processClientRelay({
+      story,
+      relay: command.relay,
+      request,
+      taskGid,
+      piece,
+    });
+  }
   // La evaluación (fuera de alcance) es de la solicitud completa.
   if (piece && command.kind === "evaluacion") return "skipped_not_delivery";
 

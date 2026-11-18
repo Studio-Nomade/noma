@@ -330,6 +330,24 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Mensajes del cliente por otros canales (`CLIENTE`)
+
+Cuando el cliente escribe por WhatsApp (o lo dice en una llamada), el equipo
+lo pega como comentario en la tarea o pieza de Asana:
+
+```
+CLIENTE: el logo del evento no debe decir Viña del Mar; súbanlos en video
+CLIENTE (llamada): que la entrega sea el viernes
+```
+
+Noma lo trata como una respuesta del hilo: la IA lo clasifica; con ajustes,
+la tarea comentada pasa a «Con ajustes», queda un comentario con los ajustes
+y aviso en Slack al responsable (si es la solicitud completa, quedan como
+ajustes pendientes de la próxima entrega); con aprobación, la tarea queda
+Aprobado / Finalizado. Siempre envía un acuse corto en el hilo de correo
+(«Lo recibimos por WhatsApp y lo registramos…») para dejar constancia
+escrita. Idempotente por comentario (`request_deliveries.kind = 'cliente'`).
+
 ### Orden de la sección del mes
 
 Cada solicitud nueva queda **primera** en su sección: tras crear la tarea,
