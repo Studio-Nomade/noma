@@ -11,7 +11,8 @@ import {
 } from "@/features/asana/asana";
 import { notifyTeamEvent } from "@/features/bot/notify";
 import { requestClosedMessage } from "@/features/bot/team-events";
-import { shouldPlanOnAssign } from "./lifecycle-rules";
+import { isPieceStory, shouldPlanOnAssign } from "./lifecycle-rules";
+import { syncPiece, type PieceSyncOutcome } from "./piece-sync";
 import { ESTADO_FIELD, ESTADO_PLANNED } from "./requests";
 import { getChannel } from "./store";
 
@@ -23,9 +24,12 @@ import { getChannel } from "./store";
  * - `marked_complete`: si la tarea es una solicitud de correo, aviso corto en
  *   el Slack del cliente. El cierre por aprobación del cliente lo hace (y lo
  *   avisa) el bot, cuyas stories nunca llegan aquí.
+ * - `added_to_task` / `added_to_project`: si es una subtarea (pieza) de una
+ *   solicitud de correo, completa sus campos y la saca del listado principal
+ *   (ver piece-sync.ts).
  */
 export type LifecycleOutcome =
-  "planned" | "closed_notified" | "skipped_lifecycle";
+  "planned" | "closed_notified" | "skipped_lifecycle" | PieceSyncOutcome;
 
 export async function processLifecycleStory(
   story: AsanaStory,
@@ -39,6 +43,7 @@ export async function processLifecycleStory(
   if (story.resource_subtype === "marked_complete") {
     return notifyClosedByTeam(taskGid, story.created_by?.name ?? null);
   }
+  if (isPieceStory(story)) return syncPiece(taskGid);
   return "skipped_lifecycle";
 }
 
@@ -48,9 +53,6 @@ async function planOnAssign(
 ): Promise<LifecycleOutcome> {
   const task = await getTaskState(taskGid);
   if (task.completed) return "skipped_lifecycle";
-  // Las piezas (subtareas) no llevan los campos del proyecto: su estado lo
-  // lleva la solicitud.
-  if (task.parent?.gid) return "skipped_lifecycle";
   if (!shouldPlanOnAssign(taskFieldValue(task, ESTADO_FIELD))) {
     return "skipped_lifecycle";
   }

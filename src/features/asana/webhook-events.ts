@@ -50,6 +50,9 @@ export const HANDLED_STORY_SUBTYPES = [
   // Asignación → Estado «Planificada»; cierre → aviso en Slack.
   "assigned",
   "marked_complete",
+  // Subtareas (piezas) dentro de una solicitud: campos y sin duplicado.
+  "added_to_task",
+  "added_to_project",
 ];
 
 /**
