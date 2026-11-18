@@ -435,6 +435,13 @@
       "when": 1794977669770,
       "tag": "0061_dev_packages",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795020673033,
+      "tag": "0062_dev_meetings_calendar",
+      "breakpoints": true
     }
   ]
 }

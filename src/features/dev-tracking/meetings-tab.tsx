@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/shared/surface";
 import { cn } from "@/lib/utils";
+import { CalendarImportForm } from "./calendar-import-form";
 import { CancelMeetingButton } from "./cancel-meeting-button";
 import { MeetingProcessControls } from "./meeting-process-controls";
 import { MeetingTypeDialog } from "./meeting-type-dialog";
@@ -35,12 +36,14 @@ export function MeetingsTab({
   programId,
   programName,
   projectId,
+  calendarPrefix,
   data,
   today,
 }: {
   programId: string;
   programName: string;
   projectId: string;
+  calendarPrefix: string | null;
   data: DevMeetingsData;
   today: string;
 }) {
@@ -67,6 +70,14 @@ export function MeetingsTab({
           </p>
         </Surface>
       )}
+
+      <Surface padding="md">
+        <CalendarImportForm
+          programId={programId}
+          prefix={calendarPrefix}
+          mailbox={mailbox.mailbox}
+        />
+      </Surface>
 
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -222,6 +233,7 @@ function MeetingList({
                   minute: "2-digit",
                 })}{" "}
                 · {m.durationMin} min · {m.attendees.length} asistentes
+                {m.source === "calendar" && " · desde Calendar"}
                 {m.organizerEmail && ` · desde ${m.organizerEmail}`}
               </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">

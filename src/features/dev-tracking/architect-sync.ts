@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
   devBacklog,
+  devPrograms,
   devLog,
   devMilestones,
   devModules,
@@ -163,6 +164,26 @@ export async function applyArchitectResult(
           },
         });
       summary.roadmap = code;
+
+      // Si el arquitecto usó un código sin reservarlo antes, el contador del
+      // programa avanza igual, para que el siguiente no salga repetido.
+      const n = Number(code.replace(/^(R|NDes-)/, ""));
+      if (Number.isFinite(n) && n > 0) {
+        await tx
+          .update(devPrograms)
+          .set(
+            code.startsWith("NDes-")
+              ? {
+                  nextModuleNumber: sql`greatest(${devPrograms.nextModuleNumber}, ${n + 1})`,
+                  updatedAt: new Date(),
+                }
+              : {
+                  nextRoadmapNumber: sql`greatest(${devPrograms.nextRoadmapNumber}, ${n + 1})`,
+                  updatedAt: new Date(),
+                },
+          )
+          .where(eq(devPrograms.id, programId));
+      }
     }
 
     // Veredictos por solicitud (código dentro del paquete / reunión).

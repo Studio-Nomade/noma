@@ -2920,6 +2920,10 @@ export const devPrograms = pgTable(
     // Prefijos de numeración: mejoras `R`, módulos nuevos `NDes-`
     nextRoadmapNumber: integer("next_roadmap_number").default(1).notNull(),
     nextModuleNumber: integer("next_module_number").default(1).notNull(),
+    // Reuniones creadas fuera de Noma (p. ej. en el Calendar de una persona,
+    // con la casilla de operaciones invitada) cuyo título empieza así se
+    // vinculan al programa. Ej.: «WD - AppsCinco».
+    calendarTitlePrefix: text("calendar_title_prefix"),
     sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
     ...timestamps,
   },
@@ -3129,11 +3133,17 @@ export const devMeetings = pgTable(
     transcriptFileId: text("transcript_file_id"),
     minutesDocId: text("minutes_doc_id"),
     notes: text("notes"),
+    // noma (agendada desde Noma) · calendar (traída de Calendar por prefijo)
+    source: text("source").default("noma").notNull(),
     ...timestamps,
   },
   (t) => [
     index("dev_meetings_program_starts_idx").on(t.programId, t.startsAt),
     index("dev_meetings_status_idx").on(t.status),
+    uniqueIndex("dev_meetings_program_event_uq").on(
+      t.programId,
+      t.calendarEventId,
+    ),
   ],
 );
 

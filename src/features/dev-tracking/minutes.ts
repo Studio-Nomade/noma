@@ -454,6 +454,13 @@ export async function runMeetingsDigest(opts: {
   meetingId?: string | null;
 }): Promise<DigestResult[]> {
   const results: DigestResult[] = [];
+  // Reuniones creadas fuera de Noma y notas de Gemini adjuntas a los eventos.
+  if (!opts.meetingId) {
+    const { syncAllCalendarMeetings } = await import("./calendar-sync");
+    await syncAllCalendarMeetings().catch((err) =>
+      console.error("[dev-minutes:calendar]", err),
+    );
+  }
   await markFinishedMeetings();
   const mailbox = await operationsMailboxStatus();
   if (!mailbox.connected || !mailbox.userId) {
