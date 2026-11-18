@@ -23,6 +23,7 @@ const ev = (
     fileId: string | null;
     title: string;
     mimeType: string | null;
+    fileUrl?: string | null;
   }[],
 ) => ({
   id: "e",
