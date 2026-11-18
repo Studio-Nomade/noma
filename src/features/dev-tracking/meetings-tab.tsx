@@ -11,6 +11,7 @@ import { Surface } from "@/components/shared/surface";
 import { cn } from "@/lib/utils";
 import { CalendarImportForm } from "./calendar-import-form";
 import { CancelMeetingButton } from "./cancel-meeting-button";
+import { ArchiveMeetingButton } from "./archive-meeting-button";
 import { MeetingProcessControls } from "./meeting-process-controls";
 import { MeetingTypeDialog } from "./meeting-type-dialog";
 import {
@@ -30,6 +31,7 @@ const STATUS_TONE: Record<DevMeetingStatus, string> = {
   resumida: "amber",
   minuta_enviada: "emerald",
   cancelada: "slate",
+  archivada: "slate",
 };
 
 export function MeetingsTab({
@@ -272,7 +274,7 @@ function MeetingList({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {m.status !== "agendada" && m.status !== "cancelada" && (
+              {!["agendada", "cancelada", "archivada"].includes(m.status) && (
                 <Link
                   href={`/projects/${projectId}/seguimiento/reuniones/${m.id}`}
                   className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
@@ -287,6 +289,12 @@ function MeetingList({
               />
               {withCancel && m.status === "agendada" && (
                 <CancelMeetingButton meetingId={m.id} />
+              )}
+              {["realizada", "transcrita", "archivada"].includes(m.status) && (
+                <ArchiveMeetingButton
+                  meetingId={m.id}
+                  archived={m.status === "archivada"}
+                />
               )}
             </div>
           </li>

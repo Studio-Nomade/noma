@@ -30,6 +30,7 @@ export const MEETING_STATUSES = [
   "resumida",
   "minuta_enviada",
   "cancelada",
+  "archivada",
 ] as const;
 export type DevMeetingStatus = (typeof MEETING_STATUSES)[number];
 
@@ -40,6 +41,7 @@ export const MEETING_STATUS_LABELS: Record<DevMeetingStatus, string> = {
   resumida: "Resumen listo",
   minuta_enviada: "Minuta enviada",
   cancelada: "Cancelada",
+  archivada: "Procesada fuera de Noma",
 };
 
 /**
