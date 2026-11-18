@@ -251,3 +251,18 @@ team_members 1 ──── 0..1 employees 1 ──── N employee_documents
 ## assistant_briefings
 
 Resumen diario del asistente por persona (`user_id`, `day` en America/Santiago, único por par). `data` guarda solo títulos, remitentes y enlaces, nunca el cuerpo de correos o mensajes. `expires_at` = generación + 7 días; se purga al generar. Ver `docs/technical/asistente.md`.
+
+## Seguimiento de desarrollo (`dev_*`)
+
+Un `dev_program` por proyecto de desarrollo (`project_id` único). Reemplaza el tablero HTML a mano con cinco piezas:
+
+| Tabla | Qué guarda | Clave natural |
+|---|---|---|
+| `dev_programs` | nombre, repos (`[{name,label,countBase}]`), `asana_project_gid`, contadores `next_roadmap_number` / `next_module_number` (Noma es la única fuente del siguiente `R##` / `NDes-###`) | `project_id` |
+| `dev_modules` | módulos en curso: objetivo, avance, criterio, «pelota» (`ball_owner`, `ball_what`), próximo seguimiento, listas en producción y pendientes | `program_id + code` |
+| `dev_milestones` | hitos por módulo: estado `en_prod · pr_abierto · en_desarrollo · pendiente · bloqueado`, fecha, `asana_task_gid`, `pr_numbers[]` | `module_id + name` |
+| `dev_roadmaps` | roadmaps `R74` / `NDes-006`: mes, estado `en_prod · parcial · pendiente`, tipo `modulo · mejora · correccion`, `asana_task_gids[]` | `program_id + code` |
+| `dev_prs` | PR mergeados por repo: base, mes, código de roadmap detectado, `is_promotion` (promociones `develop → main` no cuentan como trabajo) | `program_id + repo + number` |
+| `dev_log` | bitácora con `source` `asana · github · claude · manual · import` | `program_id + date + text` |
+
+La clave común entre Asana, GitHub y el arquitecto es el **código de roadmap** (`src/features/dev-tracking/roadmap-code.ts`). El importador `npm run dev-tracking:import -- <slug>` lee el insumo privado desde `${NOMA_DATA_DIR}/data/dev-tracking/<slug>/` (ver cabecera de `scripts/dev-tracking-import.ts`).

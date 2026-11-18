@@ -2890,3 +2890,182 @@ export const assistantBriefings = pgTable(
     index("assistant_briefings_expires_idx").on(t.expiresAt),
   ],
 );
+
+// ── Seguimiento de desarrollo (dev_*) ────────────────────────
+// Un «programa» por proyecto de desarrollo (p. ej. una plataforma que el
+// estudio opera para un cliente). Reemplaza el tablero HTML a mano: módulos
+// en curso con sus hitos, roadmaps numerados, PR integrados y bitácora.
+// Fuentes: Asana (qué), GitHub (cuándo), el arquitecto (plan). Clave común:
+// el código de roadmap (`R74`, `NDes-006`).
+
+export const devPrograms = pgTable(
+  "dev_programs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    startDate: date("start_date"),
+    // [{ name: "appscinco-backend", label: "back", countBase: "non_main" | "all" }]
+    repos: jsonb("repos")
+      .$type<{ name: string; label: string; countBase: "non_main" | "all" }[]>()
+      .default([])
+      .notNull(),
+    asanaProjectGid: text("asana_project_gid"),
+    portalVisible: boolean("portal_visible").default(false).notNull(),
+    // Prefijos de numeración: mejoras `R`, módulos nuevos `NDes-`
+    nextRoadmapNumber: integer("next_roadmap_number").default(1).notNull(),
+    nextModuleNumber: integer("next_module_number").default(1).notNull(),
+    sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_programs_project_uq").on(t.projectId)],
+);
+
+export const devModules = pgTable(
+  "dev_modules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // NDes-006 · TELEMETRIA · COT-FACT
+    name: text("name").notNull(),
+    objective: text("objective"),
+    startDate: date("start_date"),
+    targetDate: date("target_date"),
+    progress: integer("progress").default(0).notNull(), // 0–100
+    criteria: text("criteria"),
+    ballOwner: text("ball_owner"), // quién tiene la pelota
+    ballWhat: text("ball_what"), // qué se espera de esa persona
+    nextFollowUp: date("next_follow_up"),
+    inProduction: text("in_production").array().default([]).notNull(),
+    pending: text("pending").array().default([]).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("dev_modules_program_code_uq").on(t.programId, t.code)],
+);
+
+export const devMilestones = pgTable(
+  "dev_milestones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => devModules.id, { onDelete: "cascade" }),
+    name: text("name").notNull(), // «H5 Ensayo e ingesta»
+    // en_prod · pr_abierto · en_desarrollo · pendiente · bloqueado
+    status: text("status").default("pendiente").notNull(),
+    date: date("date"),
+    asanaTaskGid: text("asana_task_gid"),
+    prNumbers: text("pr_numbers").array().default([]).notNull(), // «appscinco-backend#498»
+    sortOrder: integer("sort_order").default(0).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("dev_milestones_module_name_uq").on(t.moduleId, t.name),
+    index("dev_milestones_status_idx").on(t.status),
+  ],
+);
+
+export const devRoadmaps = pgTable(
+  "dev_roadmaps",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // R74 · NDes-006
+    title: text("title").notNull(),
+    month: text("month").notNull(), // «2026-11»
+    // en_prod · parcial · pendiente
+    status: text("status").default("pendiente").notNull(),
+    // modulo · mejora · correccion
+    kind: text("kind").default("mejora").notNull(),
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    asanaTaskGids: text("asana_task_gids").array().default([]).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("dev_roadmaps_program_code_uq").on(t.programId, t.code),
+    index("dev_roadmaps_month_idx").on(t.programId, t.month),
+  ],
+);
+
+export const devPrs = pgTable(
+  "dev_prs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    repo: text("repo").notNull(), // appscinco-backend
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    baseBranch: text("base_branch").notNull(), // develop · main
+    headBranch: text("head_branch"),
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    month: text("month").notNull(), // «2026-11» (mes del merge)
+    author: text("author"),
+    roadmapCode: text("roadmap_code"), // detectado del título o la rama
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    isPromotion: boolean("is_promotion").default(false).notNull(), // promote/* → main
+    source: text("source").default("import").notNull(), // import · webhook · backfill
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("dev_prs_program_repo_number_uq").on(
+      t.programId,
+      t.repo,
+      t.number,
+    ),
+    index("dev_prs_month_idx").on(t.programId, t.month),
+    index("dev_prs_roadmap_idx").on(t.programId, t.roadmapCode),
+  ],
+);
+
+export const devLog = pgTable(
+  "dev_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => devPrograms.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    moduleId: uuid("module_id").references(() => devModules.id, {
+      onDelete: "set null",
+    }),
+    moduleCode: text("module_code"), // texto libre cuando no hay módulo
+    text: text("text").notNull(),
+    // asana · github · claude · manual · import
+    source: text("source").default("manual").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("dev_log_program_date_idx").on(t.programId, t.date),
+    uniqueIndex("dev_log_program_date_text_uq").on(t.programId, t.date, t.text),
+  ],
+);
+
+export type DevProgram = typeof devPrograms.$inferSelect;
+export type NewDevProgram = typeof devPrograms.$inferInsert;
+export type DevModule = typeof devModules.$inferSelect;
+export type NewDevModule = typeof devModules.$inferInsert;
+export type DevMilestone = typeof devMilestones.$inferSelect;
+export type NewDevMilestone = typeof devMilestones.$inferInsert;
+export type DevRoadmap = typeof devRoadmaps.$inferSelect;
+export type NewDevRoadmap = typeof devRoadmaps.$inferInsert;
+export type DevPr = typeof devPrs.$inferSelect;
+export type NewDevPr = typeof devPrs.$inferInsert;
+export type DevLogEntry = typeof devLog.$inferSelect;
+export type NewDevLogEntry = typeof devLog.$inferInsert;
