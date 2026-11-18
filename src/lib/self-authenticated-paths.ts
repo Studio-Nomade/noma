@@ -6,6 +6,8 @@
  *   (handshake + X-Hook-Signature). Ninguno tiene cookie de sesión: sin este
  *   bypass, el middleware los redirige a /login y el proveedor recibe un 307.
  * - `/api/cron/*`: Vercel Cron, autenticado con `Authorization: Bearer CRON_SECRET`.
+ * - `/api/dev-tracking/*`: API de servicio del seguimiento de desarrollo que
+ *   usa el arquitecto (Claude Code), con `Authorization: Bearer DEV_TRACKING_API_TOKEN`.
  *
  * Cada handler DEBE validar su propia credencial; este listado solo evita la
  * redirección. Módulo edge-safe (sin Node/DB): lo importa el middleware.
@@ -13,6 +15,7 @@
 export const SELF_AUTHENTICATED_PREFIXES = [
   "/api/webhooks",
   "/api/cron",
+  "/api/dev-tracking",
 ] as const;
 
 /** ¿La ruta se autentica sola (webhook/cron) y debe saltarse la sesión? */

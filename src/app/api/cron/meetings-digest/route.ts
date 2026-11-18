@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 /**
- * Cada media hora en horario hábil: reuniones del seguimiento de desarrollo
+ * Una vez al día hábil (19:45 Santiago; Vercel Hobby no admite crons más
+ * frecuentes que diarios): reuniones del seguimiento de desarrollo
  * que terminaron → transcripción de Gemini (Drive de la casilla de
  * operaciones) → minuta con Claude → solicitudes propuestas, borrador del
  * correo en la casilla y aviso en Slack. Manual: `?meeting=<id>` para una

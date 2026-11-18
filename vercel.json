@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/meetings-digest",
-      "schedule": "0,30 12-23 * * 1-5"
+      "schedule": "45 22 * * 1-5"
     }
   ]
 }

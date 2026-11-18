@@ -22,6 +22,8 @@ import { ModuleBallDialog } from "@/features/dev-tracking/module-ball-dialog";
 import { LogForm } from "@/features/dev-tracking/log-form";
 import { MeetingsTab } from "@/features/dev-tracking/meetings-tab";
 import { getDevMeetingsData } from "@/features/dev-tracking/meetings-queries";
+import { BacklogBoard } from "@/features/dev-tracking/backlog-board";
+import { getBacklogData } from "@/features/dev-tracking/backlog-queries";
 import {
   ROADMAP_KINDS,
   ROADMAP_STATUSES,
@@ -73,10 +75,10 @@ export default async function SeguimientoPage({
     );
   }
 
-  const meetingsData = await getDevMeetingsData(
-    data.program.id,
-    data.program.clientId,
-  );
+  const [meetingsData, backlogData] = await Promise.all([
+    getDevMeetingsData(data.program.id, data.program.clientId),
+    getBacklogData(data.program.id),
+  ]);
   const estado = typeof sp.estado === "string" ? sp.estado : "";
   const tipo = typeof sp.tipo === "string" ? sp.tipo : "";
   const mes = typeof sp.mes === "string" ? sp.mes : "";
@@ -128,6 +130,7 @@ export default async function SeguimientoPage({
           <TabsTrigger value="roadmaps">Roadmaps</TabsTrigger>
           <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
+          <TabsTrigger value="backlog">Backlog</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen">
@@ -148,6 +151,16 @@ export default async function SeguimientoPage({
         </TabsContent>
         <TabsContent value="bitacora">
           <Bitacora data={data} />
+        </TabsContent>
+        <TabsContent value="backlog">
+          <div className="space-y-6">
+            <BacklogBoard
+              data={backlogData}
+              programId={data.program.id}
+              hasAsana={!!data.program.asanaProjectGid}
+            />
+            <Preguntas questions={backlogData.questions} />
+          </div>
         </TabsContent>
         <TabsContent value="reuniones">
           <MeetingsTab
@@ -738,5 +751,35 @@ function Bitacora({ data }: { data: DevTracking }) {
         />
       </Surface>
     </div>
+  );
+}
+
+// ── Preguntas abiertas ───────────────────────────────────────
+
+function Preguntas({
+  questions,
+}: {
+  questions: Awaited<ReturnType<typeof getBacklogData>>["questions"];
+}) {
+  const open = questions.filter((q) => q.status === "abierta");
+  if (open.length === 0) return null;
+  return (
+    <Surface padding="lg">
+      <h2 className="font-heading mb-3 text-sm font-medium">
+        Preguntas abiertas ({open.length})
+      </h2>
+      <ul className="divide-border divide-y text-sm">
+        {open.map((q) => (
+          <li key={q.id} className="py-2">
+            <p>{q.question}</p>
+            <p className="text-muted-foreground text-xs">
+              para {q.forWhom ?? "—"} · desde {fmtDate(q.since)}
+              {q.blocks && ` · bloquea ${q.blocks}`}
+              {q.source === "claude_code" && " · del arquitecto"}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Surface>
   );
 }
