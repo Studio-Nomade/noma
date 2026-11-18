@@ -34,7 +34,7 @@ const ev = (
   htmlLink: null,
   meetLink: null,
   attendeeEmails: [],
-  attachments: attachments.map((a) => ({ ...a, fileUrl: null })),
+  attachments: attachments.map((a) => ({ ...a, fileUrl: a.fileUrl ?? null })),
 });
 
 test("elige el documento de notas de Gemini entre los adjuntos", () => {
@@ -54,4 +54,21 @@ test("elige el documento de notas de Gemini entre los adjuntos", () => {
     "c",
   );
   assert.equal(geminiNotesAttachment(ev([])), null);
+});
+
+test("sin fileId, toma el ID desde el enlace del documento (como lo adjunta Meet)", () => {
+  assert.equal(
+    geminiNotesAttachment(
+      ev([
+        {
+          fileId: null,
+          title: "Notas de Gemini",
+          mimeType: null,
+          fileUrl:
+            "https://docs.google.com/document/d/1NxKh1IdfptWGsLdqiWzleLxujO3_2EZNETGfSjPeVg4/edit?usp=meet_tnfm_calendar",
+        },
+      ]),
+    )?.fileId,
+    "1NxKh1IdfptWGsLdqiWzleLxujO3_2EZNETGfSjPeVg4",
+  );
 });
