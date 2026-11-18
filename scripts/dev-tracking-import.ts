@@ -37,6 +37,8 @@ import {
  *   client         nombre del cliente; con createProject, se crea si falta
  *   createProject  { name, area, status } para crear el proyecto si no existe
  *   contacts       [{ name, email, role }] → client_contacts (solo completa vacíos)
+ *   slackWebhookEnv  variable del webhook de Slack del canal del programa
+ *                   (SLACK_…_WEBHOOK_URL; solo el nombre, nunca la URL)
  *   meetingTypes   [{ name, cadence, weekday, timeOfDay, durationMin, contacts:
  *                   [email], description, producesBacklog }] → dev_meeting_types
  *
@@ -50,6 +52,7 @@ type ProgramFile = {
   startDate?: string;
   repos: { name: string; label: string; countBase: "non_main" | "all" }[];
   asanaProjectGid?: string;
+  slackWebhookEnv?: string;
   client?: string;
   createProject?: { name: string; area?: string; status?: string };
   contacts?: { name: string; email: string; role?: string }[];
@@ -186,6 +189,7 @@ async function main() {
       startDate: program.startDate ?? seguimiento?.inicioProyecto ?? null,
       repos: program.repos,
       asanaProjectGid: program.asanaProjectGid ?? null,
+      slackWebhookEnv: program.slackWebhookEnv ?? null,
       sourceUpdatedAt: seguimiento?.actualizado
         ? new Date(seguimiento.actualizado)
         : null,
@@ -196,6 +200,9 @@ async function main() {
         name: program.name,
         repos: program.repos,
         asanaProjectGid: program.asanaProjectGid ?? null,
+        ...(program.slackWebhookEnv
+          ? { slackWebhookEnv: program.slackWebhookEnv }
+          : {}),
         sourceUpdatedAt: seguimiento?.actualizado
           ? new Date(seguimiento.actualizado)
           : null,

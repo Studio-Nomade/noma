@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { ZodError } from "zod";
 import {
   checkDevTrackingToken,
@@ -9,6 +10,7 @@ import {
   applyArchitectResult,
   resultSchema,
 } from "@/features/dev-tracking/architect-sync";
+import { syncItemsToAsana } from "@/features/dev-tracking/asana-sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +19,9 @@ export const maxDuration = 60;
  * El arquitecto publica el resultado de una sesión: veredictos por solicitud,
  * roadmap, módulos e hitos, bitácora y despliegues manuales. Ver el formato en
  * `features/dev-tracking/architect-sync.ts` (`resultSchema`).
+ *
+ * Después de responder, Noma refleja en Asana las solicitudes revisadas
+ * (tarea nueva «R76 · título») y los cambios de etapa (Estado y sección).
  */
 export async function POST(
   request: Request,
@@ -37,8 +42,29 @@ export async function POST(
   }
   try {
     const result = resultSchema.parse(body);
-    const summary = await applyArchitectResult(program.id, result);
-    return Response.json({ ok: true, resumen: summary });
+    const { asanaItemIds, ...summary } = await applyArchitectResult(
+      program.id,
+      result,
+    );
+    const asana = program.asanaProjectGid && asanaItemIds.length > 0;
+    if (asana) {
+      after(async () => {
+        try {
+          await syncItemsToAsana(program.id, asanaItemIds, {
+            source: result.paquete ?? "arquitecto",
+          });
+        } catch (err) {
+          console.error("[dev-tracking:resultados:asana]", err);
+        }
+      });
+    }
+    return Response.json({
+      ok: true,
+      resumen: summary,
+      asana: asana
+        ? `${asanaItemIds.length} solicitud(es) se reflejan en Asana en ~30 s`
+        : "sin cambios en Asana",
+    });
   } catch (err) {
     if (err instanceof ZodError) {
       return Response.json(

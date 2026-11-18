@@ -2924,6 +2924,10 @@ export const devPrograms = pgTable(
     // con la casilla de operaciones invitada) cuyo título empieza así se
     // vinculan al programa. Ej.: «WD - AppsCinco».
     calendarTitlePrefix: text("calendar_title_prefix"),
+    // Variable de entorno con el webhook de Slack del canal del programa
+    // (nunca la URL), p. ej. SLACK_APPSCINCO_WEBHOOK_URL. Null → el canal de
+    // correo del proyecto o, si no hay, SLACK_OPERATIONS_WEBHOOK_URL.
+    slackWebhookEnv: text("slack_webhook_env"),
     sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
     ...timestamps,
   },
@@ -3238,6 +3242,11 @@ export const devBacklog = pgTable(
     verdict: text("verdict"),
     verdictNote: text("verdict_note"),
     asanaTaskGid: text("asana_task_gid"),
+    // Hito del roadmap en que la ubicó el arquitecto («H2»).
+    milestone: text("milestone"),
+    // Etapa de trabajo que informa el arquitecto y que Noma refleja en Asana:
+    // priorizado · en_desarrollo · en_qa · con_ajustes · cerrado
+    stage: text("stage"),
     sortOrder: integer("sort_order").default(0).notNull(),
     ...timestamps,
   },

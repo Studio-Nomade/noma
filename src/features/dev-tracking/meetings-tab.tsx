@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/shared/surface";
 import { cn } from "@/lib/utils";
 import { CalendarImportForm } from "./calendar-import-form";
+import {
+  SlackChannelForm,
+  type ProgramSlackStatus,
+} from "./slack-channel-form";
 import { CancelMeetingButton } from "./cancel-meeting-button";
 import { ArchiveMeetingButton } from "./archive-meeting-button";
 import { MeetingProcessControls } from "./meeting-process-controls";
@@ -39,6 +43,7 @@ export function MeetingsTab({
   programName,
   projectId,
   calendarPrefix,
+  slack,
   data,
   today,
 }: {
@@ -46,6 +51,7 @@ export function MeetingsTab({
   programName: string;
   projectId: string;
   calendarPrefix: string | null;
+  slack: ProgramSlackStatus;
   data: DevMeetingsData;
   today: string;
 }) {
@@ -73,12 +79,13 @@ export function MeetingsTab({
         </Surface>
       )}
 
-      <Surface padding="md">
+      <Surface padding="md" className="flex flex-wrap gap-x-8 gap-y-4">
         <CalendarImportForm
           programId={programId}
           prefix={calendarPrefix}
           mailbox={mailbox.mailbox}
         />
+        <SlackChannelForm programId={programId} status={slack} />
       </Surface>
 
       <section>
