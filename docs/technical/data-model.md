@@ -266,3 +266,7 @@ Un `dev_program` por proyecto de desarrollo (`project_id` único). Reemplaza el 
 | `dev_log` | bitácora con `source` `asana · github · claude · manual · import` | `program_id + date + text` |
 
 La clave común entre Asana, GitHub y el arquitecto es el **código de roadmap** (`src/features/dev-tracking/roadmap-code.ts`). El importador `npm run dev-tracking:import -- <slug>` lee el insumo privado desde `${NOMA_DATA_DIR}/data/dev-tracking/<slug>/` (ver cabecera de `scripts/dev-tracking-import.ts`).
+
+### Reuniones del programa (`dev_meeting_types`, `dev_meetings`)
+
+`dev_meeting_types` define los tipos de reunión de un programa (cadencia `weekly · biweekly · monthly · adhoc`, día y hora en America/Santiago, duración, `contact_ids` de `client_contacts`, correos extra, agenda fija, si genera backlog). `dev_meetings` guarda cada reunión agendada: asistentes, agenda armada (plantilla + pelota de cada módulo), `organizer_email` (la casilla `NOMA_REQUESTS_MAILBOX`, que crea el evento con Meet para que la transcripción de Gemini quede en su Drive), ids de Calendar/Meet, estado `agendada · realizada · transcrita · resumida · minuta_enviada · cancelada`, y los ids de transcripción y minuta que llenan las fases siguientes. Si la casilla no está conectada, la reunión se guarda igual sin evento.
