@@ -330,6 +330,28 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Solicitudes divididas en piezas (subtareas)
+
+Cuando una solicitud trae varias piezas, el equipo puede dividirla en
+subtareas de Asana (una por pieza y responsable). Noma las trata así:
+
+- **Entrega o consulta en una subtarea** (`ENTREGA NN` / `CONSULTA`): Noma
+  sube a la tarea madre y envía en el **mismo hilo** del cliente. El nombre de
+  la subtarea es la pieza que lee el cliente («la primera versión de …»), y va
+  en copia el responsable de la subtarea. Cada pieza lleva su propia ronda.
+  Horario hábil y «ENVIAR AHORA» funcionan igual.
+- Una pieza **no** mueve Estado ni «Rondas de entrega» de la solicitud, ni da
+  por aplicados los ajustes pendientes (son de la solicitud completa; los
+  reparte el equipo).
+- **Aprobación del cliente** con otras piezas abiertas: se completa la
+  subtarea de la última entrega, se comenta en la tarea madre, aviso 🧩 en
+  Slack y acuse corto en el hilo. Al aprobar la última pieza abierta se cierra
+  la solicitud con el flujo de siempre.
+- Asignar una subtarea no la pasa a Planificada; cerrarla no avisa al cliente.
+- El webhook del proyecto recibe los comentarios de subtareas; la
+  reconciliación (`reconcileAsanaDeliveries`) también revisa las subtareas.
+- La evaluación (fuera de alcance) solo se dispara desde la tarea madre.
+
 ## Puesta en marcha (checklist)
 
 0. **Antes de encender los crons**: hasta ahora el middleware redirigía a `/login`

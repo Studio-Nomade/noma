@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   adjustmentsMessage,
   deliverySentMessage,
+  pieceApprovedMessage,
   parseSlackUserIds,
   requestClosedMessage,
   slackMention,
@@ -82,4 +83,25 @@ test("cierre: por el cliente o por el equipo", () => {
     }).body,
     /^✅ `G-1` · Cliente A · \*Cerrada\* por Javiera Díaz\. </,
   );
+});
+
+test("entrega de una pieza nombra la pieza", () => {
+  const msg = deliverySentMessage({
+    folio: "ABC-NOV-0001",
+    clientName: "Cliente A",
+    round: 1,
+    piece: "Presentación 6x3",
+  });
+  assert.match(msg.body, /Entrega 01 de «Presentación 6x3» enviada/);
+});
+
+test("pieza aprobada lista las que siguen abiertas", () => {
+  const msg = pieceApprovedMessage({
+    folio: "ABC-NOV-0001",
+    clientName: "Cliente A",
+    piece: "Piezas Canva",
+    remaining: ["Presentación 6x3"],
+  });
+  assert.match(msg.body, /Aprobó «Piezas Canva»/);
+  assert.match(msg.body, /Siguen abiertas: «Presentación 6x3»/);
 });

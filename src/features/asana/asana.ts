@@ -735,6 +735,8 @@ export type AsanaTaskState = {
   completed: boolean;
   due_on?: string | null;
   projects?: { gid: string }[];
+  /** Tarea madre si es una subtarea (pieza de una solicitud). */
+  parent?: { gid: string } | null;
   custom_fields?: {
     gid: string;
     name?: string;
@@ -746,8 +748,25 @@ export type AsanaTaskState = {
 export async function getTaskState(taskGid: string) {
   return asanaRequest<AsanaTaskState>(
     "GET",
-    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,name,completed,due_on,projects.gid,custom_fields.gid,custom_fields.name,custom_fields.display_value,custom_fields.enum_value.name`,
+    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,name,completed,due_on,projects.gid,parent.gid,custom_fields.gid,custom_fields.name,custom_fields.display_value,custom_fields.enum_value.name`,
   );
+}
+
+export type AsanaSubtask = { gid: string; name: string; completed: boolean };
+
+/** Subtareas directas de una tarea (piezas de una solicitud). */
+export async function listSubtasks(taskGid: string): Promise<AsanaSubtask[]> {
+  const rows = await asanaRequest<
+    { gid: string; name?: string; completed?: boolean }[]
+  >(
+    "GET",
+    `/tasks/${encodeURIComponent(taskGid)}/subtasks?opt_fields=gid,name,completed&limit=100`,
+  );
+  return (rows ?? []).map((row) => ({
+    gid: row.gid,
+    name: row.name ?? "",
+    completed: Boolean(row.completed),
+  }));
 }
 
 /** Valor visible de un campo de la tarea por nombre (null si no está). */

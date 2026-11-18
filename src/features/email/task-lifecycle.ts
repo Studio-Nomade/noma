@@ -48,6 +48,9 @@ async function planOnAssign(
 ): Promise<LifecycleOutcome> {
   const task = await getTaskState(taskGid);
   if (task.completed) return "skipped_lifecycle";
+  // Las piezas (subtareas) no llevan los campos del proyecto: su estado lo
+  // lleva la solicitud.
+  if (task.parent?.gid) return "skipped_lifecycle";
   if (!shouldPlanOnAssign(taskFieldValue(task, ESTADO_FIELD))) {
     return "skipped_lifecycle";
   }
