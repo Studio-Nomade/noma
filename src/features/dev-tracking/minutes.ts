@@ -14,6 +14,8 @@ import {
 } from "@/db/schema";
 import { callClaudeStructured, claudeConfigured } from "@/lib/ai/claude";
 import { notifyTeamEvent } from "@/features/bot/notify";
+import { appBaseUrl, slackLink } from "@/lib/app-url";
+import { programSlackWebhookEnv } from "./program-slack";
 import { createDraft } from "@/features/email/inbox";
 import { readDriveDoc, searchRecentDocs } from "@/features/google/drive";
 import { matchNotes } from "@/features/google/note-matching";
@@ -424,20 +426,22 @@ export async function summarizeMeeting(
     console.error("[dev-minutes:draft]", err);
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
   const link = program
-    ? `${appUrl}/projects/${program.projectId}/seguimiento/reuniones/${meeting.id}`
+    ? `${appBaseUrl()}/projects/${program.projectId}/seguimiento/reuniones/${meeting.id}`
     : "";
-  await notifyTeamEvent({
-    text: `Minuta lista: ${meeting.title}`,
-    body: [
-      `*Minuta lista · ${meeting.title}*`,
-      `${backlogRows.length} solicitudes propuestas · ${data.preguntas_abiertas.length} preguntas abiertas${draftId ? " · borrador en la casilla" : ""}`,
-      link ? `<${link}|Revisar y aprobar en Noma>` : "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  });
+  await notifyTeamEvent(
+    {
+      text: `Minuta lista: ${meeting.title}`,
+      body: [
+        `*Minuta lista · ${meeting.title}*`,
+        `${backlogRows.length} solicitudes propuestas · ${data.preguntas_abiertas.length} preguntas abiertas${draftId ? " · borrador en la casilla" : ""}`,
+        slackLink(link, "Revisar y aprobar en Noma"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
+    await programSlackWebhookEnv(meeting.programId),
+  );
 
   return {
     meetingId,

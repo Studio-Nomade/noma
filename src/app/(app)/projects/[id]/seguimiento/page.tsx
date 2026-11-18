@@ -22,6 +22,7 @@ import { ModuleBallDialog } from "@/features/dev-tracking/module-ball-dialog";
 import { LogForm } from "@/features/dev-tracking/log-form";
 import { MeetingsTab } from "@/features/dev-tracking/meetings-tab";
 import { getDevMeetingsData } from "@/features/dev-tracking/meetings-queries";
+import { programSlackWebhookEnv } from "@/features/dev-tracking/program-slack";
 import { BacklogBoard } from "@/features/dev-tracking/backlog-board";
 import { getBacklogData } from "@/features/dev-tracking/backlog-queries";
 import {
@@ -77,9 +78,10 @@ export default async function SeguimientoPage({
     );
   }
 
-  const [meetingsData, backlogData] = await Promise.all([
+  const [meetingsData, backlogData, slackEnv] = await Promise.all([
     getDevMeetingsData(data.program.id, data.program.clientId),
     getBacklogData(data.program.id),
+    programSlackWebhookEnv(data.program.id),
   ]);
   const estado = typeof sp.estado === "string" ? sp.estado : "";
   const tipo = typeof sp.tipo === "string" ? sp.tipo : "";
@@ -174,6 +176,16 @@ export default async function SeguimientoPage({
             programName={data.program.name}
             projectId={id}
             calendarPrefix={data.program.calendarTitlePrefix}
+            slack={{
+              own: data.program.slackWebhookEnv ?? null,
+              effective: slackEnv,
+              source: data.program.slackWebhookEnv
+                ? "programa"
+                : slackEnv
+                  ? "canal de correo"
+                  : "operativo",
+              defined: !!(slackEnv && process.env[slackEnv]),
+            }}
             data={meetingsData}
             today={today}
           />

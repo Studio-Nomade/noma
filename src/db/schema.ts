@@ -2924,6 +2924,10 @@ export const devPrograms = pgTable(
     // con la casilla de operaciones invitada) cuyo título empieza así se
     // vinculan al programa. Ej.: «WD - AppsCinco».
     calendarTitlePrefix: text("calendar_title_prefix"),
+    // Variable de entorno con el webhook de Slack del canal del programa
+    // (nunca la URL), p. ej. SLACK_APPSCINCO_WEBHOOK_URL. Null → el canal de
+    // correo del proyecto o, si no hay, SLACK_OPERATIONS_WEBHOOK_URL.
+    slackWebhookEnv: text("slack_webhook_env"),
     sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
     ...timestamps,
   },
