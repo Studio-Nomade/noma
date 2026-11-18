@@ -20,7 +20,10 @@ export function detectRoadmapCode(
   const branch = text.match(/\b(?:feat|fix|chore)\/(r\d{2,3}|ndes-\d{3})\b/i);
   if (branch) return normalizeRoadmapCode(branch[1]);
   const m = text.match(CODE_RE);
-  return m ? normalizeRoadmapCode(m[1]) : null;
+  if (m) return normalizeRoadmapCode(m[1]);
+  // Tareas antiguas de Asana: «(roadmap 42)», «roadmap 44».
+  const legacy = text.match(/\broadmap\s+(\d{2,3})\b/i);
+  return legacy ? `R${Number(legacy[1])}` : null;
 }
 
 /** Detecta el hito (`H2`, `H0.3`) en un título o rama. */

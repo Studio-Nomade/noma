@@ -30,6 +30,8 @@ import {
 } from "@/features/dev-tracking/constants";
 
 export const dynamic = "force-dynamic";
+// «Crear en Asana» espera ~20 s a la regla del tablero antes de fijar estado.
+export const maxDuration = 60;
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -151,6 +153,10 @@ export default async function SeguimientoPage({
         </TabsContent>
         <TabsContent value="bitacora">
           <Bitacora data={data} />
+          <p className="text-muted-foreground mt-6 text-xs">
+            ID del programa (para la API del arquitecto):{" "}
+            <code className="select-all">{data.program.id}</code>
+          </p>
         </TabsContent>
         <TabsContent value="backlog">
           <div className="space-y-6">
