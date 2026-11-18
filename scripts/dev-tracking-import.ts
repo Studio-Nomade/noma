@@ -6,8 +6,10 @@ import { basename, resolve } from "node:path";
 import { and, eq, ilike, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  clientContacts,
   clients,
   devLog,
+  devMeetingTypes,
   devMilestones,
   devModules,
   devPrograms,
@@ -31,6 +33,13 @@ import {
  *     prs/<repo>.tsv     mes<TAB>base<TAB>numero<TAB>titulo (PR mergeados)
  *     asana_tasks.json   (opcional) tareas del proyecto de Asana
  *
+ * program.json puede traer además (opcional):
+ *   client         nombre del cliente; con createProject, se crea si falta
+ *   createProject  { name, area, status } para crear el proyecto si no existe
+ *   contacts       [{ name, email, role }] → client_contacts (solo completa vacíos)
+ *   meetingTypes   [{ name, cadence, weekday, timeOfDay, durationMin, contacts:
+ *                   [email], description, producesBacklog }] → dev_meeting_types
+ *
  * Idempotente: upsert por clave natural (código, repo+número, fecha+texto).
  * Uso: npm run dev-tracking:import -- appscinco
  */
@@ -41,6 +50,19 @@ type ProgramFile = {
   startDate?: string;
   repos: { name: string; label: string; countBase: "non_main" | "all" }[];
   asanaProjectGid?: string;
+  client?: string;
+  createProject?: { name: string; area?: string; status?: string };
+  contacts?: { name: string; email: string; role?: string }[];
+  meetingTypes?: {
+    name: string;
+    description?: string;
+    cadence?: "weekly" | "biweekly" | "monthly" | "adhoc";
+    weekday?: number;
+    timeOfDay?: string;
+    durationMin?: number;
+    contacts?: string[];
+    producesBacklog?: boolean;
+  }[];
 };
 
 type Seguimiento = {
@@ -101,7 +123,7 @@ async function main() {
   const asanaTasks = readJson<AsanaTask[]>("asana_tasks.json") ?? [];
 
   // 1. Proyecto y programa
-  const [project] = await db
+  let [project] = await db
     .select({
       id: projects.id,
       clientId: projects.clientId,
@@ -114,6 +136,41 @@ async function main() {
         : ilike(projects.name, `%${program.project}%`),
     )
     .limit(2);
+  if (!project && program.createProject && program.client) {
+    let [client] = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(ilike(clients.companyName, `%${program.client}%`))
+      .limit(1);
+    if (!client) {
+      [client] = await db
+        .insert(clients)
+        .values({ companyName: program.client, status: "Cliente recurrente" })
+        .returning({ id: clients.id });
+      console.log(`Cliente creado: ${program.client}`);
+    }
+    const area = (program.createProject.area ??
+      "WD") as typeof projects.$inferInsert.area;
+    [project] = await db
+      .insert(projects)
+      .values({
+        name: program.createProject.name,
+        clientId: client.id,
+        area,
+        areas: [area],
+        status: (program.createProject.status ??
+          "En desarrollo") as typeof projects.$inferInsert.status,
+        ...(program.asanaProjectGid
+          ? { asanaProjectGid: program.asanaProjectGid }
+          : {}),
+      })
+      .returning({
+        id: projects.id,
+        clientId: projects.clientId,
+        name: projects.name,
+      });
+    console.log(`Proyecto creado: ${project.name}`);
+  }
   if (!project) throw new Error(`Proyecto no encontrado: ${program.project}`);
   const [client] = await db
     .select({ name: clients.companyName })
@@ -350,6 +407,98 @@ async function main() {
     .from(devPrs)
     .where(and(eq(devPrs.programId, programId), eq(devPrs.isPromotion, false)));
   console.log(`PR sin promociones: ${count.n}`);
+
+  // 6. Contactos del cliente (solo completa lo que falta; no pisa datos).
+  const contactIdByEmail = new Map<string, string>();
+  for (const c of program.contacts ?? []) {
+    const email = c.email.trim().toLowerCase();
+    const [existing] = await db
+      .select({
+        id: clientContacts.id,
+        name: clientContacts.name,
+        role: clientContacts.role,
+      })
+      .from(clientContacts)
+      .where(
+        and(
+          eq(clientContacts.clientId, project.clientId),
+          ilike(clientContacts.email, email),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      if (!existing.name || !existing.role) {
+        await db
+          .update(clientContacts)
+          .set({
+            name: existing.name ?? c.name,
+            role: existing.role ?? c.role ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(clientContacts.id, existing.id));
+      }
+      contactIdByEmail.set(email, existing.id);
+    } else {
+      const [row] = await db
+        .insert(clientContacts)
+        .values({
+          clientId: project.clientId,
+          name: c.name,
+          email,
+          role: c.role ?? null,
+        })
+        .returning({ id: clientContacts.id });
+      contactIdByEmail.set(email, row.id);
+    }
+  }
+  if (program.contacts?.length) {
+    console.log(`Contactos del cliente: ${program.contacts.length}`);
+  }
+
+  // 7. Tipos de reunión (por nombre dentro del programa).
+  let order = 0;
+  for (const t of program.meetingTypes ?? []) {
+    const contactIds = (t.contacts ?? [])
+      .map((e) => contactIdByEmail.get(e.trim().toLowerCase()))
+      .filter((id): id is string => Boolean(id));
+    const values = {
+      programId,
+      name: t.name,
+      description: t.description ?? null,
+      cadence: t.cadence ?? "adhoc",
+      weekday: t.weekday ?? null,
+      timeOfDay: t.timeOfDay ?? null,
+      durationMin: t.durationMin ?? 60,
+      contactIds,
+      producesBacklog: t.producesBacklog ?? true,
+      sortOrder: order++,
+      updatedAt: new Date(),
+    };
+    const [existing] = await db
+      .select({ id: devMeetingTypes.id })
+      .from(devMeetingTypes)
+      .where(
+        and(
+          eq(devMeetingTypes.programId, programId),
+          eq(devMeetingTypes.name, t.name),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      await db
+        .update(devMeetingTypes)
+        .set(values)
+        .where(eq(devMeetingTypes.id, existing.id));
+    } else {
+      await db.insert(devMeetingTypes).values(values);
+    }
+  }
+  if (program.meetingTypes?.length) {
+    console.log(`Tipos de reunión: ${program.meetingTypes.length}`);
+  }
+
+  console.log("");
+  console.log(`ID del programa (NOMA_PROGRAM_ID): ${programId}`);
 }
 
 main()
