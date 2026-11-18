@@ -363,11 +363,17 @@ export async function buildRoadmapPackages(
       .limit(1);
     if (!program) return { ok: false, error: "Programa no encontrado." };
 
+    // Ya empaquetada = está en un paquete de su mismo roadmap. Los paquetes
+    // antiguos (uno por reunión) no cuentan: no traen roadmap.
     const packed = await db
-      .select({ itemIds: devPackages.itemIds })
+      .select({ itemIds: devPackages.itemIds, title: devPackages.title })
       .from(devPackages)
       .where(eq(devPackages.programId, program.id));
-    const inPackage = new Set(packed.flatMap((p) => p.itemIds));
+    const packedKeys = new Set(
+      packed.flatMap((p) =>
+        p.itemIds.map((id) => `${id}|${p.title.split(" · ")[0]}`),
+      ),
+    );
     const candidates = (
       await db
         .select()
@@ -381,7 +387,7 @@ export async function buildRoadmapPackages(
           ),
         )
         .orderBy(devBacklog.createdAt, devBacklog.sortOrder)
-    ).filter((it) => !inPackage.has(it.id));
+    ).filter((it) => !packedKeys.has(`${it.id}|${it.roadmapCode}`));
     if (!candidates.length) {
       return {
         ok: false,

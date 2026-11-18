@@ -111,13 +111,18 @@ export function BacklogBoard({
   const ungrouped = data.items.filter(
     (it) => it.status === "aprobada" && !it.groupedAt,
   );
-  const packedIds = new Set(data.packages.flatMap((p) => p.itemIds));
+  // Empaquetada = en un paquete de su mismo roadmap («R76 · …»).
+  const packedKeys = new Set(
+    data.packages.flatMap((p) =>
+      p.itemIds.map((id) => `${id}|${p.title.split(" · ")[0]}`),
+    ),
+  );
   const toPackage = data.items.filter(
     (it) =>
       ["aprobada", "en_asana"].includes(it.status) &&
       it.groupedAt &&
       it.roadmapCode &&
-      !packedIds.has(it.id),
+      !packedKeys.has(`${it.id}|${it.roadmapCode}`),
   );
   const toPackageCodes = [...new Set(toPackage.map((it) => it.roadmapCode!))];
   const selectedRows = rows.filter((r) => selected.includes(r.id));
