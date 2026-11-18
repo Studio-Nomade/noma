@@ -28,12 +28,12 @@ import { timingSafeEqual } from "node:crypto";
  * - `monthly-reports`: el día 1 arma el informe mensual de solicitudes de
  *   cada canal con `monthly_report` activo: borrador del correo (no lo envía)
  *   y tarea en «Mis tareas» del responsable.
- * - `meetings-digest`: cada media hora en horario hábil marca como realizadas
+ * - `meetings-digest`: una vez al día hábil (19:45 Santiago) marca como realizadas
  *   las reuniones del seguimiento de desarrollo que terminaron, busca la
  *   transcripción de Gemini en el Drive de la casilla de operaciones, la
  *   resume con Claude y deja minuta, solicitudes propuestas y preguntas en
  *   Noma, un borrador del correo en la casilla (no lo envía) y un aviso en
- *   Slack. Nada sale al cliente.
+ *   Slack. Nada sale al cliente. Para lo inmediato: «Procesar ahora» en la UI.
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
