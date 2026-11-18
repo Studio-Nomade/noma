@@ -153,10 +153,14 @@ export async function processAsanaStory(
   ) {
     return "skipped_not_comment";
   }
-  if (!story.created_by || story.created_by.gid === botUserGid) {
+  if (!story.created_by) return "skipped_bot";
+  const command = storyCommand(story);
+  // Lo que comenta la cuenta de Noma se ignora (evita loops), salvo «CLIENTE»:
+  // el equipo (o un asistente con la cuenta de Noma) registra un mensaje del
+  // cliente. Noma nunca escribe comentarios que empiecen con «CLIENTE».
+  if (story.created_by.gid === botUserGid && command?.kind !== "cliente") {
     return "skipped_bot";
   }
-  const command = storyCommand(story);
   if (!command) return "skipped_not_delivery";
 
   const taskGid = story.target?.gid;
@@ -667,10 +671,11 @@ export async function reconcileAsanaDeliveries({
       )
     ).flat();
     for (const story of stories) {
+      const command = storyCommand(story);
       if (
         settled.has(story.gid) ||
-        story.created_by?.gid === botUserGid ||
-        !storyCommand(story)
+        !command ||
+        (story.created_by?.gid === botUserGid && command.kind !== "cliente")
       ) {
         continue;
       }

@@ -73,7 +73,15 @@ export async function POST(request: Request) {
         return;
       }
       for (const event of events) {
-        if (event.userGid === botUserGid) continue;
+        // Stories de Noma: solo comentarios (pueden ser «CLIENTE», que
+        // registra un mensaje del cliente); el resto se ignora sin pedirlo.
+        if (
+          event.userGid === botUserGid &&
+          event.subtype !== null &&
+          event.subtype !== "comment_added"
+        ) {
+          continue;
+        }
         try {
           await processAsanaStory(event.storyGid, {
             botUserGid,
