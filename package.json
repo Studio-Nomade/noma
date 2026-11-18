@@ -26,7 +26,8 @@
     "asana:register-webhooks": "tsx --conditions=react-server scripts/asana-register-webhooks.ts",
     "rates:sync": "tsx scripts/sync-rates.ts",
     "quoter:seed-learnings": "tsx scripts/quoter-seed-learnings.ts",
-    "quoter:import-precedents": "tsx --conditions=react-server scripts/quoter-import-precedents.ts"
+    "quoter:import-precedents": "tsx --conditions=react-server scripts/quoter-import-precedents.ts",
+    "dev-tracking:import": "tsx scripts/dev-tracking-import.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
