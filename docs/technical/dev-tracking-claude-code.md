@@ -44,6 +44,6 @@ NOMA_PROGRAM_ID=<id de dev_programs del programa>
 }
 ```
 
-Reglas: estados de hito `en_prod · pr_abierto · en_desarrollo · pendiente · bloqueado`; `en_prod` solo con `main` desplegado y verificado; `desplegado` es para Lambda y APK (back y web llegan por GitHub); una línea de bitácora rápida va por `POST …/bitacora {"modulo":"…","texto":"…"}`.
+Reglas: estados de hito `en_prod · pr_abierto · en_desarrollo · pendiente · bloqueado`; `en_prod` solo con `main` desplegado y verificado. Mientras no exista la integración con GitHub (F2), informa en `desplegado` todos los PR que llegaron a producción (back, web, APK y Lambda). Un roadmap de mejora o corrección (`R##`) no necesita módulo: va solo en `roadmap`; los módulos son los desarrollos de varios hitos (`NDes-###`, `TELEMETRIA`, `COT-FACT`) y sus nombres deben coincidir exactamente con los de `/modulos`. Si publicas un `roadmap` con un código que no reservaste, Noma avanza el contador igual. Una línea de bitácora rápida va por `POST …/bitacora {"modulo":"…","texto":"…"}`.
 
 Todo con `Authorization: Bearer $NOMA_DEV_TRACKING_TOKEN` y `Content-Type: application/json`.
