@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseConsultaCommand, parseDeliveryCommand } from "./delivery-command";
+import {
+  parseClientRelayCommand,
+  parseConsultaCommand,
+  parseDeliveryCommand,
+} from "./delivery-command";
 
 test("reconoce ENTREGA con cualquier número y ceros a la izquierda", () => {
   assert.equal(parseDeliveryCommand("ENTREGA 01 https://x.cl")?.round, 1);
@@ -167,4 +171,26 @@ test("Consulta en minúsculas: sola en la primera línea y con preguntas", () =>
     parseConsultaCommand("consulta para el equipo\n¿quién lo toma?"),
     null,
   );
+});
+
+test("CLIENTE registra el mensaje y el canal", () => {
+  assert.deepEqual(
+    parseClientRelayCommand("CLIENTE: el logo no debe decir Viña del Mar"),
+    { via: "WhatsApp", text: "el logo no debe decir Viña del Mar" },
+  );
+  assert.deepEqual(
+    parseClientRelayCommand("CLIENTE (llamada)\nQue el video sea en MP4"),
+    { via: "Llamada", text: "Que el video sea en MP4" },
+  );
+  assert.deepEqual(
+    parseClientRelayCommand('CLIENTE: "Hola! súbanlo en video"'),
+    { via: "WhatsApp", text: "Hola! súbanlo en video" },
+  );
+});
+
+test("CLIENTE sin mensaje o en minúsculas no cuenta", () => {
+  assert.equal(parseClientRelayCommand("CLIENTE:"), null);
+  assert.equal(parseClientRelayCommand("cliente: dice que ok"), null);
+  assert.equal(parseClientRelayCommand("CLIENTES felices"), null);
+  assert.equal(parseClientRelayCommand("ENTREGA 01"), null);
 });
