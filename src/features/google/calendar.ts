@@ -40,6 +40,14 @@ export type GoogleCalendarEvent = {
   htmlLink: string | null;
   meetLink: string | null;
   attendeeEmails: string[];
+  organizerEmail?: string | null;
+  /** Adjuntos de Drive del evento (Google adjunta aquí las notas de Gemini). */
+  attachments?: {
+    fileId: string | null;
+    title: string;
+    mimeType: string | null;
+    fileUrl: string | null;
+  }[];
 };
 
 export type CalendarEventsResult =
@@ -107,6 +115,13 @@ export async function listCalendarEvents(
         start?: { dateTime?: string; date?: string };
         end?: { dateTime?: string; date?: string };
         attendees?: { email?: string }[];
+        organizer?: { email?: string };
+        attachments?: {
+          fileId?: string;
+          fileUrl?: string;
+          title?: string;
+          mimeType?: string;
+        }[];
       }[];
     };
 
@@ -136,6 +151,13 @@ export async function listCalendarEvents(
             attendeeEmails: (event.attendees ?? []).flatMap((attendee) =>
               attendee.email ? [attendee.email.toLowerCase()] : [],
             ),
+            organizerEmail: event.organizer?.email?.toLowerCase() ?? null,
+            attachments: (event.attachments ?? []).map((a) => ({
+              fileId: a.fileId ?? null,
+              title: a.title?.trim() || "Adjunto",
+              mimeType: a.mimeType ?? null,
+              fileUrl: a.fileUrl ?? null,
+            })),
           },
         ];
       }),

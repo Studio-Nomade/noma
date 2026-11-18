@@ -373,6 +373,10 @@ export async function processMeetingNow(
       .where(eq(devMeetings.id, meetingId))
       .limit(1);
     if (!meeting) return { ok: false, error: "Reunión no encontrada." };
+    // Si la reunión vino de Calendar, refresca primero el evento: Google
+    // adjunta ahí las notas de Gemini al terminar.
+    const { syncProgramCalendarMeetings } = await import("./calendar-sync");
+    await syncProgramCalendarMeetings(meeting.programId).catch(() => null);
     const { runMeetingsDigest } = await import("./minutes");
     const [result] = await runMeetingsDigest({
       deadline: Date.now() + 170_000,
@@ -430,5 +434,48 @@ export async function linkTranscript(
     return { ok: true, data: undefined };
   } catch (err) {
     return handleActionError(err, "dev-tracking/linkTranscript");
+  }
+}
+
+// ── Reuniones creadas fuera de Noma (Calendar) ───────────────
+
+const calendarSchema = z.object({
+  programId: z.string().uuid(),
+  prefix: z.string().trim().max(120).optional(),
+});
+
+export async function importCalendarMeetings(
+  raw: z.input<typeof calendarSchema>,
+): Promise<
+  ActionResult<{ found: number; created: number; transcripts: number }>
+> {
+  try {
+    const user = await requireUser();
+    const d = calendarSchema.parse(raw);
+    const program = await programById(d.programId);
+    if (!program) return { ok: false, error: "Programa no encontrado." };
+    if (d.prefix !== undefined) {
+      await db
+        .update(devPrograms)
+        .set({ calendarTitlePrefix: d.prefix || null, updatedAt: new Date() })
+        .where(eq(devPrograms.id, program.id));
+    }
+    const { syncProgramCalendarMeetings } = await import("./calendar-sync");
+    const r = await syncProgramCalendarMeetings(program.id);
+    if (!r.ok)
+      return { ok: false, error: r.reason ?? "No se pudo leer Calendar." };
+    await logActivity({
+      entityType: "dev_program",
+      entityId: program.id,
+      action: `calendar_sync:${r.created}`,
+      actorId: user.id,
+    });
+    revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    return {
+      ok: true,
+      data: { found: r.found, created: r.created, transcripts: r.transcripts },
+    };
+  } catch (err) {
+    return handleActionError(err, "dev-tracking/importCalendarMeetings");
   }
 }

@@ -173,6 +173,7 @@ export default async function SeguimientoPage({
             programId={data.program.id}
             programName={data.program.name}
             projectId={id}
+            calendarPrefix={data.program.calendarTitlePrefix}
             data={meetingsData}
             today={today}
           />

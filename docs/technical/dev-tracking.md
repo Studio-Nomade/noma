@@ -15,6 +15,10 @@ Módulo `src/features/dev-tracking/`. Un **programa** por proyecto de desarrollo
 4. **Guardar** (`persistMinutes`): `dev_meeting_minutes`, `dev_backlog` (estado `propuesta`), `dev_questions` (`abierta`); reprocesar reemplaza la minuta y las propuestas no tocadas. La reunión pasa a `resumida`, queda línea en `dev_log`.
 5. **Avisar**: borrador del correo de minuta en la casilla (`createDraft`, **no se envía**) y aviso en Slack con el enlace a la minuta en Noma. Nada sale al cliente sin aprobación.
 
+### Reuniones creadas fuera de Noma
+
+Si la reunión se agenda en el Calendar de una persona (no desde Noma), basta con **invitar a la casilla de operaciones** y que el título empiece con el prefijo del programa (`dev_programs.calendar_title_prefix`, p. ej. «WD - AppsCinco»). En la pestaña Reuniones, «Traer de Calendar» guarda el prefijo y vincula los eventos de las últimas y próximas 3 semanas (`calendar-sync.ts`, `source = 'calendar'`); el cron diario hace lo mismo para todos los programas. Al terminar la reunión, Google adjunta al evento el documento de notas de Gemini: la sincronización lo toma como transcripción (`transcrita`) sin buscar en Drive. Para que la casilla pueda leerlo, las notas deben compartirse con los invitados (configuración de Meet del organizador → Registros de reuniones → compartir notas con los invitados) o compartirse a mano con la casilla.
+
 Siguiente fase (F8): aprobar/editar/descartar solicitudes en la pestaña Backlog, crearlas en Asana (una tarea por funcionalidad, campo Roadmap) y armar el paquete para el arquitecto.
 
 ## Variables
