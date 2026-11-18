@@ -479,3 +479,57 @@ export async function importCalendarMeetings(
     return handleActionError(err, "dev-tracking/importCalendarMeetings");
   }
 }
+
+// ── Reuniones ya procesadas fuera de Noma ─────────────────────
+
+/**
+ * Marca una reunión como procesada fuera de Noma (p. ej. el itemizado ya se
+ * hizo a mano): el ciclo de minutas no la toma. `archived = false` la devuelve
+ * a «realizada» (o «transcrita» si tiene notas) para procesarla en Noma.
+ */
+export async function setMeetingArchived(
+  meetingId: string,
+  archived: boolean,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const id = z.string().uuid().parse(meetingId);
+    const [meeting] = await db
+      .select({
+        programId: devMeetings.programId,
+        status: devMeetings.status,
+        transcriptFileId: devMeetings.transcriptFileId,
+        title: devMeetings.title,
+      })
+      .from(devMeetings)
+      .where(eq(devMeetings.id, id))
+      .limit(1);
+    if (!meeting) return { ok: false, error: "Reunión no encontrada." };
+    const allowed = archived ? ["realizada", "transcrita"] : ["archivada"];
+    if (!allowed.includes(meeting.status)) {
+      return { ok: false, error: "Esta reunión no se puede cambiar así." };
+    }
+    await db
+      .update(devMeetings)
+      .set({
+        status: archived
+          ? "archivada"
+          : meeting.transcriptFileId
+            ? "transcrita"
+            : "realizada",
+        updatedAt: new Date(),
+      })
+      .where(eq(devMeetings.id, id));
+    await logActivity({
+      entityType: "dev_meeting",
+      entityId: id,
+      action: archived ? "archived" : "unarchived",
+      actorId: user.id,
+    });
+    const program = await programById(meeting.programId);
+    if (program) revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return handleActionError(err, "dev-tracking/setMeetingArchived");
+  }
+}
