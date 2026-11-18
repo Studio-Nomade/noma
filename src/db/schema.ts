@@ -3242,6 +3242,11 @@ export const devBacklog = pgTable(
     verdict: text("verdict"),
     verdictNote: text("verdict_note"),
     asanaTaskGid: text("asana_task_gid"),
+    // Hito del roadmap en que la ubicó el arquitecto («H2»).
+    milestone: text("milestone"),
+    // Etapa de trabajo que informa el arquitecto y que Noma refleja en Asana:
+    // priorizado · en_desarrollo · en_qa · con_ajustes · cerrado
+    stage: text("stage"),
     sortOrder: integer("sort_order").default(0).notNull(),
     ...timestamps,
   },

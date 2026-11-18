@@ -31,6 +31,7 @@ export async function POST(
     );
   }
   await applyArchitectResult(program.id, {
+    roadmaps: [],
     solicitudes: [],
     preguntas_nuevas: [],
     modulos: [],
