@@ -26,7 +26,7 @@ import {
 } from "./minutes-schema";
 import { buildPackageYaml } from "./package-yaml";
 import { syncItemsToAsana } from "./asana-sync";
-import { needsAsanaTask } from "./stages";
+import { STAGES, STAGE_LABEL, needsAsanaTask, type Stage } from "./stages";
 import { appBaseUrl } from "@/lib/app-url";
 
 function todayLocal() {
@@ -187,6 +187,74 @@ export async function sendBacklogToAsana(
     return { ok: true, data: { created: r.created, skipped: r.skipped } };
   } catch (err) {
     return handleActionError(err, "dev-tracking/sendBacklogToAsana");
+  }
+}
+
+// ── Etapa a mano (cerrar / reabrir) ──────────────────────────
+
+/**
+ * Fija la etapa de solicitudes desde Noma (lo mismo que informa Claude Code
+ * con `estado`): «cerrado» las pasa a Completadas en Noma y, en Asana, a
+ * «<Mes> (cerradas)», Ticket Finalizado y tarea completada.
+ */
+export async function setBacklogStage(
+  ids: string[],
+  stage: Stage,
+): Promise<ActionResult<{ updated: number }>> {
+  try {
+    const user = await requireUser();
+    const clean = z
+      .array(z.string().uuid())
+      .min(1)
+      .max(50, "De a 50 solicitudes como máximo.")
+      .parse(ids);
+    const target = z.enum(STAGES).parse(stage);
+    const items = await db
+      .select({
+        id: devBacklog.id,
+        code: devBacklog.code,
+        programId: devBacklog.programId,
+        asanaTaskGid: devBacklog.asanaTaskGid,
+      })
+      .from(devBacklog)
+      .where(inArray(devBacklog.id, clean));
+    if (!items.length) return { ok: false, error: "No se encontraron." };
+    await db
+      .update(devBacklog)
+      .set({ stage: target, updatedAt: new Date() })
+      .where(
+        inArray(
+          devBacklog.id,
+          items.map((i) => i.id),
+        ),
+      );
+    const programId = items[0].programId;
+    const [program] = await db
+      .select({ projectId: devPrograms.projectId })
+      .from(devPrograms)
+      .where(eq(devPrograms.id, programId))
+      .limit(1);
+    await db
+      .insert(devLog)
+      .values({
+        programId,
+        date: todayLocal(),
+        text: `${items.map((i) => i.code).join(", ")} → ${STAGE_LABEL[target]} (a mano en Noma)`,
+        source: "manual",
+        createdBy: user.id,
+      })
+      .onConflictDoNothing();
+    const inAsana = items.filter((i) => i.asanaTaskGid).map((i) => i.id);
+    if (inAsana.length) {
+      await syncItemsToAsana(programId, inAsana, {
+        actorId: user.id,
+        source: "manual",
+      });
+    }
+    if (program) revalidatePath(`/projects/${program.projectId}/seguimiento`);
+    return { ok: true, data: { updated: items.length } };
+  } catch (err) {
+    return handleActionError(err, "dev-tracking/setBacklogStage");
   }
 }
 
