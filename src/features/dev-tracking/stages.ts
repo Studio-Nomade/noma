@@ -55,6 +55,51 @@ export const STAGE_ASANA: Record<
   },
 };
 
+const MONTHS_ES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+/**
+ * Sección de Asana de cada etapa. Las cerradas van directo a «<Mes>
+ * (cerradas)» del mes en curso (hora de Santiago), como el resto del tablero.
+ */
+export function stageSection(stage: Stage, now = new Date()): string {
+  if (stage !== "cerrado") return STAGE_ASANA[stage].section;
+  const month = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Santiago",
+      month: "numeric",
+    }).format(now),
+  );
+  return `${MONTHS_ES[month - 1]} (cerradas)`;
+}
+
+/** La etapa «cerrado» además completa la tarea en Asana. */
+export function stageCompletesTask(stage: Stage) {
+  return stage === "cerrado";
+}
+
+/**
+ * Responsable por defecto de las tareas de desarrollo en Asana (correo o gid).
+ * Toda tarea nueva o sin responsable queda asignada.
+ */
+export function defaultDevAssignee(
+  env: Record<string, string | undefined> = process.env,
+) {
+  return env.DEV_TRACKING_ASANA_ASSIGNEE?.trim() || "sebastian@studionomade.cl";
+}
+
 /** Nombre de la tarea en Asana: «R76 · título» (el roadmap va adelante). */
 export function asanaTaskName(title: string, roadmapCode: string | null) {
   return roadmapCode ? `${roadmapCode} · ${title}` : title;
@@ -66,4 +111,22 @@ export function needsAsanaTask(item: {
   asanaTaskGid: string | null;
 }) {
   return !item.asanaTaskGid && !!item.verdict && item.verdict !== "ya_existe";
+}
+
+/**
+ * Pestaña del backlog en Noma: una solicitud cerrada (etapa «cerrado»,
+ * informada por Claude Code o marcada a mano) sale de «Revisada» / «En
+ * Asana» y pasa a «Completadas».
+ */
+export function backlogView(item: {
+  status: string;
+  stage: string | null;
+}): string {
+  if (
+    item.stage === "cerrado" &&
+    (item.status === "verificada" || item.status === "en_asana")
+  ) {
+    return "completada";
+  }
+  return item.status;
 }
