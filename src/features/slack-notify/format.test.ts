@@ -1,7 +1,13 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import {
+  EMAIL_FLOW_EVENTS,
   asanaHtmlToMrkdwn,
+  assignedMessage,
+  completedMessage,
+  groupedBody,
+  newTaskMessage,
+  stateChangeMessage,
   eventEnabled,
   mentionMessage,
   mentionedUserGids,
@@ -45,7 +51,7 @@ test("tipo de aviso según la story", () => {
     storyEventKind({ resource_subtype: "marked_incomplete" }),
     "reopened",
   );
-  assert.equal(storyEventKind({ resource_subtype: "assigned" }), null);
+  assert.equal(storyEventKind({ resource_subtype: "added_to_task" }), null);
 });
 
 test("HTML de Asana → mrkdwn de Slack", () => {
@@ -137,4 +143,72 @@ test("eventos del vínculo y archivo de seed", () => {
       ],
     }),
   );
+});
+
+test("eventos de Estado, asignación y cierre", () => {
+  const estado = (from: string | null, to: string) => ({
+    resource_subtype: "enum_custom_field_changed",
+    custom_field: { name: "Estado" },
+    old_enum_value: from ? { name: from } : null,
+    new_enum_value: { name: to },
+  });
+  assert.equal(
+    storyEventKind(estado("Aprobado", "Con ajustes")),
+    "state_change",
+  );
+  assert.equal(storyEventKind(estado("Aprobado", "Aprobado")), null);
+  // Otro campo enum (Prioridad, Ticket…) no avisa.
+  assert.equal(
+    storyEventKind({
+      ...estado("Alta", "Baja"),
+      custom_field: { name: "Prioridad" },
+    }),
+    null,
+  );
+  assert.equal(storyEventKind({ resource_subtype: "assigned" }), "assigned");
+  assert.equal(
+    storyEventKind({ resource_subtype: "marked_complete" }),
+    "completed",
+  );
+  // En proyectos de correo, esos avisos los sigue dando el flujo de correo.
+  assert.ok(EMAIL_FLOW_EVENTS.has("state_change"));
+  assert.ok(!EMAIL_FLOW_EVENTS.has("mention"));
+});
+
+test("mensajes cortos de los eventos nuevos", () => {
+  const task = { name: "Pieza", url: "https://app.asana.com/0/1/2/f" };
+  assert.equal(
+    stateChangeMessage({
+      task,
+      from: "Aprobado",
+      to: "Con ajustes",
+      byName: "Persona Uno",
+      assignee: "<@U1>",
+    }).mrkdwn,
+    "🔄 *Pieza* · Estado: Aprobado → *Con ajustes* · por Persona Uno · <@U1> · <https://app.asana.com/0/1/2/f|Abrir en Asana>",
+  );
+  assert.equal(
+    assignedMessage({
+      task,
+      assignee: "<@U1>",
+      byName: null,
+      dueOn: "2026-11-25",
+    }).mrkdwn,
+    "👤 <@U1>, te asignaron *Pieza* · Entrega: *25-11* · <https://app.asana.com/0/1/2/f|Abrir en Asana>",
+  );
+  assert.equal(
+    completedMessage({ task, byName: "Ana" }).mrkdwn,
+    "✅ Tarea cerrada · *Pieza* por Ana · <https://app.asana.com/0/1/2/f|Abrir en Asana>",
+  );
+  assert.equal(
+    newTaskMessage({
+      task,
+      folio: null,
+      assignee: null,
+      dueOn: null,
+      priority: "Alta",
+    }).mrkdwn,
+    "🆕 *Pieza* · Responsable: _sin responsable_ · Prioridad: *Alta* · <https://app.asana.com/0/1/2/f|Abrir en Asana>",
+  );
+  assert.equal(groupedBody("a", "b"), "a\nb");
 });

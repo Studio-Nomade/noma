@@ -98,6 +98,34 @@ export function storyAddedEvents(payload: unknown): StoryAddedEvent[] {
   return out;
 }
 
+export type TaskAddedEvent = { taskGid: string; userGid: string | null };
+
+/**
+ * Tareas nuevas en el proyecto (evento `task` `added` con el proyecto como
+ * padre). Las subtareas (padre: tarea) y los cambios de sección no cuentan.
+ */
+export function taskAddedEvents(payload: unknown): TaskAddedEvent[] {
+  const events = (payload as { events?: AsanaEventJson[] } | null)?.events;
+  if (!Array.isArray(events)) return [];
+  const seen = new Set<string>();
+  const out: TaskAddedEvent[] = [];
+  for (const event of events) {
+    const gid = event.resource?.gid;
+    if (
+      event.action !== "added" ||
+      event.resource?.resource_type !== "task" ||
+      event.parent?.resource_type !== "project" ||
+      !gid ||
+      seen.has(gid)
+    ) {
+      continue;
+    }
+    seen.add(gid);
+    out.push({ taskGid: gid, userGid: event.user?.gid ?? null });
+  }
+  return out;
+}
+
 type WebhookFilter = {
   resource_type?: string | null;
   resource_subtype?: string | null;
@@ -121,5 +149,13 @@ export function webhookFiltersCurrent(
       )
       .map((filter) => filter.resource_subtype ?? ""),
   );
-  return HANDLED_STORY_SUBTYPES.every((subtype) => have.has(subtype));
+  const taskAdded = (filters ?? []).some(
+    (filter) =>
+      filter.resource_type === "task" &&
+      !filter.resource_subtype &&
+      filter.action === "added",
+  );
+  return (
+    taskAdded && HANDLED_STORY_SUBTYPES.every((subtype) => have.has(subtype))
+  );
 }

@@ -8,7 +8,7 @@ Cada proyecto de Asana se vincula a un canal de Slack y **solo el bot Noma** (`S
 |---|---|
 | `asana_slack_links` | Proyecto de Asana ↔ canal de Slack, prefijo de folio, eventos activos (`events`), `active`. |
 | `slack_task_threads` | Un hilo por tarea. Las subtareas usan el hilo de su solicitud raíz (hasta 3 niveles). |
-| `slack_notify_log` | Idempotencia: cada story se publica una vez aunque Asana reintente. |
+| `slack_notify_log` | Idempotencia: cada story se publica una vez aunque Asana reintente. También guarda la tarea, el tipo y el cuerpo, para agrupar en 60 s (migración 0066). |
 | `people_identities` | Persona por correo: usuario de Asana ↔ usuario de Slack. Se llena sola y se corrige a mano. |
 
 ## Flujo
@@ -27,13 +27,20 @@ Las menciones se traducen con `people_identities`, luego `NOMA_SLACK_USER_IDS` y
 
 Mensajes cortos: una línea con el evento, la mención al responsable y «Abrir en Asana». Solo el comentario lleva un extracto (máx. 200 caracteres). Todos los eventos vienen encendidos por defecto y se apagan por vínculo en `events`.
 
-| Evento | Story de Asana | Estado |
+| Evento | Origen en Asana | Mensaje |
 |---|---|---|
-| `mention` | `comment_added` con `data-asana-type="user"` | Entrega 2 |
-| `reopened` | `marked_incomplete` | Entrega 2 |
-| `state_change` · `assigned` · `completed` · `new_task` | `enum_custom_field_changed` · `assigned` · `marked_complete` · tarea nueva | Entrega 4 |
+| `mention` | story `comment_added` con `data-asana-type="user"` | 💬 menciones · autor comentó en *tarea* · link + extracto |
+| `reopened` | story `marked_incomplete` | 🔁 Tarea reabierta · *tarea* por X · Estado · responsable · link |
+| `state_change` | story `enum_custom_field_changed` del campo **Estado** (con cambio real) | 🔄 *tarea* · Estado: Anterior → *Nuevo* · por X · responsable · link |
+| `assigned` | story `assigned` | 👤 @persona, te asignaron *tarea* · Entrega · link |
+| `completed` | story `marked_complete` | ✅ Tarea cerrada · *tarea* por X · link |
+| `new_task` | evento `task` `added` con el proyecto como padre (no subtareas) | 🆕 *tarea* · Responsable · Entrega · Prioridad · link (abre el hilo) |
 
-`marked_incomplete` se sumó a los filtros del webhook (`HANDLED_STORY_SUBTYPES`). El mantenimiento de webhooks actualiza los filtros de los webhooks ya registrados.
+**Agrupación (60 s):** si ya hubo un aviso de la misma tarea en el canal en los últimos 60 s, el evento nuevo se suma como otra línea a ese mensaje (`chat.update`) en vez de publicar otro. Por ejemplo, reabierta + Estado + comentario quedan en un solo mensaje.
+
+**Proyectos de correo (Grado 360, Equifax):** hasta la entrega 6, `new_task`, `state_change` y `completed` los sigue avisando el flujo de correo (solicitud nueva, entrega, ajustes, cierre). El módulo solo suma ahí las menciones, las reaperturas y las asignaciones.
+
+`marked_incomplete` y el evento `task` `added` se sumaron a los filtros del webhook (`WEBHOOK_FILTERS`). El mantenimiento de webhooks actualiza los filtros de los webhooks ya registrados.
 
 ## Puesta en marcha
 

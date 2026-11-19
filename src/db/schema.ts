@@ -1967,14 +1967,22 @@ export const slackTaskThreads = pgTable("slack_task_threads", {
 });
 
 /** Idempotencia: Asana reintenta eventos; cada aviso se publica una vez. */
-export const slackNotifyLog = pgTable("slack_notify_log", {
-  eventKey: text("event_key").primaryKey(),
-  slackChannelId: text("slack_channel_id"),
-  slackTs: text("slack_ts"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const slackNotifyLog = pgTable(
+  "slack_notify_log",
+  {
+    eventKey: text("event_key").primaryKey(),
+    slackChannelId: text("slack_channel_id"),
+    slackTs: text("slack_ts"),
+    // Agrupación: eventos de la misma tarea en 60 s van en un solo mensaje.
+    asanaTaskGid: text("asana_task_gid"),
+    kind: text("kind"),
+    body: text("body"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("slack_notify_log_task_idx").on(t.asanaTaskGid, t.createdAt)],
+);
 
 /** Personas: Asana ↔ Slack por correo (se llena sola; corregible a mano). */
 export const peopleIdentities = pgTable(

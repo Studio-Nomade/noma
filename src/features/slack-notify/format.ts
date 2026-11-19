@@ -25,23 +25,55 @@ export const DEFAULT_EVENTS: Record<SlackEventKind, boolean> = {
 /** Máximo del extracto de un comentario en Slack (mensajes cortos). */
 export const EXCERPT_MAX = 200;
 
-/**
- * Tipo de aviso de una story de Asana (null si no avisa nada). Por ahora:
- * comentario con mención y tarea reabierta.
- */
+/** Nombre del campo de Asana que avisa sus cambios (`state_change`). */
+export const STATE_FIELD = "Estado";
+
+function fold(s: string | null | undefined) {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+/** Tipo de aviso de una story de Asana (null si no avisa nada). */
 export function storyEventKind(story: {
   resource_subtype?: string | null;
   html_text?: string | null;
+  custom_field?: { name?: string | null } | null;
+  new_enum_value?: { name?: string | null } | null;
+  old_enum_value?: { name?: string | null } | null;
 }): SlackEventKind | null {
   switch (story.resource_subtype) {
     case "comment_added":
       return mentionedUserGids(story.html_text).length ? "mention" : null;
     case "marked_incomplete":
       return "reopened";
+    case "marked_complete":
+      return "completed";
+    case "assigned":
+      return "assigned";
+    case "enum_custom_field_changed":
+      if (fold(story.custom_field?.name) !== fold(STATE_FIELD)) return null;
+      // Sin cambio real (mismo valor) no se avisa.
+      return fold(story.new_enum_value?.name) ===
+        fold(story.old_enum_value?.name)
+        ? null
+        : "state_change";
     default:
       return null;
   }
 }
+
+/**
+ * Eventos que en los proyectos del flujo de correo ya avisa ese flujo
+ * (solicitud nueva, entrega, ajustes, cierre): el módulo no los repite.
+ */
+export const EMAIL_FLOW_EVENTS: ReadonlySet<SlackEventKind> = new Set([
+  "new_task",
+  "state_change",
+  "completed",
+]);
 
 /** Usuarios de Asana mencionados en el html_text de un comentario. */
 export function mentionedUserGids(html: string | null | undefined): string[] {
@@ -231,6 +263,106 @@ export function reopenedMessage(input: {
       .filter(Boolean)
       .join(" · "),
   };
+}
+
+function dueLabel(dueOn: string | null | undefined) {
+  if (!dueOn) return null;
+  const [y, m, d] = dueOn.split("-");
+  return y && m && d ? `Entrega: *${d}-${m}*` : null;
+}
+
+/** Cambio del campo Estado, en una línea. */
+export function stateChangeMessage(input: {
+  task: TaskRef;
+  from: string | null;
+  to: string | null;
+  byName: string | null;
+  assignee: string | null;
+}): SlackMessage {
+  const change = input.from
+    ? `${slackEscape(input.from)} → *${slackEscape(input.to ?? "—")}*`
+    : `*${slackEscape(input.to ?? "—")}*`;
+  return {
+    text: `Estado de ${input.task.name}: ${input.to ?? ""}`,
+    mrkdwn: [
+      `🔄 *${taskTitle(input.task)}* · Estado: ${change}`,
+      input.byName ? `por ${slackEscape(input.byName)}` : null,
+      input.assignee,
+      asanaLink(input.task.url),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+/** Asignación: se menciona al nuevo responsable. */
+export function assignedMessage(input: {
+  task: TaskRef;
+  assignee: string;
+  byName: string | null;
+  dueOn: string | null;
+}): SlackMessage {
+  return {
+    text: `Te asignaron ${input.task.name}`,
+    mrkdwn: [
+      `👤 ${input.assignee}, te asignaron *${taskTitle(input.task)}*`,
+      input.byName ? `por ${slackEscape(input.byName)}` : null,
+      dueLabel(input.dueOn),
+      asanaLink(input.task.url),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+/** Tarea cerrada (completada). */
+export function completedMessage(input: {
+  task: TaskRef;
+  byName: string | null;
+}): SlackMessage {
+  return {
+    text: `Tarea cerrada: ${input.task.name}`,
+    mrkdwn: [
+      `✅ Tarea cerrada · *${taskTitle(input.task)}*${input.byName ? ` por ${slackEscape(input.byName)}` : ""}`,
+      asanaLink(input.task.url),
+    ].join(" · "),
+  };
+}
+
+/** Tarea nueva en el proyecto: abre el hilo. */
+export function newTaskMessage(input: {
+  task: TaskRef;
+  folio: string | null;
+  assignee: string | null;
+  dueOn: string | null;
+  priority: string | null;
+}): SlackMessage {
+  const name =
+    input.folio && !input.task.name.includes(input.folio)
+      ? `[${slackEscape(input.folio)}] ${taskTitle(input.task)}`
+      : taskTitle(input.task);
+  return {
+    text: `Tarea nueva: ${input.task.name}`,
+    mrkdwn: [
+      `🆕 *${name}*`,
+      `Responsable: ${input.assignee ?? "_sin responsable_"}`,
+      dueLabel(input.dueOn),
+      input.priority ? `Prioridad: *${slackEscape(input.priority)}*` : null,
+      asanaLink(input.task.url),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+/**
+ * Agrupación: el mensaje que ya se publicó para la tarea en la ventana de
+ * 60 s suma la línea nueva (un solo mensaje por tanda de eventos).
+ */
+export const GROUP_WINDOW_MS = 60_000;
+
+export function groupedBody(previous: string, next: string) {
+  return `${previous}\n${next}`.slice(0, 2900);
 }
 
 /** Eventos activos del vínculo (los que falten toman el valor por defecto). */
