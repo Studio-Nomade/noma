@@ -149,7 +149,7 @@ export function buildPackageYaml(input: {
       resultado: {
         endpoint: input.resultado_endpoint,
         formato:
-          "POST JSON {paquete, roadmap, roadmaps:[…], solicitudes:[{id, veredicto, roadmap (R76 · NDes-006 · null), hito, estado, nota}], preguntas_nuevas:[{pregunta, para, bloquea}], modulos:[…], bitacora:[{modulo, texto}], desplegado:[…]}. Noma crea las tareas en Asana con el resultado; después, con cada merge y deploy, enviar solicitudes:[{id, estado}] (en_desarrollo · en_qa · con_ajustes · cerrado).",
+          "POST JSON {paquete, roadmap, roadmaps:[…], solicitudes:[{id, veredicto, roadmap (R76 · NDes-006 · null), hito, estado, nota}], solicitudes_nuevas:[{id, origen, fecha, solicitante, area, titulo, veredicto, hito, estado} — fuera de paquete, idempotente por id], preguntas_nuevas:[{pregunta, para, bloquea}], modulos:[…], bitacora:[{modulo, texto}], desplegado:[…]}. Noma crea las tareas en Asana con el resultado; después, con cada merge y deploy, enviar solicitudes:[{id, estado}] (en_desarrollo · en_qa · con_ajustes · cerrado).",
       },
     },
   });

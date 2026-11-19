@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -14,6 +14,7 @@ import {
   devQuestions,
   devRoadmaps,
 } from "@/db/schema";
+import { newRequestValues } from "./new-requests";
 import { normalizeRoadmapCode } from "./roadmap-code";
 
 /**
@@ -38,6 +39,8 @@ export async function applyArchitectResult(
   const today = todayLocal();
   const summary = {
     solicitudes: 0,
+    solicitudes_nuevas: 0,
+    solicitudes_actualizadas: 0,
     preguntas: 0,
     modulos: 0,
     hitos: 0,
@@ -97,6 +100,72 @@ export async function applyArchitectResult(
     }
     if (result.roadmap) summary.roadmap = await registerRoadmap(result.roadmap);
     for (const r of result.roadmaps) await registerRoadmap(r);
+
+    // Solicitudes fuera de paquete (WhatsApp, correo…): se crean ya
+    // revisadas, o se actualizan si el `id` ya existe en el programa.
+    for (const s of result.solicitudes_nuevas) {
+      const own =
+        s.roadmap === undefined
+          ? summary.roadmap
+          : s.roadmap
+            ? normalizeRoadmapCode(s.roadmap)
+            : null;
+      if (own && own !== summary.roadmap) {
+        await tx
+          .insert(devRoadmaps)
+          .values({
+            programId,
+            code: own,
+            title: own,
+            month: (s.fecha ?? today).slice(0, 7),
+            kind: own.startsWith("NDes") ? "modulo" : "mejora",
+          })
+          .onConflictDoNothing();
+      }
+      const values = newRequestValues(s, own);
+      const [existing] = await tx
+        .select({ id: devBacklog.id, asanaTaskGid: devBacklog.asanaTaskGid })
+        .from(devBacklog)
+        .where(
+          and(
+            eq(devBacklog.programId, programId),
+            eq(devBacklog.code, s.id),
+            isNull(devBacklog.meetingId),
+          ),
+        )
+        .orderBy(desc(devBacklog.createdAt))
+        .limit(1);
+      let id: string;
+      if (existing) {
+        const { asanaTaskGid, ...rest } = values;
+        await tx
+          .update(devBacklog)
+          .set({
+            ...rest,
+            // No se pisa la tarea que Noma ya creó en Asana.
+            asanaTaskGid: existing.asanaTaskGid ?? asanaTaskGid,
+            updatedAt: new Date(),
+          })
+          .where(eq(devBacklog.id, existing.id));
+        id = existing.id;
+        summary.solicitudes_actualizadas++;
+      } else {
+        const [row] = await tx
+          .insert(devBacklog)
+          .values({
+            programId,
+            meetingId: null,
+            ...values,
+            ...(s.fecha
+              ? { createdAt: new Date(`${s.fecha}T12:00:00-03:00`) }
+              : {}),
+          })
+          .returning({ id: devBacklog.id });
+        id = row.id;
+        summary.solicitudes_nuevas++;
+      }
+      if (s.veredicto !== "ya_existe") summary.asanaItemIds.push(id);
+    }
 
     // Veredictos por solicitud (código dentro del paquete / reunión).
     if (result.solicitudes.length) {
@@ -377,7 +446,7 @@ export async function applyArchitectResult(
     .values({
       programId,
       date: today,
-      text: `Sesión del arquitecto: ${summary.solicitudes} veredictos, ${summary.hitos} hitos, ${summary.bitacora} notas${summary.roadmap ? ` · ${summary.roadmap}` : ""}`,
+      text: `Sesión del arquitecto: ${summary.solicitudes} veredictos, ${summary.solicitudes_nuevas ? `${summary.solicitudes_nuevas} solicitudes nuevas, ` : ""}${summary.hitos} hitos, ${summary.bitacora} notas${summary.roadmap ? ` · ${summary.roadmap}` : ""}`,
       source: "claude",
     })
     .onConflictDoNothing();
