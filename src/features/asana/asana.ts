@@ -537,6 +537,33 @@ export async function listRecentTasksWithNotes(
   return out;
 }
 
+/** Gids de las tareas del proyecto modificadas desde `since` (paginado). */
+export async function listModifiedTaskGids(
+  projectGid: string,
+  since: Date,
+  maxPages = 3,
+): Promise<string[]> {
+  const out: string[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      project: projectGid,
+      modified_since: since.toISOString(),
+      limit: "100",
+      opt_fields: "gid",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<{ gid: string }[]>(
+      "GET",
+      `/tasks?${params.toString()}`,
+    );
+    out.push(...(envelope?.data ?? []).map((task) => task.gid));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
+
 /** Tarea con los campos que usa el informe mensual. */
 export type AsanaReportTask = {
   gid: string;
