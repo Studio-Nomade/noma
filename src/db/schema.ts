@@ -1945,7 +1945,7 @@ export const asanaSlackLinks = pgTable("asana_slack_links", {
       reopened: true,
       state_change: true,
       assigned: true,
-      completed: false,
+      completed: true,
       new_task: true,
     })
     .notNull(),

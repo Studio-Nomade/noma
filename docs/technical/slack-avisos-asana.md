@@ -25,6 +25,8 @@ Las menciones se traducen con `people_identities`, luego `NOMA_SLACK_USER_IDS` y
 
 ## Eventos
 
+Mensajes cortos: una línea con el evento, la mención al responsable y «Abrir en Asana». Solo el comentario lleva un extracto (máx. 200 caracteres). Todos los eventos vienen encendidos por defecto y se apagan por vínculo en `events`.
+
 | Evento | Story de Asana | Estado |
 |---|---|---|
 | `mention` | `comment_added` con `data-asana-type="user"` | Entrega 2 |

@@ -18,12 +18,12 @@ export const DEFAULT_EVENTS: Record<SlackEventKind, boolean> = {
   reopened: true,
   state_change: true,
   assigned: true,
-  completed: false,
+  completed: true,
   new_task: true,
 };
 
-/** Máximo del extracto de un comentario en Slack. */
-export const EXCERPT_MAX = 600;
+/** Máximo del extracto de un comentario en Slack (mensajes cortos). */
+export const EXCERPT_MAX = 200;
 
 /**
  * Tipo de aviso de una story de Asana (null si no avisa nada). Por ahora:
@@ -188,7 +188,10 @@ function asanaLink(url: string) {
 
 export type SlackMessage = { text: string; mrkdwn: string };
 
-/** Comentario que menciona a una o más personas. */
+/**
+ * Comentario que menciona a una o más personas: una línea con las menciones,
+ * el autor, la tarea y el link, y debajo el extracto (máx. EXCERPT_MAX).
+ */
 export function mentionMessage(input: {
   task: TaskRef;
   authorName: string | null;
@@ -197,22 +200,19 @@ export function mentionMessage(input: {
   /** Cuerpo del comentario en mrkdwn (se recorta a EXCERPT_MAX). */
   body: string;
 }): SlackMessage {
-  const title = taskTitle(input.task);
+  const who = input.mentions.length ? `${input.mentions.join(" ")} · ` : "";
   return {
     text: `Comentario en ${input.task.name}`,
     mrkdwn: [
-      `💬 *${title}*`,
-      input.mentions.length ? input.mentions.join(" ") : null,
-      `*${slackEscape(input.authorName ?? "Alguien")}* comentó:`,
-      quote(truncateMrkdwn(input.body)),
-      asanaLink(input.task.url),
+      `💬 ${who}*${slackEscape(input.authorName ?? "Alguien")}* comentó en *${taskTitle(input.task)}* · ${asanaLink(input.task.url)}`,
+      input.body.trim() ? quote(truncateMrkdwn(input.body)) : null,
     ]
       .filter(Boolean)
       .join("\n"),
   };
 }
 
-/** Tarea reabierta (completed: true → false). */
+/** Tarea reabierta (completed: true → false), en una línea. */
 export function reopenedMessage(input: {
   task: TaskRef;
   byName: string | null;
@@ -220,23 +220,16 @@ export function reopenedMessage(input: {
   /** Responsable ya traducido (`<@U…>` o `*Nombre*`), o null. */
   assignee: string | null;
 }): SlackMessage {
-  const title = taskTitle(input.task);
-  const details = [
-    input.state ? `Estado: *${slackEscape(input.state)}*` : null,
-    `Responsable: ${input.assignee ?? "_sin responsable_"}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
   return {
     text: `Tarea reabierta: ${input.task.name}`,
     mrkdwn: [
-      `🔁 *Tarea reabierta · ${title}*`,
-      input.byName ? `La reabrió *${slackEscape(input.byName)}*` : null,
-      details,
+      `🔁 Tarea reabierta · *${taskTitle(input.task)}*${input.byName ? ` por ${slackEscape(input.byName)}` : ""}`,
+      input.state ? `Estado: *${slackEscape(input.state)}*` : null,
+      input.assignee ?? "_sin responsable_",
       asanaLink(input.task.url),
     ]
       .filter(Boolean)
-      .join("\n"),
+      .join(" · "),
   };
 }
 

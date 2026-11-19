@@ -5,7 +5,7 @@ CREATE TABLE "asana_slack_links" (
 	"slack_channel_id" text NOT NULL,
 	"slack_channel_name" text NOT NULL,
 	"folio_prefix" text,
-	"events" jsonb DEFAULT '{"mention":true,"reopened":true,"state_change":true,"assigned":true,"completed":false,"new_task":true}'::jsonb NOT NULL,
+	"events" jsonb DEFAULT '{"mention":true,"reopened":true,"state_change":true,"assigned":true,"completed":true,"new_task":true}'::jsonb NOT NULL,
 	"active" boolean DEFAULT true NOT NULL,
 	"asana_webhook_gid" text,
 	"last_notified_at" timestamp with time zone,

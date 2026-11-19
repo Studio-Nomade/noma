@@ -440,7 +440,7 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
-          "default": "'{\"mention\":true,\"reopened\":true,\"state_change\":true,\"assigned\":true,\"completed\":false,\"new_task\":true}'::jsonb"
+          "default": "'{\"mention\":true,\"reopened\":true,\"state_change\":true,\"assigned\":true,\"completed\":true,\"new_task\":true}'::jsonb"
         },
         "active": {
           "name": "active",

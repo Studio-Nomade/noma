@@ -65,8 +65,8 @@ test("HTML de Asana → mrkdwn de Slack", () => {
 });
 
 test("recorte sin romper tokens", () => {
-  const s = `${"a".repeat(590)} <https://example.com|enlace largo>`;
-  const cut = truncateMrkdwn(s, 600);
+  const s = `${"a".repeat(190)} <https://example.com|enlace largo>`;
+  const cut = truncateMrkdwn(s);
   assert.ok(cut.endsWith("…"));
   assert.ok(!cut.includes("<"));
   assert.equal(truncateMrkdwn("corto", 600), "corto");
@@ -84,12 +84,9 @@ test("mensajes de mención y de tarea reabierta", () => {
     mentions: [slackMention("U1", "Persona"), slackMention(null, "@Otra")],
     body: "hola",
   });
-  assert.match(m.mrkdwn, /^💬 \*Solicitud 0593 › Vector rotulado\*/);
-  assert.match(m.mrkdwn, /<@U1> \*Otra\*/);
-  assert.match(m.mrkdwn, /\*Noma \| Studio Nomade\* comentó:\n> hola/);
-  assert.match(
+  assert.equal(
     m.mrkdwn,
-    /<https:\/\/app\.asana\.com\/0\/1\/2\/f\|Abrir en Asana>$/,
+    "💬 <@U1> *Otra* · *Noma | Studio Nomade* comentó en *Solicitud 0593 › Vector rotulado* · <https://app.asana.com/0/1/2/f|Abrir en Asana>\n> hola",
   );
 
   const r = reopenedMessage({
@@ -98,20 +95,22 @@ test("mensajes de mención y de tarea reabierta", () => {
     state: "Con ajustes",
     assignee: "<@U1>",
   });
-  assert.match(r.mrkdwn, /^🔁 \*Tarea reabierta · Vector rotulado\*/);
-  assert.match(r.mrkdwn, /Estado: \*Con ajustes\* · Responsable: <@U1>/);
+  assert.equal(
+    r.mrkdwn,
+    "🔁 Tarea reabierta · *Vector rotulado* por Persona · Estado: *Con ajustes* · <@U1> · <https://app.asana.com/0/1/2/f|Abrir en Asana>",
+  );
   const none = reopenedMessage({
     task,
     byName: null,
     state: null,
     assignee: null,
   });
-  assert.match(none.mrkdwn, /Responsable: _sin responsable_/);
+  assert.match(none.mrkdwn, /· _sin responsable_ ·/);
 });
 
 test("eventos del vínculo y archivo de seed", () => {
   assert.equal(eventEnabled({ mention: false }, "mention"), false);
-  assert.equal(eventEnabled({}, "completed"), false);
+  assert.equal(eventEnabled({}, "completed"), true);
   assert.equal(eventEnabled(null, "reopened"), true);
   assert.deepEqual(linkEvents({ events: { completed: true } }).completed, true);
   const file = slackLinksFileSchema.parse({
