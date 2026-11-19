@@ -21,11 +21,12 @@ import { cn } from "@/lib/utils";
 import {
   buildPackageForMeeting,
   sendBacklogToAsana,
+  setBacklogStage,
   setBacklogStatus,
   updateBacklogItem,
 } from "./backlog-actions";
 import type { BacklogData } from "./backlog-queries";
-import { STAGE_LABEL, needsAsanaTask, type Stage } from "./stages";
+import { STAGE_LABEL, backlogView, needsAsanaTask, type Stage } from "./stages";
 import {
   BACKLOG_AREAS,
   BACKLOG_DESTINATIONS,
@@ -42,6 +43,7 @@ const STATUS_LABEL: Record<string, string> = {
   descartada: "Descartada",
   en_asana: "En Asana",
   verificada: "Revisada",
+  completada: "Completadas",
 };
 const STATUS_TONE: Record<string, string> = {
   propuesta: "amber",
@@ -49,6 +51,7 @@ const STATUS_TONE: Record<string, string> = {
   descartada: "slate",
   en_asana: "violet",
   verificada: "emerald",
+  completada: "emerald",
 };
 const PRIORITY_TONE: Record<string, string> = {
   Crítica: "red",
@@ -73,6 +76,7 @@ const FILTERS = [
   "aprobada",
   "en_asana",
   "verificada",
+  "completada",
   "descartada",
 ] as const;
 
@@ -96,10 +100,13 @@ export function BacklogBoard({
   );
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    for (const it of data.items) c[it.status] = (c[it.status] ?? 0) + 1;
+    for (const it of data.items) {
+      const v = backlogView(it);
+      c[v] = (c[v] ?? 0) + 1;
+    }
     return c;
   }, [data.items]);
-  const rows = data.items.filter((it) => it.status === filter);
+  const rows = data.items.filter((it) => backlogView(it) === filter);
   const selectedRows = rows.filter((r) => selected.includes(r.id));
 
   function run(
@@ -130,6 +137,9 @@ export function BacklogBoard({
   }
   function reopen(ids: string[]) {
     run("De vuelta a propuesta", () => setBacklogStatus(ids, "propuesta"));
+  }
+  function setStage(ids: string[], stage: Stage, label: string) {
+    run(label, () => setBacklogStage(ids, stage));
   }
   function toAsana(ids: string[]) {
     start(async () => {
@@ -215,13 +225,49 @@ export function BacklogBoard({
               </Button>
             </>
           )}
-          {filter === "verificada" && hasAsana && (
+          {filter === "verificada" &&
+            hasAsana &&
+            selectedRows.some((r) => needsAsanaTask(r)) && (
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() =>
+                  toAsana(
+                    selectedRows
+                      .filter((r) => needsAsanaTask(r))
+                      .map((r) => r.id),
+                  )
+                }
+              >
+                <Send className="size-4" /> Crear en Asana (las que falten)
+              </Button>
+            )}
+          {(filter === "verificada" || filter === "en_asana") && (
             <Button
               size="sm"
+              variant="outline"
               disabled={pending}
-              onClick={() => toAsana(selected)}
+              onClick={() =>
+                setStage(
+                  selected,
+                  "cerrado",
+                  `${selected.length} completada(s): en Asana pasan a la sección cerradas del mes`,
+                )
+              }
             >
-              <Send className="size-4" /> Crear en Asana (las que falten)
+              <Check className="size-4" /> Marcar completadas
+            </Button>
+          )}
+          {filter === "completada" && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() =>
+                setStage(selected, "con_ajustes", "Reabiertas (Con ajustes)")
+              }
+            >
+              Reabrir
             </Button>
           )}
           {filter === "aprobada" && (
@@ -292,7 +338,9 @@ export function BacklogBoard({
                 "aprobada",
                 "descartada",
                 "verificada",
-              ].includes(it.status);
+                "en_asana",
+                "completada",
+              ].includes(backlogView(it));
               return (
                 <li key={it.id} className="flex items-start gap-3 p-4">
                   {selectable ? (

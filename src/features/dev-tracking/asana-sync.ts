@@ -7,8 +7,11 @@ import {
   addTaskToSection,
   createTask,
   ensureEnumOption,
+  getTaskAssignee,
   ensureSectionByName,
   resolveCustomFieldValues,
+  setTaskAssignee,
+  setTaskCompleted,
   setTaskCustomFields,
 } from "@/features/asana/asana";
 import { appBaseUrl } from "@/lib/app-url";
@@ -16,7 +19,10 @@ import {
   STAGE_ASANA,
   STAGE_LABEL,
   asanaTaskName,
+  defaultDevAssignee,
   needsAsanaTask,
+  stageCompletesTask,
+  stageSection,
   type Stage,
 } from "./stages";
 
@@ -108,7 +114,7 @@ export async function syncItemsToAsana(
     try {
       const section = await ensureSectionByName(
         projectGid,
-        STAGE_ASANA[stage].section,
+        stageSection(stage),
       );
       const meetingLink = item.meetingId
         ? `${appUrl}/projects/${program.projectId}/seguimiento/reuniones/${item.meetingId}`
@@ -159,6 +165,8 @@ export async function syncItemsToAsana(
         name: asanaTaskName(item.title, item.roadmapCode),
         htmlNotes,
         customFields,
+        // Toda solicitud queda asignada (por defecto, a Sebastián).
+        assigneeGid: defaultDevAssignee(),
       });
       created.push({ taskGid: task.gid, stage });
       await db
@@ -204,8 +212,16 @@ export async function syncItemsToAsana(
       },
     ]);
     await setTaskCustomFields(taskGid, values);
-    const section = await ensureSectionByName(projectGid, target.section);
+    const section = await ensureSectionByName(projectGid, stageSection(stage));
     await addTaskToSection(section.gid, taskGid);
+    // Sin responsable → por defecto (no pisa a quien ya la tiene).
+    const assignee = await getTaskAssignee(taskGid).catch(() => null);
+    if (!assignee) {
+      await setTaskAssignee(taskGid, defaultDevAssignee()).catch((err) =>
+        console.error("[dev-asana:responsable]", err),
+      );
+    }
+    if (stageCompletesTask(stage)) await setTaskCompleted(taskGid, true);
   }
 
   for (const item of toUpdate) {
