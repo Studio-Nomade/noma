@@ -33,6 +33,7 @@ export async function POST(
   await applyArchitectResult(program.id, {
     roadmaps: [],
     solicitudes: [],
+    solicitudes_nuevas: [],
     preguntas_nuevas: [],
     modulos: [],
     bitacora: [parsed.data],

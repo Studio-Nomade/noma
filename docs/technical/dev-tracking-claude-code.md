@@ -52,4 +52,35 @@ Por solicitud: `roadmap` es su código (`"NDes-006"`), `null` si no va en ningú
 
 Reglas: estados de hito `en_prod · pr_abierto · en_desarrollo · pendiente · bloqueado`; `en_prod` solo con `main` desplegado y verificado. Mientras no exista la integración con GitHub (F2), informa en `desplegado` todos los PR que llegaron a producción (back, web, APK y Lambda). Un roadmap de mejora o corrección (`R##`) no necesita módulo: va solo en `roadmap`; los módulos son los desarrollos de varios hitos (`NDes-###`, `TELEMETRIA`, `COT-FACT`) y sus nombres deben coincidir exactamente con los de `/modulos`. Si publicas un `roadmap` con un código que no reservaste, Noma avanza el contador igual. Una línea de bitácora rápida va por `POST …/bitacora {"modulo":"…","texto":"…"}`.
 
+## Solicitudes fuera de paquete (WhatsApp, correo, llamada)
+
+Si una solicitud llega sin reunión ni paquete y se implementa directo, se registra en el mismo `POST …/resultados` con `solicitudes_nuevas`. Noma crea la solicitud ya revisada en el backlog y, salvo `ya_existe`, la tarea en Asana (`R77 · título`, con Área, Tipo, Roadmap y responsable). Con `estado: "cerrado"` la tarea queda en «<Mes> (cerradas)» y completada.
+
+```json
+{
+  "roadmap": { "codigo": "R77", "estado": "en_prod" },
+  "solicitudes_nuevas": [
+    {
+      "id": "R77-S1",
+      "origen": "whatsapp",
+      "fecha": "2026-11-19",
+      "solicitante": "Nombre Apellido",
+      "area": "Bodega",
+      "titulo": "…",
+      "veredicto": "bug",
+      "hito": "S1",
+      "estado": "cerrado"
+    }
+  ]
+}
+```
+
+- `id` es único dentro del programa: reenviar el mismo `id` actualiza la solicitud (no duplica ni crea otra tarea).
+- Obligatorios: `id`, `titulo`, `veredicto` (`ya_existe` · `bug` · `requiere_desarrollo` · `bloqueada`). `origen` por defecto `whatsapp` (`correo` · `llamada` · `reunion` · `otro`).
+- Opcionales: `fecha`, `solicitante`, `area`, `detalle`, `roadmap` (igual que en `solicitudes`), `hito`, `estado`, `tipo`, `prioridad` (`Normal` · `Media` · `Alta` · `Crítica`), `entorno`, `evidencia`, `nota`, `asana_gid`.
+- `area` libre: Noma la lleva al Área del tablero (Bodega y Comercial → Comerciales; Operaciones y Técnicos → Técnicos; IoT/Telemetría).
+- `tipo` por defecto según el veredicto (`bug` → Bug / error; `requiere_desarrollo` → Mejora funcional).
+- Un «ya existe con ajuste» va como `ya_existe` con el ajuste en `nota`: queda en el backlog, sin tarea.
+- Después basta `solicitudes:[{id, estado}]`, como con las demás.
+
 Todo con `Authorization: Bearer $NOMA_DEV_TRACKING_TOKEN` y `Content-Type: application/json`.

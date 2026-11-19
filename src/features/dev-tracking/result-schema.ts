@@ -48,6 +48,43 @@ export const roadmapSchema = z.object({
     .optional(),
 });
 
+const VERDICTS = [
+  "ya_existe",
+  "bug",
+  "requiere_desarrollo",
+  "bloqueada",
+] as const;
+
+/**
+ * Solicitud que no vino en un paquete (WhatsApp, correo, llamada): el
+ * arquitecto la registra al implementarla. Idempotente por `id` dentro del
+ * programa: reenviarla actualiza la misma solicitud.
+ */
+export const newRequestSchema = z.object({
+  id: z.string().min(2).max(20), // R77-S1
+  origen: z
+    .enum(["whatsapp", "correo", "llamada", "reunion", "otro"])
+    .default("whatsapp"),
+  fecha: z.string().date().optional(),
+  solicitante: z.string().max(200).optional(),
+  area: z.string().max(60).optional(),
+  titulo: z.string().min(3).max(300),
+  detalle: z.string().max(4000).optional(),
+  veredicto: z.enum(VERDICTS),
+  // Igual que en `solicitudes`: código propio, `null` o el principal.
+  roadmap: z.string().max(40).nullable().optional(),
+  hito: z.string().max(40).optional(),
+  estado: z.enum(STAGES).optional(),
+  tipo: z.string().max(60).optional(),
+  prioridad: z.enum(["Normal", "Media", "Alta", "Crítica"]).optional(),
+  entorno: z.string().max(40).optional(),
+  evidencia: z.string().max(1000).optional(),
+  asana_gid: z.string().max(40).optional(),
+  nota: z.string().max(2000).optional(),
+});
+
+export type NewRequest = z.infer<typeof newRequestSchema>;
+
 export const resultSchema = z.object({
   paquete: z.string().max(40).optional(),
   /** Roadmap principal de la sesión (también vale para las solicitudes sin `roadmap`). */
@@ -59,9 +96,7 @@ export const resultSchema = z.object({
       z.object({
         id: z.string().min(2).max(20), // CO-01
         // Primera revisión: el veredicto. Después (merge, deploy) basta `estado`.
-        veredicto: z
-          .enum(["ya_existe", "bug", "requiere_desarrollo", "bloqueada"])
-          .optional(),
+        veredicto: z.enum(VERDICTS).optional(),
         // Roadmap o módulo de esta solicitud (R76, NDes-006). `null` = sin
         // roadmap. Si se omite, toma el `roadmap` principal.
         roadmap: z.string().max(40).nullable().optional(),
@@ -73,6 +108,8 @@ export const resultSchema = z.object({
       }),
     )
     .default([]),
+  /** Solicitudes fuera de paquete (WhatsApp…): Noma las crea o actualiza. */
+  solicitudes_nuevas: z.array(newRequestSchema).max(50).default([]),
   preguntas_nuevas: z
     .array(
       z.object({
