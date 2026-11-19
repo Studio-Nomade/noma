@@ -1919,6 +1919,77 @@ export const asanaWebhooks = pgTable("asana_webhooks", {
   ...timestamps,
 });
 
+// ── Avisos de Asana en Slack (bot Noma) ──────────────────────
+// Un proyecto de Asana ↔ un canal de Slack. Solo publica el bot Noma
+// (SLACK_BOT_TOKEN); nunca un token de usuario.
+export type SlackNotifyEvents = {
+  mention: boolean;
+  reopened: boolean;
+  state_change: boolean;
+  assigned: boolean;
+  completed: boolean;
+  new_task: boolean;
+};
+
+export const asanaSlackLinks = pgTable("asana_slack_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  asanaProjectGid: text("asana_project_gid").notNull().unique(),
+  asanaProjectName: text("asana_project_name").notNull(),
+  slackChannelId: text("slack_channel_id").notNull(),
+  slackChannelName: text("slack_channel_name").notNull(),
+  folioPrefix: text("folio_prefix"),
+  events: jsonb("events")
+    .$type<SlackNotifyEvents>()
+    .default({
+      mention: true,
+      reopened: true,
+      state_change: true,
+      assigned: true,
+      completed: false,
+      new_task: true,
+    })
+    .notNull(),
+  active: boolean("active").default(true).notNull(),
+  // Webhook de Asana de este proyecto (el de asana_webhooks, por gid).
+  asanaWebhookGid: text("asana_webhook_gid"),
+  lastNotifiedAt: timestamp("last_notified_at", { withTimezone: true }),
+  ...timestamps,
+});
+
+/** Un hilo de Slack por tarea (la solicitud raíz, si es subtarea). */
+export const slackTaskThreads = pgTable("slack_task_threads", {
+  asanaTaskGid: text("asana_task_gid").primaryKey(),
+  slackChannelId: text("slack_channel_id").notNull(),
+  threadTs: text("thread_ts").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+/** Idempotencia: Asana reintenta eventos; cada aviso se publica una vez. */
+export const slackNotifyLog = pgTable("slack_notify_log", {
+  eventKey: text("event_key").primaryKey(),
+  slackChannelId: text("slack_channel_id"),
+  slackTs: text("slack_ts"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+/** Personas: Asana ↔ Slack por correo (se llena sola; corregible a mano). */
+export const peopleIdentities = pgTable(
+  "people_identities",
+  {
+    email: text("email").primaryKey(),
+    asanaUserGid: text("asana_user_gid"),
+    slackUserId: text("slack_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("people_identities_asana_idx").on(t.asanaUserGid)],
+);
+
 // ── email_templates (mantenedor de plantillas de correo) ─────
 export const emailTemplates = pgTable("email_templates", {
   id: uuid("id").primaryKey().defaultRandom(),
