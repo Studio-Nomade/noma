@@ -174,6 +174,18 @@ test("detecta webhooks con filtros desactualizados", () => {
       story("added_to_task"),
       story("added_to_project"),
     ]),
+    false,
+  );
+  assert.equal(
+    webhookFiltersCurrent([
+      story("comment_added"),
+      story("enum_custom_field_changed"),
+      story("assigned"),
+      story("marked_complete"),
+      story("added_to_task"),
+      story("added_to_project"),
+      story("marked_incomplete"),
+    ]),
     true,
   );
   assert.equal(webhookFiltersCurrent(null), false);
