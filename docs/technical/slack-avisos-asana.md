@@ -43,5 +43,18 @@ Mensajes cortos: una línea con el evento, la mención al responsable y «Abrir 
    - Revisar con `npm run slack:seed-links` (dry-run).
    - Cargar con `npm run slack:seed-links -- --apply`. Sin `--reset`, conserva `active` y `events` de los vínculos que ya existen.
 4. **Personas.** `npm run slack:seed-links -- --people --apply` (opcional: también se llenan solas con el primer aviso).
-5. **Webhooks.** Hasta la entrega 3 (registro automático por vínculo), registrar el webhook de un proyecto nuevo con:
-   `npm run asana:register-webhooks -- --base-url https://<deploy> --project <gid> --apply`
+5. **Webhooks.** `CRON_SLACK_NOTIFY_ENABLED=true` en Vercel. El cron `slack-notify` (diario, 07:50 Santiago) los registra solo; ver la sección siguiente.
+
+## Webhooks y mantención (entrega 3)
+
+El cron `/api/cron/slack-notify` corre en Vercel cada día y también acepta `Bearer NOMA_SCHEDULER_SECRET`, por si se quiere una pasada más frecuente desde pg_cron. Con `?dry=1` solo informa qué haría.
+
+1. **`ensureLinkWebhooks`.** Decide qué hacer con cada vínculo (`planWebhook`):
+   - **Activo sin webhook vivo:** lo registra. Borra los webhooks previos con el mismo target, crea uno nuevo y Asana hace el handshake contra este deploy (`prepareRegistration` → `createWebhook` → `completeRegistration`). Es igual que `asana:register-webhooks`, pero desde el servidor.
+   - **Activo con un webhook que Asana desactivó por fallas o que ya no existe:** lo recrea.
+   - **Apagado:** borra su webhook, salvo en los proyectos del flujo de correo, que lo necesitan igual.
+2. **`reconcileLinkStories`.** Revisa las tareas modificadas en las últimas 24 h, nunca antes de la fecha del vínculo. Las menciones y reaperturas que no estén en `slack_notify_log` se avisan ahora. No revisa las subtareas que no están en el proyecto.
+
+Los filtros de los webhooks ya registrados los mantiene al día `syncWebhookFilters` (cron `email-maintenance`).
+
+**El webhook atiende dos flujos.** El aviso de Slack corre en todo proyecto vinculado. El flujo de solicitudes (ENTREGA/CONSULTA/CLIENTE, «Planificada» al asignar, cierre) corre solo en los proyectos de un canal de correo (`isEmailChannelProject`). Así un webhook en CFO o COO no aplica reglas de solicitudes.

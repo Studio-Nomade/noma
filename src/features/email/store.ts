@@ -42,6 +42,20 @@ export async function listActiveChannels(): Promise<ResolvedEmailChannel[]> {
   }));
 }
 
+/**
+ * ¿El proyecto de Asana es de un canal de correo (cualquier estado)? Solo
+ * esos proyectos corren el flujo de solicitudes desde el webhook; el resto
+ * solo avisa en Slack.
+ */
+export async function isEmailChannelProject(projectGid: string) {
+  const [row] = await db
+    .select({ id: emailChannels.id })
+    .from(emailChannels)
+    .where(eq(emailChannels.asanaProjectGid, projectGid))
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function getChannel(
   id: string,
 ): Promise<ResolvedEmailChannel | null> {
