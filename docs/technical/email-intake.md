@@ -330,6 +330,24 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Comentarios al cliente (`COMENTARIO`)
+
+Todo lo que el equipo le quiere decir al cliente y que no es entrega ni consulta: avisar que se volvieron a subir los archivos, actualizar información o aclarar algo.
+
+```
+Comentario
+Los archivos están arriba nuevamente, con el logo corregido.
+```
+
+- **Cuándo se reconoce.** La primera palabra del comentario es «Comentario», en mayúscula o minúscula, seguida de «:» o de un salto de línea (`COMMENT_COMMAND_RE`). La palabra en medio de un texto, o sin «:» ni salto («Comentario interno para…»), no dispara nada.
+- **Qué sale.** Plantilla `09_comentario_equipo` en el hilo de la solicitud, con el texto tal cual (un párrafo por línea) y la firma de quien comenta.
+  - Los links van como archivos, igual que en una entrega («Nombre (detalle): link»).
+  - Sin texto ni links, Noma no envía y lo comenta en la tarea.
+- **Qué no cambia.** El Estado ni la ronda de entrega.
+- **Copias y horario.** Las mismas que una entrega: quien comenta y el responsable de la tarea van en copia. Rige el mismo horario hábil, salvo «ENVIAR AHORA».
+- **Registro.** Queda en `request_deliveries` con `kind = "comentario"`, idempotente por story, y Noma deja un comentario de control en la tarea.
+- **Fecha de corte.** Solo cuentan los comentarios desde `NOMA_COMMENT_COMMAND_SINCE` (por defecto 21-11-2026, 00:00 Santiago). Así la reconciliación nunca le envía al cliente un comentario antiguo que empezara con «Comentario:».
+
 ### Mensajes del cliente por otros canales (`CLIENTE`)
 
 Cuando el cliente escribe por WhatsApp (o lo dice en una llamada), el equipo
