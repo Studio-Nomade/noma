@@ -28,7 +28,11 @@ export async function generatePortalLink(
     const token = newToken();
     const [row] = await db
       .update(clients)
-      .set({ portalToken: token, portalTokenAt: new Date(), updatedAt: new Date() })
+      .set({
+        portalToken: token,
+        portalTokenAt: new Date(),
+        updatedAt: new Date(),
+      })
       .where(eq(clients.id, clientId))
       .returning({ id: clients.id });
     if (!row) return { ok: false, error: "Cliente no encontrado." };

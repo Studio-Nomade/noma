@@ -23,10 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { ServiceStatus } from "@/types/enums";
-import type {
-  ServicePackageWithItems,
-  ServiceWithVariants,
-} from "./queries";
+import type { ServicePackageWithItems, ServiceWithVariants } from "./queries";
 import {
   createServicePackage,
   deleteServicePackage,
@@ -35,11 +32,7 @@ import {
   type PackageSuggestion,
 } from "./catalog-actions";
 import type { ServicePackageFormValues } from "./catalog-schema";
-import {
-  SERVICE_TIERS,
-  SERVICE_TIER_META,
-  type ServiceTier,
-} from "./tiers";
+import { SERVICE_TIERS, SERVICE_TIER_META, type ServiceTier } from "./tiers";
 
 type PackageDraft = ServicePackageFormValues & { id?: string };
 
@@ -233,9 +226,8 @@ export function PackagesManager({
                       <span className="text-muted-foreground shrink-0">
                         {line.area} ·{" "}
                         {
-                          SERVICE_TIER_META[
-                            line.variantTier as ServiceTier
-                          ].shortLabel
+                          SERVICE_TIER_META[line.variantTier as ServiceTier]
+                            .shortLabel
                         }
                       </span>
                     </li>

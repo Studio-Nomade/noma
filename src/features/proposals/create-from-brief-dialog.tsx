@@ -36,7 +36,10 @@ function tokenize(s: string): string[] {
 }
 
 /** Pre-selecciona servicios del catálogo que coinciden con los sugeridos por IA. */
-function preselect(suggested: string[], services: ServiceOption[]): Set<string> {
+function preselect(
+  suggested: string[],
+  services: ServiceOption[],
+): Set<string> {
   const sugTokens = suggested.map(tokenize);
   const ids = new Set<string>();
   for (const svc of services) {

@@ -1,0 +1,1 @@
+ALTER TABLE "email_channels" ADD COLUMN "cc_project_owner" boolean DEFAULT false NOT NULL;

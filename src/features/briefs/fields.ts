@@ -103,7 +103,11 @@ export const BRIEF_FIELDS_BY_AREA: Record<Area, BriefField[]> = {
     { key: "extra_channels", label: "Google Business / LinkedIn / Email mkt" },
   ],
   STR: [
-    { key: "challenge", label: "Desafío estratégico principal", multiline: true },
+    {
+      key: "challenge",
+      label: "Desafío estratégico principal",
+      multiline: true,
+    },
     { key: "decision", label: "¿Qué decisión busca tomar el cliente?" },
     { key: "info_available", label: "Información existente", multiline: true },
     { key: "info_missing", label: "Información que falta", multiline: true },

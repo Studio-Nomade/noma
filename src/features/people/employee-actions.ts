@@ -23,7 +23,10 @@ const employeeSchema = z.object({
   baseSalaryCurrency: z.enum(["CLP", "UF", "USD"]).default("CLP"),
   startDate: z.preprocess(
     (value) => (value === "" ? undefined : value),
-    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   ),
 });
 

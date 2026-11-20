@@ -43,14 +43,13 @@ function tokens(s: string): string[] {
     .filter((w) => w.length > 3);
 }
 
-export function matchNotes(
-  files: DriveFile[],
-  ctx: MatchContext,
-): MatchResult {
+export function matchNotes(files: DriveFile[], ctx: MatchContext): MatchResult {
   const clientTokens = tokens(ctx.clientName);
   const projectTokens = tokens(ctx.projectName);
   const titleTokens = ctx.meetingTitle ? tokens(ctx.meetingTitle) : [];
-  const meetingTime = ctx.meetingDate ? new Date(ctx.meetingDate).getTime() : null;
+  const meetingTime = ctx.meetingDate
+    ? new Date(ctx.meetingDate).getTime()
+    : null;
 
   const scored: NoteCandidate[] = files.map((f) => {
     const name = norm(f.name);
@@ -76,7 +75,8 @@ export function matchNotes(
     }
     // Proximidad temporal: creado/modificado cerca del término de la reunión.
     if (meetingTime) {
-      const diffH = Math.abs(new Date(f.modifiedTime).getTime() - meetingTime) / 3.6e6;
+      const diffH =
+        Math.abs(new Date(f.modifiedTime).getTime() - meetingTime) / 3.6e6;
       if (diffH <= 6) {
         score += 20;
         reasons.push("editado junto a la reunión");
@@ -88,7 +88,9 @@ export function matchNotes(
     // Organizador es dueño del documento.
     if (
       ctx.organizerEmail &&
-      f.owners.some((o) => o.toLowerCase() === ctx.organizerEmail!.toLowerCase())
+      f.owners.some(
+        (o) => o.toLowerCase() === ctx.organizerEmail!.toLowerCase(),
+      )
     ) {
       score += 10;
       reasons.push("creado por el organizador");

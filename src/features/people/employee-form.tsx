@@ -7,7 +7,10 @@ import { AREAS, AREA_LABELS } from "@/types/enums";
 export function EmployeeForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(
-    async (previous: Awaited<ReturnType<typeof createEmployee>> | null, data: FormData) => {
+    async (
+      previous: Awaited<ReturnType<typeof createEmployee>> | null,
+      data: FormData,
+    ) => {
       const result = await createEmployee(previous, data);
       if (result.ok) formRef.current?.reset();
       return result;
@@ -20,7 +23,7 @@ export function EmployeeForm() {
       action={action}
       className="glass grid gap-3 rounded-xl p-5 md:grid-cols-2"
     >
-      <h2 className="font-heading md:col-span-2 font-medium">
+      <h2 className="font-heading font-medium md:col-span-2">
         Agregar empleado
       </h2>
       <Field name="name" label="Nombre completo" required />

@@ -18,10 +18,11 @@ export type FileKind = "pdf" | "xml";
 
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 
-const ACCEPT: Record<FileKind, { ext: string; mime: string; magic?: string }> = {
-  pdf: { ext: "pdf", mime: "application/pdf", magic: "%PDF" },
-  xml: { ext: "xml", mime: "application/xml" },
-};
+const ACCEPT: Record<FileKind, { ext: string; mime: string; magic?: string }> =
+  {
+    pdf: { ext: "pdf", mime: "application/pdf", magic: "%PDF" },
+    xml: { ext: "xml", mime: "application/xml" },
+  };
 
 /** Sube el PDF o XML de una factura al bucket privado y guarda su path. */
 export async function uploadDocumentFile(
@@ -46,8 +47,14 @@ export async function uploadDocumentFile(
     const spec = ACCEPT[kind];
     const buf = Buffer.from(await file.arrayBuffer());
     // Valida por contenido, no solo por extensión (el PDF tiene firma %PDF).
-    if (spec.magic && !buf.subarray(0, 8).toString("latin1").includes(spec.magic)) {
-      return { ok: false, error: `El archivo no parece un ${kind.toUpperCase()} válido.` };
+    if (
+      spec.magic &&
+      !buf.subarray(0, 8).toString("latin1").includes(spec.magic)
+    ) {
+      return {
+        ok: false,
+        error: `El archivo no parece un ${kind.toUpperCase()} válido.`,
+      };
     }
 
     const [doc] = await db

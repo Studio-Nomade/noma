@@ -47,7 +47,9 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 const str = (v: unknown): string | null => {
-  const s = String(v ?? "").replace(/\s+/g, " ").trim();
+  const s = String(v ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   return s || null;
 };
 

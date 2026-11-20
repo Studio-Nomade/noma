@@ -14,11 +14,7 @@ import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { INVOICES_BUCKET, uploadToStorage } from "@/lib/supabase/storage";
 import { parseDte, decodeXml, type DteLine } from "./import/dte-xml";
-import {
-  detectArea,
-  matchService,
-  type ServiceRef,
-} from "./classify-lines";
+import { detectArea, matchService, type ServiceRef } from "./classify-lines";
 import type { Area, DocumentDirection } from "@/types/enums";
 
 const MAX_FILES = 400;
@@ -54,7 +50,9 @@ type DocClass = "afecta" | "exenta" | "nota" | "boleta";
  * FAC-EE_699_...). El folio es el número inmediatamente después del prefijo;
  * el prefijo define la clase.
  */
-function parseFileName(fileName: string): { folio: string; klass: DocClass | null } | null {
+function parseFileName(
+  fileName: string,
+): { folio: string; klass: DocClass | null } | null {
   const base = fileName.replace(/\.[^.]+$/, "");
   const parts = base.split("_");
   if (parts.length < 2) return null;
@@ -93,11 +91,15 @@ export async function bulkUploadFiles(
 ): Promise<ActionResult<BulkFileResult>> {
   try {
     const user = await requireFinance();
-    const direction = String(formData.get("direction") ?? "") as DocumentDirection;
+    const direction = String(
+      formData.get("direction") ?? "",
+    ) as DocumentDirection;
     if (direction !== "VENTA" && direction !== "COMPRA") {
       return { ok: false, error: "Dirección inválida." };
     }
-    const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+    const files = formData
+      .getAll("files")
+      .filter((f): f is File => f instanceof File);
     if (!files.length) return { ok: false, error: "No hay archivos." };
     if (files.length > MAX_FILES) {
       return { ok: false, error: `Máximo ${MAX_FILES} archivos por carga.` };
@@ -147,15 +149,16 @@ export async function bulkUploadFiles(
     for (const file of files) {
       const name = file.name;
       const ext = name.toLowerCase().match(/\.(pdf|xml)$/)?.[1] as
-        | "pdf"
-        | "xml"
-        | undefined;
+        "pdf" | "xml" | undefined;
       if (!ext) {
         result.unmatched.push({ file: name, reason: "No es PDF ni XML." });
         continue;
       }
       if (file.size === 0 || file.size > MAX_BYTES) {
-        result.unmatched.push({ file: name, reason: "Archivo vacío o >15 MB." });
+        result.unmatched.push({
+          file: name,
+          reason: "Archivo vacío o >15 MB.",
+        });
         continue;
       }
 
@@ -220,18 +223,24 @@ export async function bulkUploadFiles(
 
       updates.set(id, u);
       result.attached++;
-      if (!result.matchedFolios.includes(folio)) result.matchedFolios.push(folio);
+      if (!result.matchedFolios.includes(folio))
+        result.matchedFolios.push(folio);
     }
 
     // Persiste paths, líneas del detalle y clasificación sugerida.
     for (const [id, u] of updates) {
       // Detalle del XML → fin_document_lines (reemplaza lo previo del documento).
       if (u.lines?.length) {
-        await db.delete(finDocumentLines).where(eq(finDocumentLines.documentId, id));
+        await db
+          .delete(finDocumentLines)
+          .where(eq(finDocumentLines.documentId, id));
         await db.insert(finDocumentLines).values(
           u.lines.map((l) => ({
             documentId: id,
-            descripcion: [l.nombre, l.descripcion].filter(Boolean).join(" — ").slice(0, 2000),
+            descripcion: [l.nombre, l.descripcion]
+              .filter(Boolean)
+              .join(" — ")
+              .slice(0, 2000),
             cantidad: String(l.cantidad),
             precio: String(l.precio ?? 0),
             monto: String(l.monto),

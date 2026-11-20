@@ -56,7 +56,10 @@ export async function sendKickoff(
   try {
     const user = await requireUser();
     if (!roleFor(user.email).isFinance) {
-      return { ok: false, error: "Solo Finanzas puede enviar el inicio oficial." };
+      return {
+        ok: false,
+        error: "Solo Finanzas puede enviar el inicio oficial.",
+      };
     }
     if (!user.email) return { ok: false, error: "Tu usuario no tiene email." };
     if (input.to.length === 0) {
@@ -69,7 +72,8 @@ export async function sendKickoff(
     const sender = await resolveEmailSender("commercial");
     if (!sender.ok) return { ok: false, error: sender.reason };
 
-    const attachments: { filename: string; content: Buffer; mime?: string }[] = [];
+    const attachments: { filename: string; content: Buffer; mime?: string }[] =
+      [];
     // Propuesta
     attachments.push({
       filename: bundle.filename,
@@ -85,7 +89,10 @@ export async function sendKickoff(
         signedByName: sla.signedByName,
         signedAt: sla.signedAt ? sla.signedAt.toISOString() : null,
       });
-      attachments.push({ filename: `SLA - ${bundle.filename}`, content: slaPdf });
+      attachments.push({
+        filename: `SLA - ${bundle.filename}`,
+        content: slaPdf,
+      });
     }
 
     await sendGmail({

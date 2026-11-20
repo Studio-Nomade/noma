@@ -1,8 +1,7 @@
 import "server-only";
 
 export type WhatsAppSendResult =
-  | { connected: true; id: string }
-  | { connected: false; reason: string };
+  { connected: true; id: string } | { connected: false; reason: string };
 
 type MetaSendResponse = {
   messages?: { id?: string }[];

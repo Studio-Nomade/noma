@@ -44,8 +44,7 @@ export async function InvoiceRegistry({
             salesOrderFolio,
             billingLabel,
           }) => {
-            const paymentDate =
-              invoice.estimatedPaymentDate ?? invoice.dueAt;
+            const paymentDate = invoice.estimatedPaymentDate ?? invoice.dueAt;
             return (
               <Link
                 key={invoice.id}

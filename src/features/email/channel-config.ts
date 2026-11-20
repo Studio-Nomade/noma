@@ -111,6 +111,12 @@ export const emailChannelConfigSchema = z
       .nullable()
       .optional(),
     /**
+     * Encargado de la cuenta en copia: el propietario del proyecto de Asana
+     * va en copia de entregas, consultas y comentarios, aunque entregue otra
+     * persona (p. ej. Box). Sin esto, como hoy: responsable + quien comenta.
+     */
+    cc_project_owner: z.boolean().default(false),
+    /**
      * Pauta del cliente para leer sus correos (los campos de su formulario de
      * solicitudes, sus opciones de formato…). Se entrega a la IA tal cual.
      */

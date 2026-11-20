@@ -34,9 +34,7 @@ export function RetainerCard({
       const result = await saveRetainer({
         projectId,
         unit:
-          String(formData.get("unit")) === "hours"
-            ? "hours"
-            : "deliverables",
+          String(formData.get("unit")) === "hours" ? "hours" : "deliverables",
         quotaPerPeriod: String(formData.get("quotaPerPeriod")),
         startDate: String(formData.get("startDate")),
         endDate: String(formData.get("endDate")),
@@ -54,7 +52,10 @@ export function RetainerCard({
     if (!data) return;
     startTransition(async () => {
       const result = await setRetainerStatus(data.retainer.id, status);
-      if (result.ok) toast.success(status === "active" ? "Retainer reactivado." : "Retainer pausado.");
+      if (result.ok)
+        toast.success(
+          status === "active" ? "Retainer reactivado." : "Retainer pausado.",
+        );
       else toast.error(result.error);
     });
   }
@@ -129,7 +130,8 @@ export function RetainerCard({
             {data ? "Configuración del retainer" : "Crear retainer"}
           </h2>
           <p className="text-muted-foreground text-sm">
-            Define la bolsa mensual utilizada por el agente para clasificar el alcance.
+            Define la bolsa mensual utilizada por el agente para clasificar el
+            alcance.
           </p>
         </div>
         <Field label="Unidad">
@@ -197,13 +199,20 @@ export function RetainerCard({
 
       {data?.history.length ? (
         <section className="glass rounded-xl p-6">
-          <h2 className="font-heading mb-4 font-medium">Consumos del período</h2>
+          <h2 className="font-heading mb-4 font-medium">
+            Consumos del período
+          </h2>
           <ul className="divide-border divide-y">
             {data.history.map((item) => (
-              <li key={item.id} className="flex justify-between gap-4 py-3 text-sm">
+              <li
+                key={item.id}
+                className="flex justify-between gap-4 py-3 text-sm"
+              >
                 <span>{item.summary || "Solicitud sin resumen"}</span>
                 <span className="text-muted-foreground whitespace-nowrap">
-                  {item.consumedAt ? `${Number(item.units)} ${unitLabel}` : "Sin consumo"}
+                  {item.consumedAt
+                    ? `${Number(item.units)} ${unitLabel}`
+                    : "Sin consumo"}
                 </span>
               </li>
             ))}

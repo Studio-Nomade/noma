@@ -125,7 +125,10 @@ export function ContactsManager({
       {contacts.length > 0 && (
         <ul className="divide-border divide-y">
           {contacts.map((c) => (
-            <li key={c.id} className="flex items-start justify-between gap-2 py-2.5">
+            <li
+              key={c.id}
+              className="flex items-start justify-between gap-2 py-2.5"
+            >
               <div className="min-w-0 space-y-1.5">
                 <p className="flex items-center gap-1.5 text-sm font-medium">
                   {c.isPrimary && <Star className="size-3 fill-current" />}
@@ -178,7 +181,11 @@ export function ContactsManager({
         <p className="text-muted-foreground text-xs">
           Perfiles del contacto (puede tener varios):
         </p>
-        <ProfilePicker value={profiles} onToggle={toggleNew} disabled={pending} />
+        <ProfilePicker
+          value={profiles}
+          onToggle={toggleNew}
+          disabled={pending}
+        />
       </div>
 
       <Button size="sm" variant="outline" onClick={add} disabled={pending}>

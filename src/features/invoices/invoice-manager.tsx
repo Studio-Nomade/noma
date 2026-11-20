@@ -34,7 +34,10 @@ export function InvoiceManager({
   const [pdfUrl, setPdfUrl] = useState(invoice?.pdfUrl ?? "");
   const [xmlUrl, setXmlUrl] = useState(invoice?.xmlUrl ?? "");
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>, ok?: string) {
+  function run(
+    fn: () => Promise<{ ok: boolean; error?: string }>,
+    ok?: string,
+  ) {
     startTransition(async () => {
       const res = await fn();
       if (res.ok) {
@@ -51,7 +54,9 @@ export function InvoiceManager({
           Consolida el anticipo del 50% para preparar la factura en Nubox.
         </p>
         <Button
-          onClick={() => run(() => consolidateInvoice(proposalId, {}), "Factura consolidada")}
+          onClick={() =>
+            run(() => consolidateInvoice(proposalId, {}), "Factura consolidada")
+          }
           disabled={pending}
         >
           <Receipt className="size-4" />
@@ -68,7 +73,9 @@ export function InvoiceManager({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => run(() => consolidateInvoice(proposalId, {}), "Recalculado")}
+          onClick={() =>
+            run(() => consolidateInvoice(proposalId, {}), "Recalculado")
+          }
           disabled={pending}
         >
           <RefreshCw className="size-4" />
@@ -79,7 +86,11 @@ export function InvoiceManager({
       <dl className="space-y-1 text-sm">
         <Row label="Neto" value={formatMoney(invoice.netAmount, "CLP")} />
         <Row label="IVA 19%" value={formatMoney(invoice.ivaAmount, "CLP")} />
-        <Row label="Total" value={formatMoney(invoice.totalAmount, "CLP")} strong />
+        <Row
+          label="Total"
+          value={formatMoney(invoice.totalAmount, "CLP")}
+          strong
+        />
       </dl>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -93,11 +104,19 @@ export function InvoiceManager({
         </div>
         <div className="space-y-1.5">
           <Label>Link PDF factura</Label>
-          <Input value={pdfUrl} onChange={(e) => setPdfUrl(e.target.value)} placeholder="https://…" />
+          <Input
+            value={pdfUrl}
+            onChange={(e) => setPdfUrl(e.target.value)}
+            placeholder="https://…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Link XML factura</Label>
-          <Input value={xmlUrl} onChange={(e) => setXmlUrl(e.target.value)} placeholder="https://…" />
+          <Input
+            value={xmlUrl}
+            onChange={(e) => setXmlUrl(e.target.value)}
+            placeholder="https://…"
+          />
         </div>
       </div>
 
@@ -106,7 +125,11 @@ export function InvoiceManager({
           value={invoice.status}
           onValueChange={(v) =>
             v &&
-            run(() => updateInvoice(invoice.id, proposalId, { status: v as InvoiceStatus }))
+            run(() =>
+              updateInvoice(invoice.id, proposalId, {
+                status: v as InvoiceStatus,
+              }),
+            )
           }
         >
           <SelectTrigger className="w-56">
@@ -124,7 +147,13 @@ export function InvoiceManager({
           size="sm"
           onClick={() =>
             run(
-              () => updateInvoice(invoice.id, proposalId, { folio, nuboxId, pdfUrl, xmlUrl }),
+              () =>
+                updateInvoice(invoice.id, proposalId, {
+                  folio,
+                  nuboxId,
+                  pdfUrl,
+                  xmlUrl,
+                }),
               "Factura actualizada",
             )
           }
@@ -138,7 +167,15 @@ export function InvoiceManager({
   );
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
   return (
     <div className="flex justify-between">
       <dt className="text-muted-foreground">{label}</dt>

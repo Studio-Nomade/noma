@@ -6,6 +6,7 @@ import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
   addStory,
   getStory,
+  getProjectOwner,
   getTaskAssignee,
   getTaskState,
   getUserEmail,
@@ -343,12 +344,17 @@ export async function processAsanaStory(
   const team =
     command.kind === "evaluacion"
       ? null
-      : await studioTeam(taskGid, story.created_by.gid);
+      : await studioTeam(
+          taskGid,
+          story.created_by.gid,
+          channel.ccProjectOwner ? channel.asanaProjectGid : null,
+        );
   const cc = team
     ? deliveryCc({
         requestCc: request.ccEmails ?? [],
         commenterEmail: team.commenterEmail,
         assigneeEmail: team.assignee?.email ?? null,
+        managerEmail: team.managerEmail,
         studioDomain: studioDomain(),
         exclude: [request.requesterEmail, channel.alias],
       })
@@ -648,13 +654,20 @@ async function resolveDeliveryRequest(taskGid: string): Promise<{
 }
 
 /** Correo de quien comenta y responsable de la tarea (null si Asana falla). */
-async function studioTeam(taskGid: string, commenterGid: string) {
+async function studioTeam(
+  taskGid: string,
+  commenterGid: string,
+  managerProjectGid: string | null = null,
+) {
   try {
-    const [commenterEmail, assignee] = await Promise.all([
+    const [commenterEmail, assignee, manager] = await Promise.all([
       getUserEmail(commenterGid).catch(() => null),
       getTaskAssignee(taskGid),
+      managerProjectGid
+        ? getProjectOwner(managerProjectGid).catch(() => null)
+        : Promise.resolve(null),
     ]);
-    return { commenterEmail, assignee };
+    return { commenterEmail, assignee, managerEmail: manager?.email ?? null };
   } catch (error) {
     console.error("[email:delivery:team]", error);
     return null;

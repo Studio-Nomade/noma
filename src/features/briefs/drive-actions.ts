@@ -3,12 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { briefs, briefNotes, briefMeetings, projects, clients } from "@/db/schema";
+import {
+  briefs,
+  briefNotes,
+  briefMeetings,
+  projects,
+  clients,
+} from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { readDriveDoc, searchRecentDocs } from "@/features/google/drive";
-import { matchNotes, type NoteCandidate } from "@/features/google/note-matching";
+import {
+  matchNotes,
+  type NoteCandidate,
+} from "@/features/google/note-matching";
 import { ensureBrief } from "./brief-helpers";
 
 /** Contexto de la oportunidad + última reunión, para buscar/asociar notas. */
