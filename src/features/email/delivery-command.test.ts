@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  commentCommandActive,
+  parseCommentCommand,
   parseClientRelayCommand,
   parseConsultaCommand,
   parseDeliveryCommand,
@@ -193,4 +195,53 @@ test("CLIENTE sin mensaje o en minúsculas no cuenta", () => {
   assert.equal(parseClientRelayCommand("cliente: dice que ok"), null);
   assert.equal(parseClientRelayCommand("CLIENTES felices"), null);
   assert.equal(parseClientRelayCommand("ENTREGA 01"), null);
+});
+
+test("COMENTARIO: primera palabra + «:» o salto de línea", () => {
+  const plain = parseCommentCommand(
+    "Comentario\nLos archivos están arriba nuevamente, con el logo corregido.",
+  );
+  assert.deepEqual(plain, {
+    text: "Los archivos están arriba nuevamente, con el logo corregido.",
+    links: [],
+    files: [],
+  });
+  assert.equal(
+    parseCommentCommand("COMENTARIO: actualizamos la ficha.")?.text,
+    "actualizamos la ficha.",
+  );
+  assert.equal(parseCommentCommand("comentario:\nok")?.text, "ok");
+  // La palabra en medio del texto, o sin «:»/salto, no dispara nada.
+  assert.equal(parseCommentCommand("Un comentario interno"), null);
+  assert.equal(parseCommentCommand("Comentario interno para Cata"), null);
+  assert.equal(parseCommentCommand("Comentarios: varios"), null);
+  assert.equal(parseCommentCommand(null), null);
+});
+
+test("COMENTARIO: links como archivos y sin «ENVIAR AHORA»", () => {
+  const command = parseCommentCommand(
+    "Comentario\nVolvimos a subir la pieza.\nPieza final (PDF): https://drive.google.com/file/d/abc/view\nENVIAR AHORA",
+  );
+  assert.equal(command?.text, "Volvimos a subir la pieza.");
+  assert.deepEqual(command?.files, [
+    {
+      url: "https://drive.google.com/file/d/abc/view",
+      label: "Pieza final",
+      detail: "PDF",
+    },
+  ]);
+  // Sin texto ni links: el parser lo reconoce y el envío lo rechaza.
+  assert.deepEqual(parseCommentCommand("Comentario:"), {
+    text: null,
+    links: [],
+    files: [],
+  });
+});
+
+test("COMENTARIO: solo desde la fecha de corte", () => {
+  const since = "2026-11-21T03:00:00.000Z";
+  assert.equal(commentCommandActive("2026-11-21T12:00:00.000Z", since), true);
+  assert.equal(commentCommandActive("2026-11-20T12:00:00.000Z", since), false);
+  assert.equal(commentCommandActive(null, since), false);
+  assert.equal(commentCommandActive("2026-11-20T12:00:00.000Z", ""), true);
 });

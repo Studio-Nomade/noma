@@ -89,6 +89,20 @@ export function parseDeliveryCommand(
 
   const links = extractUrls(text, htmlText);
   const body = text.slice(match[0].length);
+  const { files, note } = parseFilesAndNote(body, htmlText, links);
+  return { round, links, files, note };
+}
+
+/**
+ * Cuerpo de un comando (ENTREGA, COMENTARIO): un archivo por línea con link
+ * («Nombre (detalle): link») y el resto como nota para el cliente. «ENVIAR
+ * AHORA» es una orden para Noma, no texto para el cliente.
+ */
+export function parseFilesAndNote(
+  body: string,
+  htmlText: string | null | undefined,
+  links: string[] = extractUrls(body, htmlText),
+): { files: DeliveryCommandFile[]; note: string | null } {
   const anchorLabels = anchorTexts(htmlText);
   const files: DeliveryCommandFile[] = [];
   const noteLines: string[] = [];
@@ -140,7 +154,7 @@ export function parseDeliveryCommand(
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { round, links, files, note: note || null };
+  return { files, note: note || null };
 }
 
 const GENERIC_ANCHOR = /^(link|enlace|aqu[ií]|ac[aá]|ver|here|click|clic)$/i;
@@ -247,6 +261,55 @@ export function parseConsultaCommand(
   // La forma en minúsculas solo cuenta si trae preguntas.
   if (!strict && !questions.length) return null;
   return { blocking: Boolean(match[1]), questions };
+}
+
+/**
+ * «Comentario» en Asana: todo lo que el equipo le quiere decir al cliente y
+ * que no es entrega ni consulta (avisar que se volvieron a subir los
+ * archivos, actualizar información, aclarar). La primera palabra del
+ * comentario es «Comentario» (mayúscula o minúscula) seguida de «:» o de un
+ * salto de línea; la palabra en medio de un texto no dispara nada. Los links
+ * van como archivos, igual que en una entrega, sin cambiar la ronda.
+ */
+export const COMMENT_COMMAND_RE = /^\s*comentario\s*(?::|\r?\n)/i;
+
+export type CommentCommand = {
+  /** Texto para el cliente, tal cual (sin «ENVIAR AHORA»). */
+  text: string | null;
+  links: string[];
+  files: DeliveryCommandFile[];
+};
+
+export function parseCommentCommand(
+  text: string | null | undefined,
+  htmlText?: string | null,
+): CommentCommand | null {
+  if (!text) return null;
+  const match = text.match(COMMENT_COMMAND_RE);
+  if (!match) return null;
+  const body = text.slice(match[0].length);
+  const links = extractUrls(body, htmlText);
+  const { files, note } = parseFilesAndNote(body, htmlText, links);
+  return { text: note, links, files };
+}
+
+/**
+ * «Comentario» solo toma comentarios escritos desde que existe el comando:
+ * la reconciliación revisa comentarios antiguos y uno que empezara con
+ * «Comentario:» no debe salirle al cliente. NOMA_COMMENT_COMMAND_SINCE lo
+ * ajusta (ISO).
+ */
+export const COMMENT_COMMAND_SINCE_DEFAULT = "2026-11-21T03:00:00.000Z";
+
+export function commentCommandActive(
+  createdAt: string | null | undefined,
+  since = process.env.NOMA_COMMENT_COMMAND_SINCE?.trim() ||
+    COMMENT_COMMAND_SINCE_DEFAULT,
+) {
+  if (!createdAt) return false;
+  const at = Date.parse(createdAt);
+  const from = Date.parse(since);
+  return Number.isFinite(at) && (!Number.isFinite(from) || at >= from);
 }
 
 export function formatRound(round: number) {
