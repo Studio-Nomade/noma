@@ -74,3 +74,11 @@ Los avisos del flujo de correo (`notifyNewClientRequest` y `notifyTeamEvent`) re
 - **Sin vínculo, o si el bot falla:** el webhook del canal (`slack_webhook_env`) de siempre. Cuando todos los canales de correo estén vinculados, esa columna y las variables de webhook se pueden retirar.
 
 Por eso, en los proyectos de correo el módulo no repite `new_task`, `state_change` ni `completed`: esos avisos los da el flujo de solicitudes, con su contenido propio y en el mismo hilo.
+
+## Horario hábil (avisos internos)
+
+Los avisos internos solo se publican en horario hábil: lunes a viernes de 9:00 a 18:00, Santiago, sin los feriados de `NOMA_BUSINESS_HOLIDAYS`, igual que las entregas.
+
+- **Fuera de ese horario** el aviso queda en cola en su fila de `slack_notify_log` (`deliver_at` y `payload`, migración 0068) y no se publica.
+- **A las 08:55 del siguiente día hábil**, `flushPendingSlackNotices` publica un mensaje por tarea con todos sus eventos en orden, en el hilo de la solicitud. Lo llaman el pg_cron de `scheduled-deliveries`, el cron `slack-notify` y cada webhook de Asana.
+- **Qué cubre:** los avisos del módulo y los del flujo de solicitudes que van por el bot. La reconciliación del cron de un sábado también queda en cola.
