@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { flushScheduledDeliveries } from "@/features/email/deliveries";
+import { flushPendingSlackNotices } from "@/features/slack-notify/process";
 import { gateCronRequest } from "@/lib/cron";
 
 export const runtime = "nodejs";
@@ -44,9 +45,16 @@ export async function GET(request: Request) {
   });
   if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
   const result = await flushScheduledDeliveries({
-    deadline: Date.now() + 50_000,
+    deadline: Date.now() + 40_000,
   });
-  return NextResponse.json({ ok: true, ...result });
+  // Avisos internos de Slack que quedaron en cola fuera del horario hábil.
+  const slack = await flushPendingSlackNotices({
+    deadline: Date.now() + 15_000,
+  }).catch((error) => {
+    console.error("[cron:scheduled-deliveries:slack]", error);
+    return null;
+  });
+  return NextResponse.json({ ok: true, ...result, slack });
 }
 
 export const POST = GET;

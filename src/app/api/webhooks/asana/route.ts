@@ -17,6 +17,7 @@ import {
 import { isEmailChannelProject } from "@/features/email/store";
 import { openThreadForTask } from "@/features/email/thread-open";
 import {
+  flushPendingSlackNotices,
   notifyAsanaStory,
   notifyNewTask,
 } from "@/features/slack-notify/process";
@@ -128,6 +129,10 @@ export async function POST(request: Request) {
           console.error("[asana:webhook:story]", event.storyGid, error);
         }
       }
+      // De paso: avisos internos en cola cuya hora hábil ya llegó.
+      await flushPendingSlackNotices({ deadline: Date.now() + 10_000 }).catch(
+        (error) => console.error("[asana:webhook:slack-cola]", error),
+      );
       if (!emailProject) return;
       // De paso: entregas programadas fuera de horario que ya vencieron.
       await flushScheduledDeliveries({
