@@ -6,6 +6,7 @@ import {
   renderAdjustmentsAckEmail,
   renderApprovedEmail,
   renderCommentAckEmail,
+  renderCommentEmail,
   renderConfirmationEmail,
   renderConsultaEmail,
   renderDeliveryEmail,
@@ -320,4 +321,32 @@ test("las plantillas de solicitudes mantienen la nota del hilo por folio", () =>
   });
   assert.match(email.html, /así queda en la tarea/);
   assert.match(email.html, /Correo automático de la solicitud CA-NOV-0581/);
+});
+
+test("09 · comentario del equipo: texto tal cual, archivos y firma", () => {
+  const { html, text } = renderCommentEmail({
+    folio: "[BOX-NOV-0001]",
+    clientName: "Cliente",
+    alias: "cliente@studionomade.cl",
+    title: "Pieza",
+    requesterName: "Carolina Pérez",
+    text: "Los archivos están arriba nuevamente.\nCon el logo <corregido>.",
+    files: [
+      { label: "Pieza", url: "https://drive.google.com/x", detail: null },
+    ],
+    author: "Catalina Torres",
+    assetsBase: "https://assets.example.cl",
+  });
+  assert.match(html, /Hola Carolina,/);
+  assert.match(html, /Los archivos están arriba nuevamente\./);
+  assert.match(html, /Con el logo &lt;corregido&gt;\./);
+  assert.match(html, /href="https:\/\/drive\.google\.com\/x"/);
+  assert.match(html, /Catalina Torres/);
+  assert.doesNotMatch(html, /\{\{/);
+  assert.match(
+    text,
+    /^Hola Carolina,\n\nLos archivos están arriba nuevamente\./,
+  );
+  assert.match(text, /- Pieza: https:\/\/drive\.google\.com\/x/);
+  assert.match(text, /Catalina Torres · Studio Nomade/);
 });
