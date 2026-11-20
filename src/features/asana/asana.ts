@@ -724,10 +724,13 @@ export type AsanaStory = {
   /** Solo en cambios de campo (`enum_custom_field_changed`). */
   custom_field?: { gid?: string; name?: string } | null;
   new_enum_value?: { gid?: string; name?: string } | null;
+  old_enum_value?: { gid?: string; name?: string } | null;
+  /** Solo en asignaciones (`assigned`): a quién se asignó. */
+  assignee?: { gid?: string; name?: string } | null;
 };
 
 const STORY_FIELDS =
-  "gid,text,html_text,resource_subtype,created_at,created_by.gid,created_by.name,target.gid,custom_field.gid,custom_field.name,new_enum_value.gid,new_enum_value.name";
+  "gid,text,html_text,resource_subtype,created_at,created_by.gid,created_by.name,target.gid,custom_field.gid,custom_field.name,new_enum_value.gid,new_enum_value.name,old_enum_value.name,assignee.gid,assignee.name";
 
 export async function getStory(storyGid: string) {
   return asanaRequest<AsanaStory>(
@@ -1000,13 +1003,15 @@ export async function createWebhook(resourceGid: string, target: string) {
  * CONSULTA), cambios de Estado (Fuera de alcance → borrador del 07),
  * asignaciones (→ Planificada) y cierres (aviso en Slack).
  */
-export const WEBHOOK_FILTERS = HANDLED_STORY_SUBTYPES.map(
-  (resource_subtype) => ({
+export const WEBHOOK_FILTERS = [
+  ...HANDLED_STORY_SUBTYPES.map((resource_subtype) => ({
     resource_type: "story",
     resource_subtype,
     action: "added",
-  }),
-);
+  })),
+  // Tarea nueva en el proyecto → abre el hilo en Slack.
+  { resource_type: "task", action: "added" },
+];
 
 /** Filtros actuales de un webhook (para saber si hay que actualizarlos). */
 export async function getWebhookFilters(webhookGid: string) {

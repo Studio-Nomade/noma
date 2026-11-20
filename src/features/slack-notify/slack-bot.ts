@@ -95,3 +95,26 @@ export async function lookupSlackUserByEmail(
   }
   return result.user?.id ?? null;
 }
+
+/** Reemplaza el texto de un mensaje del bot (agrupación de 60 s). */
+export async function updateBotMessage(input: {
+  channel: string;
+  ts: string;
+  text: string;
+  mrkdwn: string;
+}): Promise<void> {
+  const result = await slackApi<SlackApiResponse>("chat.update", {
+    channel: input.channel,
+    ts: input.ts,
+    text: input.text,
+    blocks: [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: input.mrkdwn.slice(0, 2900) },
+      },
+    ],
+  });
+  if (!result.ok) {
+    throw new Error(`Slack chat.update: ${result.error ?? "error"}`);
+  }
+}

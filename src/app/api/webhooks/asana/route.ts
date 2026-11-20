@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { resolveBotUserGid } from "@/features/asana/asana";
 import {
   storyAddedEvents,
+  taskAddedEvents,
   verifyAsanaSignature,
 } from "@/features/asana/webhook-events";
 import {
@@ -14,7 +15,10 @@ import {
   processAsanaStory,
 } from "@/features/email/deliveries";
 import { isEmailChannelProject } from "@/features/email/store";
-import { notifyAsanaStory } from "@/features/slack-notify/process";
+import {
+  notifyAsanaStory,
+  notifyNewTask,
+} from "@/features/slack-notify/process";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -66,10 +70,15 @@ export async function POST(request: Request) {
     return new Response(null, { status: 204 });
   }
   const events = storyAddedEvents(payload);
+  const newTasks = taskAddedEvents(payload);
   await touchWebhook(projectGid).catch(() => undefined);
 
-  if (events.length) {
+  if (events.length || newTasks.length) {
     after(async () => {
+      // Tareas nuevas primero: abren el hilo donde caen los demás avisos.
+      for (const event of newTasks) {
+        await notifyNewTask({ taskGid: event.taskGid, projectGid });
+      }
       let botUserGid: string;
       try {
         botUserGid = await resolveBotUserGid();
