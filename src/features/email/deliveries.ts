@@ -1,6 +1,16 @@
 import "server-only";
 
-import { and, desc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
@@ -192,7 +202,20 @@ export async function processAsanaStory(
   const taskGid = story.target?.gid;
   if (!taskGid) return "skipped_no_request";
   const resolved = await resolveDeliveryRequest(taskGid);
-  if (!resolved) return "skipped_no_request";
+  if (!resolved) {
+    // Solicitud con folio pero sin hilo (tarea hecha a mano sin «Correo de
+    // contacto»): se avisa en la tarea en vez de ignorar la entrega.
+    if (command.kind !== "evaluacion" && command.kind !== "cliente") {
+      const pending = await requestWithoutThread(taskGid);
+      if (pending) {
+        await addStory(
+          taskGid,
+          `<body><em>Noma no envió ${command.kind === "delivery" ? "la entrega" : command.kind === "comentario" ? "el comentario" : "la consulta"}: la solicitud ${escapeHtml(pending.folio ?? "")} aún no tiene hilo de correo con el cliente. Completa «${CONTACT_FIELD}» en la tarea (Noma abre el hilo) y vuelve a comentar.</em></body>`,
+        ).catch((error) => console.error("[email:delivery:sin-hilo]", error));
+      }
+    }
+    return "skipped_no_request";
+  }
   const { request, piece } = resolved;
   // Mensaje del cliente por otro canal (WhatsApp, llamada): entra al flujo
   // como una respuesta del hilo (ver client-relay.ts).
@@ -640,6 +663,27 @@ async function findEmailRequestByTask(taskGid: string) {
       isNotNull(clientRequests.emailThreadId),
     ),
   });
+}
+
+/** Solicitud registrada sin hilo de la tarea o de su solicitud madre. */
+async function requestWithoutThread(taskGid: string) {
+  const own = await db.query.clientRequests.findFirst({
+    where: and(
+      eq(clientRequests.asanaTaskGid, taskGid),
+      isNull(clientRequests.emailThreadId),
+    ),
+  });
+  if (own) return own;
+  const owner = await findRequestAncestor(taskGid).catch(() => null);
+  if (!owner) return null;
+  return (
+    (await db.query.clientRequests.findFirst({
+      where: and(
+        eq(clientRequests.asanaTaskGid, owner.requestTaskGid),
+        isNull(clientRequests.emailThreadId),
+      ),
+    })) ?? null
+  );
 }
 
 /**

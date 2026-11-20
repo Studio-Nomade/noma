@@ -26,6 +26,7 @@ import {
 import { escapeHtml, renderConfirmationEmail } from "./templates";
 import {
   CONTACT_FIELD,
+  contactEmailFrom,
   decideThreadOpen,
   openedSubject,
   openedTaskName,
@@ -36,13 +37,13 @@ import {
 
 export type ThreadOpenOutcome =
   | "abierto"
+  | "folio"
   | "sin_canal"
   | "ya_existe"
   | "no_autorizado"
   | "subtarea"
   | "completada"
   | "con_folio"
-  | "sin_contacto"
   | "sin_titulo"
   | "anterior"
   | "error";
@@ -73,18 +74,40 @@ export async function openThreadForTask(input: {
     const existing = await db.query.clientRequests.findFirst({
       where: eq(clientRequests.asanaTaskGid, input.taskGid),
     });
-    // Ya tiene solicitud (del flujo de correo o abierta antes): solo se
-    // reintenta el correo de una apertura que no alcanzó a salir.
+    // Solicitud del flujo de correo, o ya con hilo: nada que hacer.
+    if (
+      existing &&
+      (existing.sourceMessageId !== sourceKey || existing.emailThreadId)
+    ) {
+      return "ya_existe";
+    }
+
+    const task = await getTaskForThread(input.taskGid);
+    const contact = contactEmailFrom(taskFieldValue(task, CONTACT_FIELD));
+    const trusted = contact ? await isTrustedSender(channel, contact) : false;
+    if (contact && !trusted && input.announce) {
+      await addStory(
+        input.taskGid,
+        `<body><em>Noma no abrió el hilo de correo: ${escapeHtml(contact)} no es un contacto registrado de ${escapeHtml(channel.clientName)} ni de un dominio permitido del canal. Agrégalo como contacto del cliente en Noma y vuelve a guardar el «${CONTACT_FIELD}».</em></body>`,
+      ).catch((error) => console.error("[email:hilo:story]", error));
+    }
+
+    // Ya registrada (con folio) sin hilo: se abre cuando llega el contacto.
     if (existing) {
-      if (existing.sourceMessageId !== sourceKey || existing.emailThreadId) {
-        return "ya_existe";
-      }
-      return (await sendOpening(existing, channel, input.taskGid))
+      if (!trusted || !contact) return contact ? "no_autorizado" : "folio";
+      const requesterName = await contactName(channel.clientId, contact).catch(
+        () => null,
+      );
+      const [updated] = await db
+        .update(clientRequests)
+        .set({ requesterEmail: contact, requesterName, updatedAt: new Date() })
+        .where(eq(clientRequests.id, existing.id))
+        .returning();
+      return (await sendOpening(updated ?? existing, channel, input.taskGid))
         ? "abierto"
         : "error";
     }
 
-    const task = await getTaskForThread(input.taskGid);
     const decision = decideThreadOpen({
       name: task.name,
       completed: Boolean(task.completed),
@@ -95,21 +118,11 @@ export async function openThreadForTask(input: {
     });
     if (!decision.open) return decision.reason;
 
-    if (!(await isTrustedSender(channel, decision.contactEmail))) {
-      if (input.announce) {
-        await addStory(
-          input.taskGid,
-          `<body><em>Noma no abrió el hilo de correo: ${escapeHtml(decision.contactEmail)} no es un contacto registrado de ${escapeHtml(channel.clientName)} ni de un dominio permitido del canal. Agrégalo como contacto del cliente en Noma y vuelve a guardar el «${CONTACT_FIELD}».</em></body>`,
-        ).catch((error) => console.error("[email:hilo:story]", error));
-      }
-      return "no_autorizado";
-    }
-
     const now = new Date();
-    const requesterName = await contactName(
-      channel.clientId,
-      decision.contactEmail,
-    ).catch(() => null);
+    const requesterEmail = trusted ? contact : null;
+    const requesterName = requesterEmail
+      ? await contactName(channel.clientId, requesterEmail).catch(() => null)
+      : null;
     const summary = summaryFromNotes(task.notes) || decision.title;
     const request = await db
       .transaction(async (tx) => {
@@ -127,7 +140,7 @@ export async function openThreadForTask(input: {
             status: "in_asana",
             emailChannelId: channel.id,
             emailSubject: openedSubject(folio, decision.title),
-            requesterEmail: decision.contactEmail,
+            requesterEmail,
             requesterName,
             ccEmails: channel.alwaysCc ?? [],
             folio,
@@ -164,7 +177,28 @@ export async function openThreadForTask(input: {
     await setTaskCustomFields(input.taskGid, fields).catch((error) =>
       console.error("[email:hilo:folio]", error),
     );
+    // Aviso de solicitud nueva en el hilo de Slack del proyecto.
+    await notifyNewClientRequest({
+      requestId: request.id,
+      slackWebhookEnv: channel.slackWebhookEnv,
+      clientName: channel.clientName,
+      projectName: channel.projectName,
+      summary: decision.title,
+      asanaUrl: request.asanaUrl,
+      folio: request.folio,
+      requester: request.requesterName
+        ? `${request.requesterName} (${request.requesterEmail})`
+        : request.requesterEmail,
+      thread: { projectGid: channel.asanaProjectGid, taskGid: input.taskGid },
+    }).catch((error) => console.error("[email:hilo:slack]", error));
 
+    if (!requesterEmail) {
+      await addStory(
+        input.taskGid,
+        `<body><em>Noma asignó el folio ${escapeHtml(request.folio ?? "")}. Para escribirle al cliente (entregas, consultas y comentarios por correo), completa «${CONTACT_FIELD}»: Noma abre el hilo en ese momento.</em></body>`,
+      ).catch((error) => console.error("[email:hilo:story]", error));
+      return contact ? "no_autorizado" : "folio";
+    }
     return (await sendOpening(request, channel, input.taskGid))
       ? "abierto"
       : "error";
@@ -251,19 +285,6 @@ async function sendOpening(
     taskGid,
     `<body><em>Noma abrió el hilo de correo con ${escapeHtml(request.requesterEmail ?? "")}: «${escapeHtml(request.emailSubject ?? "")}», desde ${escapeHtml(channel.alias)}. Desde ahora ENTREGA, CONSULTA, COMENTARIO y CLIENTE van en ese hilo.</em></body>`,
   ).catch((error) => console.error("[email:hilo:story]", error));
-  await notifyNewClientRequest({
-    requestId: request.id,
-    slackWebhookEnv: channel.slackWebhookEnv,
-    clientName: channel.clientName,
-    projectName: channel.projectName,
-    summary: title,
-    asanaUrl: request.asanaUrl,
-    folio: request.folio,
-    requester: request.requesterName
-      ? `${request.requesterName} (${request.requesterEmail})`
-      : request.requesterEmail,
-    thread: { projectGid: channel.asanaProjectGid, taskGid },
-  }).catch((error) => console.error("[email:hilo:slack]", error));
   return true;
 }
 
