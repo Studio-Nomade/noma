@@ -34,6 +34,9 @@ import { timingSafeEqual } from "node:crypto";
  *   resume con Claude y deja minuta, solicitudes propuestas y preguntas en
  *   Noma, un borrador del correo en la casilla (no lo envía) y un aviso en
  *   Slack. Nada sale al cliente. Para lo inmediato: «Procesar ahora» en la UI.
+ * - `slack-notify`: registra (o recrea) el webhook de Asana de cada proyecto
+ *   vinculado a un canal de Slack y avisa las menciones y tareas reabiertas
+ *   de las últimas 24 h que se perdieron. Publica en Slack como el bot Noma.
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
@@ -46,12 +49,17 @@ export const CRON_JOBS = {
   "assistant-briefing": "CRON_ASSISTANT_BRIEFING_ENABLED",
   "monthly-reports": "CRON_MONTHLY_REPORTS_ENABLED",
   "meetings-digest": "CRON_MEETINGS_DIGEST_ENABLED",
+  "slack-notify": "CRON_SLACK_NOTIFY_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;
 
 /** Crons que además acepta `Bearer NOMA_SCHEDULER_SECRET` (pg_cron). */
-const EXTERNAL_JOBS: ReadonlySet<CronJob> = new Set(["scheduled-deliveries"]);
+const EXTERNAL_JOBS: ReadonlySet<CronJob> = new Set([
+  "scheduled-deliveries",
+  // Permite una pasada más frecuente desde pg_cron, además del diario.
+  "slack-notify",
+]);
 
 type Env = Record<string, string | undefined>;
 

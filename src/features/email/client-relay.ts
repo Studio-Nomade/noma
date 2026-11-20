@@ -165,6 +165,7 @@ export async function processClientRelay(input: {
           assignee: slackMention(assignee, teamSlackUserIds()),
         }),
         channel.slackWebhookEnv,
+        { projectGid: projectGid, taskGid },
       );
     } else if (reply.kind === "approval") {
       await estado(ESTADO_APPROVED);
@@ -181,6 +182,7 @@ export async function processClientRelay(input: {
           asanaUrl: request.asanaUrl,
         }),
         channel.slackWebhookEnv,
+        { projectGid: projectGid, taskGid },
       );
     }
     if (reply.new_due_date && reply.new_due_date !== task?.due_on) {

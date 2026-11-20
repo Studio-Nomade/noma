@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { resolveBotUserGid } from "@/features/asana/asana";
 import {
   storyAddedEvents,
+  taskAddedEvents,
   verifyAsanaSignature,
 } from "@/features/asana/webhook-events";
 import {
@@ -13,6 +14,11 @@ import {
   flushScheduledDeliveries,
   processAsanaStory,
 } from "@/features/email/deliveries";
+import { isEmailChannelProject } from "@/features/email/store";
+import {
+  notifyAsanaStory,
+  notifyNewTask,
+} from "@/features/slack-notify/process";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,8 +28,12 @@ export const maxDuration = 60;
  *
  * - Handshake: la primera llamada trae X-Hook-Secret; se guarda cifrado (solo
  *   dentro de la ventana abierta por el script de registro) y se devuelve.
- * - Eventos: se valida X-Hook-Signature (HMAC-SHA256) y los comentarios
- *   nuevos se procesan con `after()` (flujo ENTREGA → correo al cliente).
+ * - Eventos: se valida X-Hook-Signature (HMAC-SHA256) y las stories nuevas
+ *   se procesan con `after()`:
+ *   - aviso en el canal de Slack vinculado al proyecto (todos los proyectos
+ *     con vínculo activo);
+ *   - flujo de solicitudes (ENTREGA → correo al cliente, Planificada al
+ *     asignar…), solo en los proyectos de un canal de correo.
  */
 export async function POST(request: Request) {
   const projectGid = new URL(request.url).searchParams.get("project")?.trim();
@@ -60,10 +70,15 @@ export async function POST(request: Request) {
     return new Response(null, { status: 204 });
   }
   const events = storyAddedEvents(payload);
+  const newTasks = taskAddedEvents(payload);
   await touchWebhook(projectGid).catch(() => undefined);
 
-  if (events.length) {
+  if (events.length || newTasks.length) {
     after(async () => {
+      // Tareas nuevas primero: abren el hilo donde caen los demás avisos.
+      for (const event of newTasks) {
+        await notifyNewTask({ taskGid: event.taskGid, projectGid });
+      }
       let botUserGid: string;
       try {
         botUserGid = await resolveBotUserGid();
@@ -72,7 +87,19 @@ export async function POST(request: Request) {
         console.error("[asana:webhook:bot]", error);
         return;
       }
+      const emailProject = await isEmailChannelProject(projectGid).catch(
+        (error) => {
+          console.error("[asana:webhook:channel]", error);
+          return false;
+        },
+      );
       for (const event of events) {
+        // Aviso en el canal de Slack del proyecto (si está vinculado). Va
+        // también con lo que hace la cuenta de Noma: así los agentes avisan
+        // al equipo sin cuentas personales.
+        await notifyAsanaStory({ storyGid: event.storyGid, projectGid });
+        // El flujo de solicitudes solo corre en proyectos de correo.
+        if (!emailProject) continue;
         // Stories de Noma: solo comentarios (pueden ser «CLIENTE», que
         // registra un mensaje del cliente); el resto se ignora sin pedirlo.
         if (
@@ -91,6 +118,7 @@ export async function POST(request: Request) {
           console.error("[asana:webhook:story]", event.storyGid, error);
         }
       }
+      if (!emailProject) return;
       // De paso: entregas programadas fuera de horario que ya vencieron.
       await flushScheduledDeliveries({
         limit: 5,

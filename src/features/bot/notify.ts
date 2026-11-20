@@ -1,5 +1,6 @@
 import "server-only";
 import { resolveSlackWebhook } from "@/features/email/channel-config";
+import { postTeamNoticeToThread } from "@/features/slack-notify/process";
 import { parseSlackUserIds } from "./team-events";
 
 const TIMEOUT_MS = 5_000;
@@ -9,11 +10,26 @@ type SlackBlock = {
   text: { type: "mrkdwn"; text: string };
 };
 
+/** Tarea de Asana del aviso: con vínculo activo, va en su hilo por el bot. */
+export type NoticeThread = { projectGid: string; taskGid: string } | null;
+
 async function sendOperationsNotification(
   text: string,
   blocks: SlackBlock[],
   webhookEnv?: string | null,
+  thread?: NoticeThread,
 ): Promise<{ connected: boolean; reason?: string }> {
+  // Proyecto vinculado a un canal (asana_slack_links): publica el bot Noma en
+  // el hilo de la solicitud. Sin vínculo, el webhook del canal de siempre.
+  if (thread?.projectGid && thread.taskGid) {
+    const posted = await postTeamNoticeToThread({
+      projectGid: thread.projectGid,
+      taskGid: thread.taskGid,
+      text,
+      mrkdwn: blocks.map((block) => block.text.text).join("\n"),
+    });
+    if (posted) return { connected: true };
+  }
   const webhookUrl = resolveSlackWebhook(webhookEnv);
   if (!webhookUrl) {
     return { connected: false, reason: "Slack operativo no configurado." };
@@ -58,6 +74,8 @@ export async function notifyNewClientRequest(input: {
   assigned?: boolean;
   /** Variable con el webhook de Slack del canal (si tiene uno propio). */
   slackWebhookEnv?: string | null;
+  /** Tarea de Asana: con el proyecto vinculado, abre el hilo en el canal. */
+  thread?: NoticeThread;
 }) {
   // Por ahora solo Asana: es donde el equipo se asigna y trabaja la tarea.
   const links = input.asanaUrl ? `<${input.asanaUrl}|Abrir en Asana>` : null;
@@ -87,6 +105,7 @@ export async function notifyNewClientRequest(input: {
       : "Nueva solicitud de cliente",
     [{ type: "section", text: { type: "mrkdwn", text: body } }],
     input.slackWebhookEnv,
+    input.thread,
   );
 }
 
@@ -97,11 +116,13 @@ export async function notifyNewClientRequest(input: {
 export async function notifyTeamEvent(
   message: { text: string; body: string },
   slackWebhookEnv?: string | null,
+  thread?: NoticeThread,
 ) {
   return sendOperationsNotification(
     message.text,
     [{ type: "section", text: { type: "mrkdwn", text: message.body } }],
     slackWebhookEnv,
+    thread,
   );
 }
 

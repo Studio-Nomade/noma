@@ -537,6 +537,33 @@ export async function listRecentTasksWithNotes(
   return out;
 }
 
+/** Gids de las tareas del proyecto modificadas desde `since` (paginado). */
+export async function listModifiedTaskGids(
+  projectGid: string,
+  since: Date,
+  maxPages = 3,
+): Promise<string[]> {
+  const out: string[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      project: projectGid,
+      modified_since: since.toISOString(),
+      limit: "100",
+      opt_fields: "gid",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<{ gid: string }[]>(
+      "GET",
+      `/tasks?${params.toString()}`,
+    );
+    out.push(...(envelope?.data ?? []).map((task) => task.gid));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
+
 /** Tarea con los campos que usa el informe mensual. */
 export type AsanaReportTask = {
   gid: string;
@@ -697,10 +724,13 @@ export type AsanaStory = {
   /** Solo en cambios de campo (`enum_custom_field_changed`). */
   custom_field?: { gid?: string; name?: string } | null;
   new_enum_value?: { gid?: string; name?: string } | null;
+  old_enum_value?: { gid?: string; name?: string } | null;
+  /** Solo en asignaciones (`assigned`): a quién se asignó. */
+  assignee?: { gid?: string; name?: string } | null;
 };
 
 const STORY_FIELDS =
-  "gid,text,html_text,resource_subtype,created_at,created_by.gid,created_by.name,target.gid,custom_field.gid,custom_field.name,new_enum_value.gid,new_enum_value.name";
+  "gid,text,html_text,resource_subtype,created_at,created_by.gid,created_by.name,target.gid,custom_field.gid,custom_field.name,new_enum_value.gid,new_enum_value.name,old_enum_value.name,assignee.gid,assignee.name";
 
 export async function getStory(storyGid: string) {
   return asanaRequest<AsanaStory>(
@@ -890,6 +920,33 @@ export async function getTaskAssignee(
   };
 }
 
+/** Personas del espacio de trabajo con su correo (paginado). */
+export async function listWorkspaceUsers(workspaceGid: string) {
+  const users: { gid: string; name: string | null; email: string | null }[] =
+    [];
+  let offset: string | null = null;
+  for (let page = 0; page < 10; page += 1) {
+    const params = new URLSearchParams({
+      opt_fields: "gid,name,email",
+      limit: "100",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<
+      { gid: string; name?: string | null; email?: string | null }[]
+    >("GET", `/workspaces/${encodeURIComponent(workspaceGid)}/users?${params}`);
+    for (const user of envelope?.data ?? []) {
+      users.push({
+        gid: user.gid,
+        name: user.name ?? null,
+        email: user.email ?? null,
+      });
+    }
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return users;
+}
+
 /** Correo de un usuario de Asana (null si el token no lo puede ver). */
 export async function getUserEmail(userGid: string): Promise<string | null> {
   const user = await asanaRequest<{ email?: string | null }>(
@@ -946,13 +1003,15 @@ export async function createWebhook(resourceGid: string, target: string) {
  * CONSULTA), cambios de Estado (Fuera de alcance → borrador del 07),
  * asignaciones (→ Planificada) y cierres (aviso en Slack).
  */
-export const WEBHOOK_FILTERS = HANDLED_STORY_SUBTYPES.map(
-  (resource_subtype) => ({
+export const WEBHOOK_FILTERS = [
+  ...HANDLED_STORY_SUBTYPES.map((resource_subtype) => ({
     resource_type: "story",
     resource_subtype,
     action: "added",
-  }),
-);
+  })),
+  // Tarea nueva en el proyecto → abre el hilo en Slack.
+  { resource_type: "task", action: "added" },
+];
 
 /** Filtros actuales de un webhook (para saber si hay que actualizarlos). */
 export async function getWebhookFilters(webhookGid: string) {

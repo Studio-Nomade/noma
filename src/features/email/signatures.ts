@@ -7,23 +7,21 @@ import type { Area } from "@/types/enums";
 
 export type EmailPurpose = "commercial" | "legal" | "people";
 
-const PURPOSE_DEFAULTS: Record<
-  EmailPurpose,
-  { name: string; email: string }
-> = {
-  commercial: {
-    name: "Studio Nomade · Comercial",
-    email: "sales@studionomade.cl",
-  },
-  legal: {
-    name: "Studio Nomade · Legal",
-    email: "legal@studionomade.cl",
-  },
-  people: {
-    name: "Studio Nomade · Personas",
-    email: "people@studionomade.cl",
-  },
-};
+const PURPOSE_DEFAULTS: Record<EmailPurpose, { name: string; email: string }> =
+  {
+    commercial: {
+      name: "Studio Nomade · Comercial",
+      email: "sales@studionomade.cl",
+    },
+    legal: {
+      name: "Studio Nomade · Legal",
+      email: "legal@studionomade.cl",
+    },
+    people: {
+      name: "Studio Nomade · Personas",
+      email: "people@studionomade.cl",
+    },
+  };
 
 function signatureKeys(purpose: EmailPurpose, area?: Area | null) {
   return [
@@ -77,9 +75,7 @@ export async function resolveEmailSender(
   const fallback = PURPOSE_DEFAULTS[purpose];
   const from = (
     signature?.senderEmail ||
-    (purpose === "commercial"
-      ? process.env.NOMA_COBRANZA_FROM
-      : undefined) ||
+    (purpose === "commercial" ? process.env.NOMA_COBRANZA_FROM : undefined) ||
     fallback.email
   )
     .trim()

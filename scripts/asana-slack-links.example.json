@@ -1,0 +1,25 @@
+{
+  "links": [
+    {
+      "asana_project_gid": "1200000000000001",
+      "asana_project_name": "Cliente A | Diseño Gráfico Mensual",
+      "slack_channel_id": "C0000000001",
+      "slack_channel_name": "#proy-cliente_a-plan-mensual",
+      "folio_prefix": "CA"
+    },
+    {
+      "asana_project_gid": "1200000000000002",
+      "asana_project_name": "General | Área",
+      "slack_channel_id": "C0000000002",
+      "slack_channel_name": "#general-area",
+      "events": { "completed": true, "new_task": false }
+    },
+    {
+      "asana_project_gid": "1200000000000003",
+      "asana_project_name": "Cliente B | Proyecto",
+      "slack_channel_id": "C0000000003",
+      "slack_channel_name": "#proy-cliente_b-proyecto",
+      "active": false
+    }
+  ]
+}

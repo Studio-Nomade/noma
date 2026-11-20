@@ -4,6 +4,7 @@ import { findEnumOption, type AsanaCustomFieldSetting } from "./custom-fields";
 import {
   signAsanaBody,
   storyAddedEvents,
+  taskAddedEvents,
   verifyAsanaSignature,
   webhookFiltersCurrent,
 } from "./webhook-events";
@@ -174,7 +175,69 @@ test("detecta webhooks con filtros desactualizados", () => {
       story("added_to_task"),
       story("added_to_project"),
     ]),
+    false,
+  );
+  assert.equal(
+    webhookFiltersCurrent([
+      story("comment_added"),
+      story("enum_custom_field_changed"),
+      story("assigned"),
+      story("marked_complete"),
+      story("added_to_task"),
+      story("added_to_project"),
+      story("marked_incomplete"),
+    ]),
+    false,
+  );
+  assert.equal(
+    webhookFiltersCurrent([
+      story("comment_added"),
+      story("enum_custom_field_changed"),
+      story("assigned"),
+      story("marked_complete"),
+      story("added_to_task"),
+      story("added_to_project"),
+      story("marked_incomplete"),
+      { resource_type: "task", resource_subtype: null, action: "added" },
+    ]),
     true,
   );
   assert.equal(webhookFiltersCurrent(null), false);
+});
+
+test("tareas nuevas en el proyecto", () => {
+  const events = taskAddedEvents({
+    events: [
+      {
+        action: "added",
+        user: { gid: "u1" },
+        resource: { gid: "t1", resource_type: "task" },
+        parent: { gid: "p1", resource_type: "project" },
+      },
+      // Repetido: una sola vez.
+      {
+        action: "added",
+        resource: { gid: "t1", resource_type: "task" },
+        parent: { gid: "p1", resource_type: "project" },
+      },
+      // Subtarea y cambio de sección: no son tareas nuevas del proyecto.
+      {
+        action: "added",
+        resource: { gid: "t2", resource_type: "task" },
+        parent: { gid: "t1", resource_type: "task" },
+      },
+      {
+        action: "added",
+        resource: { gid: "t3", resource_type: "task" },
+        parent: { gid: "s1", resource_type: "section" },
+      },
+      {
+        action: "changed",
+        resource: { gid: "t4", resource_type: "task" },
+        parent: { gid: "p1", resource_type: "project" },
+      },
+    ],
+  });
+  assert.deepEqual(events, [{ taskGid: "t1", userGid: "u1" }]);
+  assert.deepEqual(taskAddedEvents(null), []);
 });

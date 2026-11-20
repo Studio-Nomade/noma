@@ -24,6 +24,7 @@
     "email-studio:check": "tsx src/features/email-studio/check.ts",
     "email:seed-channels": "tsx scripts/email-channels-seed.ts",
     "asana:register-webhooks": "tsx --conditions=react-server scripts/asana-register-webhooks.ts",
+    "slack:seed-links": "tsx --conditions=react-server scripts/asana-slack-links-seed.ts",
     "rates:sync": "tsx scripts/sync-rates.ts",
     "quoter:seed-learnings": "tsx scripts/quoter-seed-learnings.ts",
     "quoter:import-precedents": "tsx --conditions=react-server scripts/quoter-import-precedents.ts",

@@ -658,6 +658,10 @@ export async function handleNewEmailRequest(input: {
     await notifyNewClientRequest({
       requestId: request.id,
       slackWebhookEnv: channel.slackWebhookEnv,
+      // Con el proyecto vinculado a un canal, abre el hilo de la solicitud.
+      thread: request.asanaTaskGid
+        ? { projectGid: channel.asanaProjectGid, taskGid: request.asanaTaskGid }
+        : null,
       clientName: channel.clientName,
       projectName: channel.projectName,
       summary: extraction.title,
@@ -1304,6 +1308,7 @@ async function actOnClientReply(input: {
             assignee: slackMention(assignee, teamSlackUserIds()),
           }),
           channel.slackWebhookEnv,
+          { projectGid: channel.asanaProjectGid, taskGid },
         );
       } else if (pieces) {
         await notifyTeamEvent(
@@ -1315,6 +1320,7 @@ async function actOnClientReply(input: {
             asanaUrl: request.asanaUrl,
           }),
           channel.slackWebhookEnv,
+          { projectGid: channel.asanaProjectGid, taskGid },
         );
       } else {
         await notifyTeamEvent(
@@ -1325,6 +1331,7 @@ async function actOnClientReply(input: {
             asanaUrl: request.asanaUrl,
           }),
           channel.slackWebhookEnv,
+          { projectGid: channel.asanaProjectGid, taskGid },
         );
       }
     } catch (error) {
