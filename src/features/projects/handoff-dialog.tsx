@@ -84,7 +84,11 @@ export function HandoffDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={busy}
+          >
             Cancelar
           </Button>
           <Button onClick={submit} disabled={busy}>

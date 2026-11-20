@@ -159,12 +159,15 @@ export async function reconcileMany(
       .set({ difference: money(totalDifference) })
       .where(eq(reconciliations.id, rec.id));
 
-    await logActivity({
-      entityType: "reconciliation",
-      entityId: rec.id,
-      action: `reconciliation_created:${source}`,
-      actorId,
-    }, tx);
+    await logActivity(
+      {
+        entityType: "reconciliation",
+        entityId: rec.id,
+        action: `reconciliation_created:${source}`,
+        actorId,
+      },
+      tx,
+    );
   });
 }
 
@@ -194,9 +197,7 @@ export async function revertReconciliation(formData: FormData): Promise<void> {
 
     // Mantiene el mismo orden global de locks que reconcileMany: primero
     // movimientos, luego documentos; dentro de cada tabla, UUID ascendente.
-    const txnIds = txnLinks
-      .map((link) => link.bankTransactionId)
-      .toSorted();
+    const txnIds = txnLinks.map((link) => link.bankTransactionId).toSorted();
     const docIds = docLinks.map((link) => link.documentId).toSorted();
     const lockedTxns = txnIds.length
       ? await tx

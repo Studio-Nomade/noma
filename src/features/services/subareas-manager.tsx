@@ -236,10 +236,7 @@ export function SubareasManager({
             <Button variant="outline" onClick={() => setDraft(null)}>
               Cancelar
             </Button>
-            <Button
-              disabled={pending || !draft?.name.trim()}
-              onClick={save}
-            >
+            <Button disabled={pending || !draft?.name.trim()} onClick={save}>
               Guardar
             </Button>
           </DialogFooter>

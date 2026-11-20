@@ -12,14 +12,12 @@ export function FlujoBars({
   if (data.length === 0) {
     return (
       <p className="text-muted-foreground py-8 text-center text-sm">
-        Sin movimientos bancarios todavía. Importa una cartola para ver el flujo.
+        Sin movimientos bancarios todavía. Importa una cartola para ver el
+        flujo.
       </p>
     );
   }
-  const max = Math.max(
-    1,
-    ...data.map((d) => Math.max(d.ingresos, d.egresos)),
-  );
+  const max = Math.max(1, ...data.map((d) => Math.max(d.ingresos, d.egresos)));
 
   return (
     <div className="flex items-end gap-2 overflow-x-auto pb-2">

@@ -33,7 +33,9 @@ export default async function RequestDetailPage({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="glass rounded-xl p-5">
-          <h2 className="font-heading mb-4 text-lg font-medium">Conversación</h2>
+          <h2 className="font-heading mb-4 text-lg font-medium">
+            Conversación
+          </h2>
           {request.messages.length ? (
             <ol className="space-y-3">
               {request.messages.map((message) => {

@@ -40,30 +40,34 @@ export type ProcessInput = {
 };
 
 // Palabras clave → servicios sugeridos por área (heurística del mock).
-const SERVICE_HINTS: Partial<Record<Area, { kw: RegExp; service: string }[]>> = {
-  "B&D": [
-    { kw: /logo|identidad|marca/i, service: "Desarrollo de Identidad de Marca" },
-    { kw: /manual/i, service: "Manual de Marca" },
-    { kw: /naming|nombre/i, service: "Naming" },
-    { kw: /packaging|envase/i, service: "Packaging" },
-  ],
-  WD: [
-    { kw: /landing/i, service: "Landing Page" },
-    { kw: /ecommerce|tienda|venta/i, service: "E-commerce" },
-    { kw: /corporativ/i, service: "Web Corporativa" },
-    { kw: /seo/i, service: "SEO básico" },
-  ],
-  "A&A": [
-    { kw: /video|spot|comercial/i, service: "Video Corporativo" },
-    { kw: /animaci|motion/i, service: "Animación / Motion Graphics" },
-    { kw: /foto/i, service: "Fotografía" },
-  ],
-  CSM: [
-    { kw: /rrss|redes|instagram|social/i, service: "Gestión de RRSS" },
-    { kw: /pauta|ads|publicidad/i, service: "Pauta / Ads" },
-    { kw: /contenido|grilla/i, service: "Grilla de Contenidos" },
-  ],
-};
+const SERVICE_HINTS: Partial<Record<Area, { kw: RegExp; service: string }[]>> =
+  {
+    "B&D": [
+      {
+        kw: /logo|identidad|marca/i,
+        service: "Desarrollo de Identidad de Marca",
+      },
+      { kw: /manual/i, service: "Manual de Marca" },
+      { kw: /naming|nombre/i, service: "Naming" },
+      { kw: /packaging|envase/i, service: "Packaging" },
+    ],
+    WD: [
+      { kw: /landing/i, service: "Landing Page" },
+      { kw: /ecommerce|tienda|venta/i, service: "E-commerce" },
+      { kw: /corporativ/i, service: "Web Corporativa" },
+      { kw: /seo/i, service: "SEO básico" },
+    ],
+    "A&A": [
+      { kw: /video|spot|comercial/i, service: "Video Corporativo" },
+      { kw: /animaci|motion/i, service: "Animación / Motion Graphics" },
+      { kw: /foto/i, service: "Fotografía" },
+    ],
+    CSM: [
+      { kw: /rrss|redes|instagram|social/i, service: "Gestión de RRSS" },
+      { kw: /pauta|ads|publicidad/i, service: "Pauta / Ads" },
+      { kw: /contenido|grilla/i, service: "Grilla de Contenidos" },
+    ],
+  };
 
 function sentences(text: string): string[] {
   return text
@@ -97,9 +101,15 @@ export async function processBriefNotes(
 
   const executiveSummary = s.slice(0, 2).join(" ") || text.slice(0, 240);
   const budget = pick(text, [/\$|uf|clp|presupuesto|budget|millon/i]);
-  const deadlines = pick(text, [/plazo|semana|mes|fecha|urg|deadline|antes de/i]);
-  const decisionMakers = pick(text, [/gerent|director|dueñ|socio|decide|jefe|ceo/i]);
-  const targetAudience = pick(text, [/público|clientes|target|audiencia|segmento/i]);
+  const deadlines = pick(text, [
+    /plazo|semana|mes|fecha|urg|deadline|antes de/i,
+  ]);
+  const decisionMakers = pick(text, [
+    /gerent|director|dueñ|socio|decide|jefe|ceo/i,
+  ]);
+  const targetAudience = pick(text, [
+    /público|clientes|target|audiencia|segmento/i,
+  ]);
 
   // Preguntas del área principal: respondidas vs pendientes (heurística).
   const answeredByArea: BriefExtraction["answeredByArea"] = {};
@@ -149,11 +159,14 @@ export async function processBriefNotes(
     engine: "mock",
     executiveSummary,
     clientContext: s[0] ?? "",
-    explicitNeed: pick(text, [/necesit|quiere|busca|requiere/i]) || executiveSummary,
+    explicitNeed:
+      pick(text, [/necesit|quiere|busca|requiere/i]) || executiveSummary,
     implicitNeed: "",
     coreProblem: pick(text, [/problema|dolor|dificultad|no logra/i]),
     objectives: s
-      .filter((x) => /objetivo|lograr|meta|aumentar|mejorar|posicionar/i.test(x))
+      .filter((x) =>
+        /objetivo|lograr|meta|aumentar|mejorar|posicionar/i.test(x),
+      )
       .slice(0, 4),
     targetAudience,
     requestedServices: [...suggested],

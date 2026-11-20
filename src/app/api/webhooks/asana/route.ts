@@ -15,6 +15,7 @@ import {
   processAsanaStory,
 } from "@/features/email/deliveries";
 import { isEmailChannelProject } from "@/features/email/store";
+import { openThreadForTask } from "@/features/email/thread-open";
 import {
   notifyAsanaStory,
   notifyNewTask,
@@ -75,9 +76,24 @@ export async function POST(request: Request) {
 
   if (events.length || newTasks.length) {
     after(async () => {
+      const emailProject = await isEmailChannelProject(projectGid).catch(
+        (error) => {
+          console.error("[asana:webhook:channel]", error);
+          return false;
+        },
+      );
       // Tareas nuevas primero: abren el hilo donde caen los demás avisos.
       for (const event of newTasks) {
         await notifyNewTask({ taskGid: event.taskGid, projectGid });
+        // Proyecto con canal: con «Correo de contacto», Noma abre el hilo de
+        // correo («Solicitud registrada · [FOLIO] Título»).
+        if (emailProject) {
+          await openThreadForTask({
+            taskGid: event.taskGid,
+            projectGid,
+            announce: true,
+          });
+        }
       }
       let botUserGid: string;
       try {
@@ -87,12 +103,6 @@ export async function POST(request: Request) {
         console.error("[asana:webhook:bot]", error);
         return;
       }
-      const emailProject = await isEmailChannelProject(projectGid).catch(
-        (error) => {
-          console.error("[asana:webhook:channel]", error);
-          return false;
-        },
-      );
       for (const event of events) {
         // Aviso en el canal de Slack del proyecto (si está vinculado). Va
         // también con lo que hace la cuenta de Noma: así los agentes avisan

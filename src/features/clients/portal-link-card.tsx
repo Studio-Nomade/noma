@@ -78,7 +78,11 @@ export function PortalLinkCard({
             Genera un enlace privado para que el cliente vea su estado de cuenta
             y el avance de sus proyectos. No necesita cuenta ni contraseña.
           </p>
-          <Button variant="outline" onClick={() => generate()} disabled={pending}>
+          <Button
+            variant="outline"
+            onClick={() => generate()}
+            disabled={pending}
+          >
             <Link2 className="size-4" />
             {pending ? "Generando…" : "Generar enlace del portal"}
           </Button>

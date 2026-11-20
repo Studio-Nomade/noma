@@ -69,15 +69,13 @@ export async function createSurvey(raw: SurveyInput): Promise<ActionResult> {
           createdBy: user.id,
         })
         .returning({ id: surveys.id });
-      await tx
-        .insert(surveyQuestions)
-        .values(
-          data.questions.map((question, order) => ({
-            ...question,
-            surveyId: survey.id,
-            order,
-          })),
-        );
+      await tx.insert(surveyQuestions).values(
+        data.questions.map((question, order) => ({
+          ...question,
+          surveyId: survey.id,
+          order,
+        })),
+      );
       return survey.id;
     });
     await logActivity({
@@ -219,22 +217,18 @@ export async function submitSurvey(
         })
         .returning({ id: surveyResponses.id });
       if (answers.length)
-        await tx
-          .insert(surveyAnswers)
-          .values(
-            answers
-              .filter((answer) =>
-                questions.some((question) => question.id === answer.questionId),
-              )
-              .map((answer) => ({
-                responseId: response.id,
-                ...answer,
-                valueNumber:
-                  answer.valueNumber == null
-                    ? null
-                    : String(answer.valueNumber),
-              })),
-          );
+        await tx.insert(surveyAnswers).values(
+          answers
+            .filter((answer) =>
+              questions.some((question) => question.id === answer.questionId),
+            )
+            .map((answer) => ({
+              responseId: response.id,
+              ...answer,
+              valueNumber:
+                answer.valueNumber == null ? null : String(answer.valueNumber),
+            })),
+        );
     });
     // Anonimato: rompe la correlación por `xmin`.
     //

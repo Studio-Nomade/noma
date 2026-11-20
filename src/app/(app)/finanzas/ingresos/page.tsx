@@ -11,13 +11,13 @@ import type { DocumentDirection, FinDocumentType } from "@/types/enums";
 export default async function IngresosPage({
   searchParams,
 }: {
-    searchParams: Promise<{
-      estado?: string;
-      page?: string;
-      pageSize?: string;
-      vista?: string;
-      libro?: string;
-    }>;
+  searchParams: Promise<{
+    estado?: string;
+    page?: string;
+    pageSize?: string;
+    vista?: string;
+    libro?: string;
+  }>;
 }) {
   const {
     estado,

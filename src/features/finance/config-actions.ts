@@ -13,10 +13,7 @@ import {
 } from "@/db/schema";
 import { requireFinance } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
-import type {
-  Currency,
-  RuleMatchField,
-} from "@/types/enums";
+import type { Currency, RuleMatchField } from "@/types/enums";
 import { loadActiveRules, classify } from "./import/classify";
 import { toNum } from "./helpers";
 import { getSuggestions } from "./queries";
@@ -78,7 +75,7 @@ export async function createClassificationRule(
 ): Promise<void> {
   const user = await requireFinance();
   const name = ((formData.get("name") as string) || "").trim();
-  const matchField = (formData.get("matchField") as string) as RuleMatchField;
+  const matchField = formData.get("matchField") as string as RuleMatchField;
   const matchOperator = (formData.get("matchOperator") as string) || "equals";
   const matchValue = ((formData.get("matchValue") as string) || "").trim();
   const ledgerAccountId = (formData.get("ledgerAccountId") as string) || null;
@@ -239,7 +236,9 @@ function ruleMatches(
   if (type === "FOLIO") return glosa.includes(normalized(suggestion.docFolio));
   if (type === "RUT") {
     const rut = (suggestion.docRut ?? "").replace(/\D/g, "");
-    return rut.length >= 6 && glosa.replace(/\D/g, "").includes(rut.slice(0, -1));
+    return (
+      rut.length >= 6 && glosa.replace(/\D/g, "").includes(rut.slice(0, -1))
+    );
   }
   if (type === "DESCRIPCION") {
     const significant = normalized(suggestion.docContacto)

@@ -80,23 +80,26 @@ export async function getUpcomingBirthdays() {
     );
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return members
-    .filter((member): member is typeof member & { birthDate: string } =>
-      Boolean(member.birthDate),
-    )
-    .map((member) => {
-      const [, month, day] = member.birthDate.split("-").map(Number);
-      let next = new Date(now.getFullYear(), month - 1, day);
-      if (next < today) next = new Date(now.getFullYear() + 1, month - 1, day);
-      return {
-        ...member,
-        nextBirthday: next.toISOString(),
-        daysUntil: Math.round((next.getTime() - today.getTime()) / 86400000),
-      };
-    })
-    // Solo cumpleaños que vienen: la ventana es hacia adelante. Antes se incluía
-    // "cualquiera de este mes", lo que arrastraba los ya pasados con un daysUntil
-    // de ~350 y la UI los mostraba como "en 344 días".
-    .filter((member) => member.daysUntil <= 45)
-    .sort((a, b) => a.daysUntil - b.daysUntil);
+  return (
+    members
+      .filter((member): member is typeof member & { birthDate: string } =>
+        Boolean(member.birthDate),
+      )
+      .map((member) => {
+        const [, month, day] = member.birthDate.split("-").map(Number);
+        let next = new Date(now.getFullYear(), month - 1, day);
+        if (next < today)
+          next = new Date(now.getFullYear() + 1, month - 1, day);
+        return {
+          ...member,
+          nextBirthday: next.toISOString(),
+          daysUntil: Math.round((next.getTime() - today.getTime()) / 86400000),
+        };
+      })
+      // Solo cumpleaños que vienen: la ventana es hacia adelante. Antes se incluía
+      // "cualquiera de este mes", lo que arrastraba los ya pasados con un daysUntil
+      // de ~350 y la UI los mostraba como "en 344 días".
+      .filter((member) => member.daysUntil <= 45)
+      .sort((a, b) => a.daysUntil - b.daysUntil)
+  );
 }

@@ -162,20 +162,27 @@ export function ServicesList({
           />
         </div>
         <div className="flex flex-wrap gap-2">
-        <FilterChip active={area === "all"} onClick={() => {
-          setArea("all");
-          setSubarea("all");
-        }}>
-          Todos
-        </FilterChip>
-        {presentAreas.map((a) => (
-          <FilterChip key={a} active={area === a} onClick={() => {
-            setArea(a);
-            setSubarea("all");
-          }}>
-            {a}
+          <FilterChip
+            active={area === "all"}
+            onClick={() => {
+              setArea("all");
+              setSubarea("all");
+            }}
+          >
+            Todos
           </FilterChip>
-        ))}
+          {presentAreas.map((a) => (
+            <FilterChip
+              key={a}
+              active={area === a}
+              onClick={() => {
+                setArea(a);
+                setSubarea("all");
+              }}
+            >
+              {a}
+            </FilterChip>
+          ))}
         </div>
         {availableSubareas.length > 0 && (
           <div className="flex flex-wrap gap-2">

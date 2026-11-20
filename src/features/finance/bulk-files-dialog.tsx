@@ -42,9 +42,7 @@ function Dropzone({
   const ext = kind === "pdf" ? ".pdf" : ".xml";
 
   function filter(list: FileList | null): File[] {
-    return [...(list ?? [])].filter((f) =>
-      f.name.toLowerCase().endsWith(ext),
-    );
+    return [...(list ?? [])].filter((f) => f.name.toLowerCase().endsWith(ext));
   }
 
   return (
@@ -203,8 +201,8 @@ export function BulkFilesDialog({
                 <FileCode2 className="size-4 shrink-0" />
                 <span>
                   Detalle extraído de <strong>{result.extracted}</strong>{" "}
-                  {result.extracted === 1 ? "XML" : "XML"} — líneas y clasificación
-                  sugerida (línea de negocio / servicio).
+                  {result.extracted === 1 ? "XML" : "XML"} — líneas y
+                  clasificación sugerida (línea de negocio / servicio).
                 </span>
               </div>
             )}

@@ -216,9 +216,7 @@ function CloseTaskCard({
       </div>
       <h2 className="font-heading font-medium">{title}</h2>
       <p className="text-muted-foreground mt-1 text-sm">{count}</p>
-      <p className="mt-3 text-xl font-semibold">
-        {formatMoney(amount, "CLP")}
-      </p>
+      <p className="mt-3 text-xl font-semibold">{formatMoney(amount, "CLP")}</p>
       <p className="text-muted-foreground mt-1 text-xs">{detail}</p>
     </article>
   );

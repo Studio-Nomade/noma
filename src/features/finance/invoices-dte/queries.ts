@@ -10,10 +10,7 @@ import {
   salesOrders,
 } from "@/db/schema";
 import type { InvoiceStatus } from "@/types/enums";
-import {
-  INVOICES_BUCKET,
-  signedUrl,
-} from "@/lib/supabase/storage";
+import { INVOICES_BUCKET, signedUrl } from "@/lib/supabase/storage";
 
 export async function listInvoiceRegistry(opts?: {
   status?: InvoiceStatus;

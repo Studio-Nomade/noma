@@ -25,10 +25,7 @@ import {
 } from "@/types/enums";
 import type { Service } from "@/db/schema";
 import type { ServicePackageWithItems } from "@/features/services/queries";
-import {
-  SERVICE_TIER_META,
-  type ServiceTier,
-} from "@/features/services/tiers";
+import { SERVICE_TIER_META, type ServiceTier } from "@/features/services/tiers";
 import type { ProposalServiceRow } from "./queries";
 import { lineAmount } from "./totals";
 import {
@@ -147,11 +144,7 @@ export function ServiceSelector({
   }
   function setVariant(rowId: string, tier: ServiceTier) {
     startTransition(async () => {
-      const res = await updateProposalServiceVariant(
-        rowId,
-        proposalId,
-        tier,
-      );
+      const res = await updateProposalServiceVariant(rowId, proposalId, tier);
       if (res.ok) router.refresh();
       else toast.error(res.error);
     });

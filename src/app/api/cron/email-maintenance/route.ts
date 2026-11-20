@@ -9,6 +9,8 @@ import {
 import { processPendingEmails } from "@/features/email/processor";
 import { renewMailboxWatch, syncMailboxHistory } from "@/features/email/sync";
 import { sortRequestSections } from "@/features/email/requests";
+import { listActiveChannels } from "@/features/email/store";
+import { reconcileThreadOpenings } from "@/features/email/thread-open";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -70,6 +72,16 @@ export async function GET(request: Request) {
   await step("asanaSectionOrder", () => sortRequestSections());
   await step("asanaReconcile", () =>
     reconcileAsanaDeliveries({ deadline: deadline - 5_000 }),
+  );
+  // Tareas con «Correo de contacto» sin hilo (webhook perdido o correo que
+  // no salió): Noma abre el hilo.
+  await step("asanaThreadOpenings", async () =>
+    reconcileThreadOpenings({
+      projectGids: (await listActiveChannels()).map(
+        (channel) => channel.asanaProjectGid,
+      ),
+      deadline: deadline - 2_000,
+    }),
   );
 
   return NextResponse.json({ ok: true, ...report });

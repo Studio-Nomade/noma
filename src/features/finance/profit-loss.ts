@@ -110,10 +110,7 @@ export async function getMonthlyProfitAndLoss({
     )
     .leftJoin(services, eq(finDocuments.serviceId, services.id))
     .leftJoin(finContacts, eq(finDocuments.contactId, finContacts.id))
-    .leftJoin(
-      businessLines,
-      eq(finDocuments.businessLineId, businessLines.id),
-    )
+    .leftJoin(businessLines, eq(finDocuments.businessLineId, businessLines.id))
     .where(
       and(
         eq(finDocuments.recordStatus, "ACTIVO"),
@@ -281,8 +278,7 @@ export async function getMonthlyProfitAndLoss({
           subtract.reduce((sum, item) => sum + item.months[month], 0),
       ]),
     ),
-    total:
-      left.total - subtract.reduce((sum, item) => sum + item.total, 0),
+    total: left.total - subtract.reduce((sum, item) => sum + item.total, 0),
     proforma:
       left.proforma - subtract.reduce((sum, item) => sum + item.proforma, 0),
   });

@@ -17,7 +17,9 @@ const meetingSchema = z
     title: z.string().trim().min(1, "El título de la reunión es obligatorio."),
     objective: z.string().trim().optional(),
     agenda: z.string().trim().optional(),
-    area: z.enum(AREAS, { message: "Selecciona el área principal preliminar." }),
+    area: z.enum(AREAS, {
+      message: "Selecciona el área principal preliminar.",
+    }),
     areas: z.array(z.enum(AREAS)).default([]),
     responsibleId: z
       .string()
@@ -28,7 +30,9 @@ const meetingSchema = z
     time: z.string().trim().min(1, "La hora es obligatoria."),
     durationMin: z.number().int().positive().default(45),
     internalParticipantIds: z.array(z.string().uuid()).default([]),
-    externalEmails: z.array(z.string().email("Correo externo inválido.")).default([]),
+    externalEmails: z
+      .array(z.string().email("Correo externo inválido."))
+      .default([]),
     primaryContact: z
       .object({ name: z.string().optional(), email: z.string().email() })
       .nullable()
@@ -154,7 +158,10 @@ export async function scheduleBriefMeeting(
     // Avanza la oportunidad en el pipeline.
     await db
       .update(projects)
-      .set({ commercialStage: "Reunión inicial agendada", updatedAt: new Date() })
+      .set({
+        commercialStage: "Reunión inicial agendada",
+        updatedAt: new Date(),
+      })
       .where(eq(projects.id, d.projectId));
 
     // Sincroniza el estado del brief (crea el sobre si no existe).

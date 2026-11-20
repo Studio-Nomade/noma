@@ -99,7 +99,7 @@ export default async function SalesOrderDetailPage({
                 </div>
               ))}
             </div>
-            <div className="ml-auto mt-4 max-w-xs space-y-2 text-sm">
+            <div className="mt-4 ml-auto max-w-xs space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span>{formatMoney(order.subtotalAmount, order.currency)}</span>
