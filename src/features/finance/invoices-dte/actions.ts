@@ -13,10 +13,7 @@ import {
 import { requireFinance } from "@/lib/auth";
 import { handleActionError, type ActionResult } from "@/lib/actions";
 import { logActivity } from "@/lib/activity";
-import {
-  INVOICES_BUCKET,
-  uploadToStorage,
-} from "@/lib/supabase/storage";
+import { INVOICES_BUCKET, uploadToStorage } from "@/lib/supabase/storage";
 
 const idSchema = z.string().uuid();
 
@@ -36,8 +33,7 @@ async function refreshSalesOrderStatus(
   await writer
     .update(salesOrders)
     .set({
-      status:
-        billed === items.length ? "FACTURADA" : "FACTURADA_PARCIAL",
+      status: billed === items.length ? "FACTURADA" : "FACTURADA_PARCIAL",
       updatedAt: new Date(),
     })
     .where(eq(salesOrders.id, salesOrderId));
@@ -64,10 +60,7 @@ export async function createInvoiceForBillingItem(
       )
       .innerJoin(clients, eq(salesOrders.clientId, clients.id))
       .where(
-        and(
-          eq(salesOrders.id, orderId),
-          eq(salesOrderBillingItems.id, itemId),
-        ),
+        and(eq(salesOrders.id, orderId), eq(salesOrderBillingItems.id, itemId)),
       )
       .limit(1);
     if (!row) return { ok: false, error: "Hito de facturación no encontrado." };
@@ -226,7 +219,9 @@ export async function attachInvoiceDte(
     const invoiceId = idSchema.parse(formData.get("invoiceId"));
     const files = formData
       .getAll("files")
-      .filter((value): value is File => value instanceof File && value.size > 0);
+      .filter(
+        (value): value is File => value instanceof File && value.size > 0,
+      );
     if (!files.length) return { ok: false, error: "Adjunta un PDF o XML." };
     if (files.some((file) => file.size > 15 * 1024 * 1024)) {
       return { ok: false, error: "Cada archivo puede pesar hasta 15 MB." };
@@ -313,9 +308,9 @@ export async function updateInvoiceCollectionStatus(
 ): Promise<void> {
   const user = await requireFinance();
   const invoiceId = idSchema.parse(formData.get("invoiceId"));
-  const status = z.enum(["Por cobrar", "Pagada", "Reclamada"]).parse(
-    formData.get("status"),
-  );
+  const status = z
+    .enum(["Por cobrar", "Pagada", "Reclamada"])
+    .parse(formData.get("status"));
   const [invoice] = await db
     .select({
       billingItemId: invoices.billingItemId,

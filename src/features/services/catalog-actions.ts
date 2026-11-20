@@ -164,7 +164,9 @@ export async function deleteServiceSubarea(input: {
           .where(eq(serviceSubareas.id, data.moveToId))
           .limit(1);
         if (!target || target.area !== current.area) {
-          throw new Error("La subárea de destino debe pertenecer a la misma área.");
+          throw new Error(
+            "La subárea de destino debe pertenecer a la misma área.",
+          );
         }
         targetName = target.name;
       }

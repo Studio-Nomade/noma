@@ -35,7 +35,11 @@ export function DiscountEditor({
   locked = false,
 }: {
   proposalId: string;
-  initial: { label: string | null; kind: DiscountKind | null; value: number | null };
+  initial: {
+    label: string | null;
+    kind: DiscountKind | null;
+    value: number | null;
+  };
   discountClp: number;
   locked?: boolean;
 }) {
@@ -114,10 +118,7 @@ export function DiscountEditor({
             </button>
           )}
         </dt>
-        <dd
-          className="font-medium"
-          style={{ color: "var(--status-emerald)" }}
-        >
+        <dd className="font-medium" style={{ color: "var(--status-emerald)" }}>
           − {formatMoney(discountClp, "CLP")}
         </dd>
       </div>

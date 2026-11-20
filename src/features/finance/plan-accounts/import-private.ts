@@ -6,11 +6,7 @@ import Papa from "papaparse";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerAccounts, services } from "@/db/schema";
-import type {
-  Area,
-  LedgerAccountKind,
-  LedgerAccountType,
-} from "@/types/enums";
+import type { Area, LedgerAccountKind, LedgerAccountType } from "@/types/enums";
 
 type SourceRow = {
   nivel: number;
@@ -93,7 +89,9 @@ async function readRows(path: string): Promise<SourceRow[]> {
       if (rowNumber === 1) return;
       const values = (row.values as unknown[]).slice(1);
       rows.push(
-        Object.fromEntries(headers.map((header, index) => [header, values[index]])),
+        Object.fromEntries(
+          headers.map((header, index) => [header, values[index]]),
+        ),
       );
     });
   }

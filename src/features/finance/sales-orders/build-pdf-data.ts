@@ -1,10 +1,7 @@
 import "server-only";
 
 import type { Currency } from "@/types/enums";
-import {
-  getSalesOrder,
-  getSalesOrderLines,
-} from "./queries";
+import { getSalesOrder, getSalesOrderLines } from "./queries";
 import type { SalesOrderPdfData } from "./sales-order-pdf";
 
 export async function buildSalesOrderPdfData(id: string): Promise<{

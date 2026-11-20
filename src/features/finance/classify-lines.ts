@@ -11,12 +11,30 @@ import type { DteLine } from "./import/dte-xml";
 
 // Palabras clave por área (orden = prioridad si hay empate).
 const AREA_HINTS: [Area, RegExp][] = [
-  ["WD", /web\s*design|desarrollo\s*web|plataforma\s*web|landing|ecommerce|sitio\s*web|\bweb\b|wordpress|webflow/i],
-  ["B&D", /branding|identidad|marca|\blogo\b|naming|packaging|manual\s*de\s*marca|papeler[ií]a|editorial/i],
-  ["A&A", /audiovisual|\bvideo\b|animaci[oó]n|motion|\bspot\b|\breel|fotograf|locuci/i],
-  ["A&D", /arquitect|interiorismo|\bstand\b|render|3d|mobiliario|se[nñ]al[eé]tica/i],
-  ["CSM", /content|social\s*media|\brrss\b|redes\s*sociales|community|contenido|reels|pauta|\bads\b/i],
-  ["STR", /strateg|consultor[ií]a|estrateg|workshop|diagn[oó]stico|asesor[ií]a\s*estrat/i],
+  [
+    "WD",
+    /web\s*design|desarrollo\s*web|plataforma\s*web|landing|ecommerce|sitio\s*web|\bweb\b|wordpress|webflow/i,
+  ],
+  [
+    "B&D",
+    /branding|identidad|marca|\blogo\b|naming|packaging|manual\s*de\s*marca|papeler[ií]a|editorial/i,
+  ],
+  [
+    "A&A",
+    /audiovisual|\bvideo\b|animaci[oó]n|motion|\bspot\b|\breel|fotograf|locuci/i,
+  ],
+  [
+    "A&D",
+    /arquitect|interiorismo|\bstand\b|render|3d|mobiliario|se[nñ]al[eé]tica/i,
+  ],
+  [
+    "CSM",
+    /content|social\s*media|\brrss\b|redes\s*sociales|community|contenido|reels|pauta|\bads\b/i,
+  ],
+  [
+    "STR",
+    /strateg|consultor[ií]a|estrateg|workshop|diagn[oó]stico|asesor[ií]a\s*estrat/i,
+  ],
   ["CE", /cl[ií]nica|emprendim/i],
   ["MP", /mercado\s*p[uú]blico|licitaci[oó]n/i],
 ];
@@ -78,7 +96,9 @@ export function matchService(
   let bestId: string | null = null;
   let bestScore = 0;
   for (const svc of pool) {
-    const svcTokens = fold(svc.name).split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+    const svcTokens = fold(svc.name)
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 3);
     const overlap = svcTokens.filter((t) => itemTokens.has(t)).length;
     if (overlap > bestScore) {
       bestScore = overlap;

@@ -116,7 +116,10 @@ export async function searchRecentDocs(
     throw err;
   }
 
-  const clauses = ["mimeType = 'application/vnd.google-apps.document'", "trashed = false"];
+  const clauses = [
+    "mimeType = 'application/vnd.google-apps.document'",
+    "trashed = false",
+  ];
   if (opts.sinceIso) clauses.push(`modifiedTime > '${opts.sinceIso}'`);
   const names = (opts.nameContains ?? []).filter(Boolean);
   if (names.length) {
@@ -128,7 +131,8 @@ export async function searchRecentDocs(
     q: clauses.join(" and "),
     orderBy: "modifiedTime desc",
     pageSize: String(opts.limit ?? 20),
-    fields: "files(id,name,mimeType,modifiedTime,webViewLink,owners(emailAddress))",
+    fields:
+      "files(id,name,mimeType,modifiedTime,webViewLink,owners(emailAddress))",
   });
 
   const res = await fetch(

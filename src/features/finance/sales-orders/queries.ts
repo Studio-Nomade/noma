@@ -89,8 +89,5 @@ export async function getSalesOrderBillingItemsForProject(projectId: string) {
       eq(salesOrderBillingItems.salesOrderId, salesOrders.id),
     )
     .where(eq(salesOrders.projectId, projectId))
-    .orderBy(
-      desc(salesOrders.createdAt),
-      asc(salesOrderBillingItems.order),
-    );
+    .orderBy(desc(salesOrders.createdAt), asc(salesOrderBillingItems.order));
 }

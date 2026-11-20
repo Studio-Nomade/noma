@@ -19,98 +19,89 @@ export async function getMonthlyCloseCockpit(period: string) {
     documents,
     billingItems,
     automaticClassifications,
-  ] =
-    await Promise.all([
-      db
-        .select({
-          id: bankTransactions.id,
-          type: bankTransactions.tipo,
-          status: bankTransactions.status,
-          amount: bankTransactions.monto,
-        })
-        .from(bankTransactions)
-        .where(
-          and(
-            eq(bankTransactions.recordStatus, "ACTIVO"),
-            gte(bankTransactions.fecha, start),
-            lt(bankTransactions.fecha, nextStart),
-          ),
+  ] = await Promise.all([
+    db
+      .select({
+        id: bankTransactions.id,
+        type: bankTransactions.tipo,
+        status: bankTransactions.status,
+        amount: bankTransactions.monto,
+      })
+      .from(bankTransactions)
+      .where(
+        and(
+          eq(bankTransactions.recordStatus, "ACTIVO"),
+          gte(bankTransactions.fecha, start),
+          lt(bankTransactions.fecha, nextStart),
         ),
-      db
-        .select({ transactionId: reconciliationTransactions.bankTransactionId })
-        .from(reconciliationTransactions)
-        .innerJoin(
-          reconciliations,
-          eq(
-            reconciliationTransactions.reconciliationId,
-            reconciliations.id,
-          ),
-        )
-        .innerJoin(
-          bankTransactions,
-          eq(
-            reconciliationTransactions.bankTransactionId,
-            bankTransactions.id,
-          ),
-        )
-        .where(
-          and(
-            eq(reconciliations.status, "ACTIVA"),
-            eq(reconciliations.note, "Conciliación automática"),
-            gte(bankTransactions.fecha, start),
-            lt(bankTransactions.fecha, nextStart),
-          ),
+      ),
+    db
+      .select({ transactionId: reconciliationTransactions.bankTransactionId })
+      .from(reconciliationTransactions)
+      .innerJoin(
+        reconciliations,
+        eq(reconciliationTransactions.reconciliationId, reconciliations.id),
+      )
+      .innerJoin(
+        bankTransactions,
+        eq(reconciliationTransactions.bankTransactionId, bankTransactions.id),
+      )
+      .where(
+        and(
+          eq(reconciliations.status, "ACTIVA"),
+          eq(reconciliations.note, "Conciliación automática"),
+          gte(bankTransactions.fecha, start),
+          lt(bankTransactions.fecha, nextStart),
         ),
-      db
-        .select({
-          id: finDocuments.id,
-          direction: finDocuments.direction,
-          status: finDocuments.status,
-          total: finDocuments.total,
-          reconciled: finDocuments.montoConciliado,
-          classified: finDocuments.ledgerAccountId,
-        })
-        .from(finDocuments)
-        .where(
-          and(
-            eq(finDocuments.recordStatus, "ACTIVO"),
-            gte(finDocuments.fechaEmision, start),
-            lt(finDocuments.fechaEmision, nextStart),
-          ),
+      ),
+    db
+      .select({
+        id: finDocuments.id,
+        direction: finDocuments.direction,
+        status: finDocuments.status,
+        total: finDocuments.total,
+        reconciled: finDocuments.montoConciliado,
+        classified: finDocuments.ledgerAccountId,
+      })
+      .from(finDocuments)
+      .where(
+        and(
+          eq(finDocuments.recordStatus, "ACTIVO"),
+          gte(finDocuments.fechaEmision, start),
+          lt(finDocuments.fechaEmision, nextStart),
         ),
-      db
-        .select({
-          amount: salesOrderBillingItems.calculatedAmount,
-          status: salesOrderBillingItems.status,
-        })
-        .from(salesOrderBillingItems)
-        .innerJoin(
-          salesOrders,
-          eq(salesOrderBillingItems.salesOrderId, salesOrders.id),
-        )
-        .where(
-          and(
-            eq(salesOrderBillingItems.status, "PENDIENTE"),
-            gte(salesOrderBillingItems.tentativeDate, start),
-            lt(salesOrderBillingItems.tentativeDate, nextStart),
-          ),
+      ),
+    db
+      .select({
+        amount: salesOrderBillingItems.calculatedAmount,
+        status: salesOrderBillingItems.status,
+      })
+      .from(salesOrderBillingItems)
+      .innerJoin(
+        salesOrders,
+        eq(salesOrderBillingItems.salesOrderId, salesOrders.id),
+      )
+      .where(
+        and(
+          eq(salesOrderBillingItems.status, "PENDIENTE"),
+          gte(salesOrderBillingItems.tentativeDate, start),
+          lt(salesOrderBillingItems.tentativeDate, nextStart),
         ),
-      db
-        .select({ action: activityLog.action })
-        .from(activityLog)
-        .where(
-          and(
-            eq(activityLog.entityType, "finance_config"),
-            ilike(activityLog.action, "automatic_run:%"),
-            gte(activityLog.createdAt, new Date(`${start}T00:00:00Z`)),
-            lt(activityLog.createdAt, new Date(`${nextStart}T00:00:00Z`)),
-          ),
+      ),
+    db
+      .select({ action: activityLog.action })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.entityType, "finance_config"),
+          ilike(activityLog.action, "automatic_run:%"),
+          gte(activityLog.createdAt, new Date(`${start}T00:00:00Z`)),
+          lt(activityLog.createdAt, new Date(`${nextStart}T00:00:00Z`)),
         ),
-    ]);
+      ),
+  ]);
 
-  const automaticIds = new Set(
-    automaticRows.map((row) => row.transactionId),
-  );
+  const automaticIds = new Set(automaticRows.map((row) => row.transactionId));
   const pendingTransactions = transactions.filter(
     (row) => row.status === "PENDIENTE" || row.status === "PARCIAL",
   );
@@ -144,16 +135,14 @@ export async function getMonthlyCloseCockpit(period: string) {
         (sum, row) =>
           sum + Math.max(0, toNum(row.total) - toNum(row.reconciled)),
         0,
-      ) +
-      billingItems.reduce((sum, row) => sum + toNum(row.amount), 0),
+      ) + billingItems.reduce((sum, row) => sum + toNum(row.amount), 0),
     completed: receivables.filter((row) => isPaid(row.status)).length,
     total: receivables.length + billingItems.length,
   };
   const accountsPayable = {
     invoices: payables.filter((row) => !isPaid(row.status)).length,
     amount: payables.reduce(
-      (sum, row) =>
-        sum + Math.max(0, toNum(row.total) - toNum(row.reconciled)),
+      (sum, row) => sum + Math.max(0, toNum(row.total) - toNum(row.reconciled)),
       0,
     ),
     completed: payables.filter((row) => isPaid(row.status)).length,
@@ -161,10 +150,7 @@ export async function getMonthlyCloseCockpit(period: string) {
   };
   const classification = {
     pending: unclassified.length,
-    pendingAmount: unclassified.reduce(
-      (sum, row) => sum + toNum(row.total),
-      0,
-    ),
+    pendingAmount: unclassified.reduce((sum, row) => sum + toNum(row.total), 0),
     classified: documents.length - unclassified.length,
     automatic: automaticClassifications.reduce((sum, row) => {
       const applied = Number(row.action.split(":").at(-1));
@@ -185,7 +171,9 @@ export async function getMonthlyCloseCockpit(period: string) {
 
   return {
     period,
-    progress: totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 100,
+    progress: totalTasks
+      ? Math.round((completedTasks / totalTasks) * 100)
+      : 100,
     completedTasks,
     totalTasks,
     movement,

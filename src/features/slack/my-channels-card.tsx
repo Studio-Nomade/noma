@@ -41,7 +41,9 @@ export function MySlackChannelsCard({
         </div>
       ) : result.channels.length === 0 ? (
         <div className="border-border rounded-lg border border-dashed p-5">
-          <p className="text-sm font-medium">No hay conversaciones disponibles</p>
+          <p className="text-sm font-medium">
+            No hay conversaciones disponibles
+          </p>
           <p className="text-muted-foreground mt-1 text-xs">
             Slack no devolvió canales o mensajes directos para esta cuenta.
           </p>

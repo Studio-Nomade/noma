@@ -70,3 +70,45 @@ test("el tope de copias nunca deja fuera al equipo", () => {
     "catalina@studionomade.cl",
   ]);
 });
+
+test("encargado de la cuenta en copia aunque entregue otra persona", () => {
+  assert.deepEqual(
+    deliveryCc({
+      studioDomain: "studionomade.cl",
+      exclude: ["cliente@empresa.cl", "cliente@studionomade.cl"],
+      requestCc: [],
+      commenterEmail: "javiera@studionomade.cl",
+      managerEmail: "catalina@studionomade.cl",
+      assigneeEmail: "sebastian@studionomade.cl",
+    }),
+    [
+      "javiera@studionomade.cl",
+      "catalina@studionomade.cl",
+      "sebastian@studionomade.cl",
+    ],
+  );
+  // Si el encargado es quien comenta o el responsable, va una sola vez; un
+  // encargado fuera del estudio nunca va en copia.
+  assert.deepEqual(
+    deliveryCc({
+      studioDomain: "studionomade.cl",
+      exclude: [],
+      requestCc: [],
+      commenterEmail: "catalina@studionomade.cl",
+      managerEmail: "Catalina@studionomade.cl",
+      assigneeEmail: "catalina@studionomade.cl",
+    }),
+    ["catalina@studionomade.cl"],
+  );
+  assert.deepEqual(
+    deliveryCc({
+      studioDomain: "studionomade.cl",
+      exclude: [],
+      requestCc: [],
+      commenterEmail: null,
+      managerEmail: "externo@otra.cl",
+      assigneeEmail: null,
+    }),
+    [],
+  );
+});

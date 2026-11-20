@@ -2,11 +2,7 @@ import "server-only";
 
 import { and, desc, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  clientRequests,
-  retainerPeriods,
-  retainers,
-} from "@/db/schema";
+import { clientRequests, retainerPeriods, retainers } from "@/db/schema";
 import { logActivity } from "@/lib/activity";
 
 const EPSILON = 0.001;
@@ -30,7 +26,10 @@ export function monthlyPeriodBounds(date: Date) {
   };
 }
 
-export async function ensureCurrentPeriod(retainerId: string, date = new Date()) {
+export async function ensureCurrentPeriod(
+  retainerId: string,
+  date = new Date(),
+) {
   const bounds = monthlyPeriodBounds(date);
   const [existing] = await db
     .select()

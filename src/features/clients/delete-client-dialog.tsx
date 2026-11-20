@@ -82,7 +82,8 @@ export function DeleteClientDialog({
           >
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              Esta acción es <strong>irreversible</strong>. No se puede deshacer.
+              Esta acción es <strong>irreversible</strong>. No se puede
+              deshacer.
             </span>
           </div>
 

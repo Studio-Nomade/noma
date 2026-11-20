@@ -37,19 +37,26 @@ export function KickoffDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [to, setTo] = useState<string[]>(contacts.length ? [contacts[0].email] : []);
+  const [to, setTo] = useState<string[]>(
+    contacts.length ? [contacts[0].email] : [],
+  );
   const [cc, setCc] = useState("");
   const [body, setBody] = useState(defaultBody);
 
   function toggle(email: string) {
-    setTo((p) => (p.includes(email) ? p.filter((e) => e !== email) : [...p, email]));
+    setTo((p) =>
+      p.includes(email) ? p.filter((e) => e !== email) : [...p, email],
+    );
   }
 
   async function send() {
     setSending(true);
     const res = await sendKickoff(proposalId, {
       to,
-      cc: cc.split(",").map((s) => s.trim()).filter(Boolean),
+      cc: cc
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
       body,
     });
     setSending(false);
@@ -71,8 +78,8 @@ export function KickoffDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-muted-foreground text-xs">
-            Remitente: <span className="text-foreground">{senderEmail}</span> · se
-            adjuntan la propuesta y el SLA en PDF.
+            Remitente: <span className="text-foreground">{senderEmail}</span> ·
+            se adjuntan la propuesta y el SLA en PDF.
           </p>
 
           <div className="space-y-1.5">
@@ -83,8 +90,14 @@ export function KickoffDialog({
               </p>
             ) : (
               contacts.map((c) => (
-                <label key={c.email} className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={to.includes(c.email)} onCheckedChange={() => toggle(c.email)} />
+                <label
+                  key={c.email}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Checkbox
+                    checked={to.includes(c.email)}
+                    onCheckedChange={() => toggle(c.email)}
+                  />
                   <span>
                     {c.name ? `${c.name} · ` : ""}
                     {c.email}
@@ -96,12 +109,20 @@ export function KickoffDialog({
 
           <div className="space-y-1.5">
             <Label>CC (equipo)</Label>
-            <Input value={cc} onChange={(e) => setCc(e.target.value)} placeholder="correos separados por coma" />
+            <Input
+              value={cc}
+              onChange={(e) => setCc(e.target.value)}
+              placeholder="correos separados por coma"
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Cuerpo</Label>
-            <Textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} />
+            <Textarea
+              rows={12}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>

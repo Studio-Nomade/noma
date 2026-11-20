@@ -2,10 +2,7 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
-import type {
-  DocumentDirection,
-  FinDocumentType,
-} from "@/types/enums";
+import type { DocumentDirection, FinDocumentType } from "@/types/enums";
 import { getDocuments } from "./queries";
 import { DocumentsTable } from "./documents-table";
 import { UrlPagination } from "@/components/shared/url-pagination";
@@ -35,12 +32,7 @@ export async function DocumentsView({
   pageSize: number;
   types?: FinDocumentType[];
   statuses?: (
-    | "EMITIDA"
-    | "PARCIAL"
-    | "VENCIDA"
-    | "PAGADA"
-    | "ANULADA"
-    | "CONCILIADA"
+    "EMITIDA" | "PARCIAL" | "VENCIDA" | "PAGADA" | "ANULADA" | "CONCILIADA"
   )[];
   baseHref?: string;
 }) {

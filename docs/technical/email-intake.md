@@ -330,6 +330,18 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Encargado de la cuenta en copia (`cc_project_owner`)
+
+Las entregas, consultas y comentarios llevan en copia, sin repetir direcciones y solo si son del estudio:
+1. Quien comenta.
+2. El **encargado de la cuenta**, si el canal tiene `cc_project_owner: true`.
+3. El responsable de la tarea.
+
+- **Quién es el encargado.** El **propietario del proyecto de Asana** (`getProjectOwner`), el campo nativo de Asana. Al crear o cerrar el proyecto con el cliente hay que dejar como propietario a la persona encargada, no a quien lo creó.
+- **Va siempre en copia**, aunque la entrega la haga otra persona. Ejemplo: en Box va Cata.
+- **Canales sin la opción** (Equifax, Grado 360): siguen como hasta ahora, con el responsable y quien comenta.
+- **Configuración.** Se activa en `email-channels.json` (noma-ops) y se copia a `email_channels.cc_project_owner` (migración 0067) con `npm run email:seed-channels`.
+
 ### Mensajes del cliente por otros canales (`CLIENTE`)
 
 Cuando el cliente escribe por WhatsApp (o lo dice en una llamada), el equipo

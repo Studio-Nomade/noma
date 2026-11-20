@@ -3,10 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ServiceSubarea } from "@/db/schema";
 import type { Rates } from "@/lib/currency/convert";
-import type {
-  ServicePackageWithItems,
-  ServiceWithVariants,
-} from "./queries";
+import type { ServicePackageWithItems, ServiceWithVariants } from "./queries";
 import { ServicesList } from "./services-list";
 import { SubareasManager } from "./subareas-manager";
 import { PackagesManager } from "./packages-manager";
