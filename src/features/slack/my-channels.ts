@@ -46,7 +46,9 @@ function disconnectedReason(error: unknown) {
 function channelName(channel: SlackConversation) {
   if (channel.name?.trim()) return channel.name.trim();
   if (channel.is_im) {
-    return channel.user ? `Mensaje directo · ${channel.user}` : "Mensaje directo";
+    return channel.user
+      ? `Mensaje directo · ${channel.user}`
+      : "Mensaje directo";
   }
   if (channel.is_mpim) return "Mensaje grupal";
   return "Conversación de Slack";
@@ -88,9 +90,7 @@ async function fetchMySlackChannels(
   }
 
   const teamId =
-    typeof connection.meta.teamId === "string"
-      ? connection.meta.teamId
-      : null;
+    typeof connection.meta.teamId === "string" ? connection.meta.teamId : null;
   if (!teamId) {
     return {
       connected: false,
@@ -130,14 +130,11 @@ async function fetchMySlackChannels(
         const detail = await slackRequest(
           `conversations.info?${params}`,
           connection.accessToken,
-        ).catch(
-          (): SlackApiResponse => ({
-            ok: false,
-          }),
-        );
+        ).catch((): SlackApiResponse => ({
+          ok: false,
+        }));
         const unread =
-          detail.ok &&
-          typeof detail.channel?.unread_count_display === "number"
+          detail.ok && typeof detail.channel?.unread_count_display === "number"
             ? Math.max(0, detail.channel.unread_count_display)
             : 0;
         return {
@@ -151,7 +148,8 @@ async function fetchMySlackChannels(
 
     channels.sort(
       (a, b) =>
-        b.unread - a.unread || a.name.localeCompare(b.name, "es", {
+        b.unread - a.unread ||
+        a.name.localeCompare(b.name, "es", {
           sensitivity: "base",
         }),
     );

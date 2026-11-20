@@ -47,14 +47,15 @@ export default async function InvoiceDtePage({
             Registro tributario
           </h2>
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <Row label="Nota de Venta" value={row.salesOrderFolio || "Sin asignar"} />
+            <Row
+              label="Nota de Venta"
+              value={row.salesOrderFolio || "Sin asignar"}
+            />
             <Row label="Hito" value={row.billingLabel || "—"} />
             <Row label="Fecha emisión" value={formatDate(invoice.issuedAt)} />
             <Row
               label="Pago estimado"
-              value={formatDate(
-                invoice.estimatedPaymentDate ?? invoice.dueAt,
-              )}
+              value={formatDate(invoice.estimatedPaymentDate ?? invoice.dueAt)}
             />
             <Row
               label="Neto"
@@ -66,7 +67,10 @@ export default async function InvoiceDtePage({
             />
             <Row
               label="Total"
-              value={formatMoney(invoice.totalAmount, invoice.currency ?? "CLP")}
+              value={formatMoney(
+                invoice.totalAmount,
+                invoice.currency ?? "CLP",
+              )}
             />
             <Row
               label="Saldo"
@@ -104,10 +108,20 @@ export default async function InvoiceDtePage({
             className="border-border mt-6 flex flex-wrap gap-2 border-t pt-5"
           >
             <input type="hidden" name="invoiceId" value={invoice.id} />
-            <Button type="submit" name="status" value="Por cobrar" variant="outline">
+            <Button
+              type="submit"
+              name="status"
+              value="Por cobrar"
+              variant="outline"
+            >
               Por cobrar
             </Button>
-            <Button type="submit" name="status" value="Reclamada" variant="outline">
+            <Button
+              type="submit"
+              name="status"
+              value="Reclamada"
+              variant="outline"
+            >
               Marcar reclamada
             </Button>
             <Button type="submit" name="status" value="Pagada">

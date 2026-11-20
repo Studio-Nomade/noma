@@ -37,10 +37,9 @@ export const SERVICE_TIER_META: Record<
   },
 };
 
-export const PREVIOUS_SERVICE_TIER: Partial<
-  Record<ServiceTier, ServiceTier>
-> = {
-  GROWTH: "START",
-  PERFORMANCE: "GROWTH",
-  ENTERPRISE: "PERFORMANCE",
-};
+export const PREVIOUS_SERVICE_TIER: Partial<Record<ServiceTier, ServiceTier>> =
+  {
+    GROWTH: "START",
+    PERFORMANCE: "GROWTH",
+    ENTERPRISE: "PERFORMANCE",
+  };

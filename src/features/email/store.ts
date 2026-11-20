@@ -56,6 +56,38 @@ export async function isEmailChannelProject(projectGid: string) {
   return Boolean(row);
 }
 
+/** Canal activo de un proyecto de Asana (null si el proyecto no tiene). */
+export async function activeChannelByProject(
+  projectGid: string,
+): Promise<ResolvedEmailChannel | null> {
+  const [row] = await db
+    .select({ id: emailChannels.id })
+    .from(emailChannels)
+    .where(
+      and(
+        eq(emailChannels.asanaProjectGid, projectGid),
+        eq(emailChannels.status, "active"),
+      ),
+    )
+    .limit(1);
+  return row ? getChannel(row.id) : null;
+}
+
+/** Nombre del contacto del cliente con ese correo (null si no está). */
+export async function contactName(clientId: string, email: string) {
+  const [row] = await db
+    .select({ name: clientContacts.name })
+    .from(clientContacts)
+    .where(
+      and(
+        eq(clientContacts.clientId, clientId),
+        sql`lower(${clientContacts.email}) = ${normalizeEmail(email)}`,
+      ),
+    )
+    .limit(1);
+  return row?.name ?? null;
+}
+
 export async function getChannel(
   id: string,
 ): Promise<ResolvedEmailChannel | null> {

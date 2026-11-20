@@ -1,8 +1,4 @@
-import type {
-  FinDocumentType,
-  BankTxnType,
-  ImportType,
-} from "@/types/enums";
+import type { FinDocumentType, BankTxnType, ImportType } from "@/types/enums";
 
 export type ColumnMapping = Record<string, string>;
 

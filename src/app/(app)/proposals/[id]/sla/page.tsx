@@ -76,7 +76,7 @@ export default async function SlaPage({
                     <h2 className="font-heading text-sm font-medium">
                       {section.label}
                     </h2>
-                    <p className="text-muted-foreground mt-1 whitespace-pre-wrap text-sm">
+                    <p className="text-muted-foreground mt-1 text-sm whitespace-pre-wrap">
                       {section.body}
                     </p>
                   </section>

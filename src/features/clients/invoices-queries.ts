@@ -41,7 +41,9 @@ function daysBetween(from: Date, to: Date): number {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }
 
-export async function getClientAccount(clientId: string): Promise<ClientAccount> {
+export async function getClientAccount(
+  clientId: string,
+): Promise<ClientAccount> {
   const [client] = await db
     .select({ rut: clients.rut })
     .from(clients)

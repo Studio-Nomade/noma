@@ -198,6 +198,7 @@ test("detecta webhooks con filtros desactualizados", () => {
       story("added_to_task"),
       story("added_to_project"),
       story("marked_incomplete"),
+      story("text_custom_field_changed"),
       { resource_type: "task", resource_subtype: null, action: "added" },
     ]),
     true,

@@ -124,8 +124,9 @@ export function ScheduleMeetingDialog({
         <DialogHeader>
           <DialogTitle>Agendar reunión de brief</DialogTitle>
           <DialogDescription>
-            Coordina el levantamiento inicial. Si Google Calendar está conectado,
-            se crea el evento con link de Meet y se invita a los participantes.
+            Coordina el levantamiento inicial. Si Google Calendar está
+            conectado, se crea el evento con link de Meet y se invita a los
+            participantes.
           </DialogDescription>
         </DialogHeader>
 

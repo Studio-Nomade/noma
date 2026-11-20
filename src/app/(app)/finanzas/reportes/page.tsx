@@ -32,7 +32,9 @@ const SECTION_LABELS: Record<ProfitLossSection, string> = {
 
 function defaultRange() {
   const end = new Date();
-  const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 5, 1));
+  const start = new Date(
+    Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 5, 1),
+  );
   return {
     from: start.toISOString().slice(0, 7),
     to: end.toISOString().slice(0, 7),
@@ -97,7 +99,9 @@ export default async function ReportesPage({
 
       <form className="glass mb-5 grid gap-4 rounded-xl p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <label className="text-sm">
-          <span className="text-muted-foreground mb-1 block text-xs">Desde</span>
+          <span className="text-muted-foreground mb-1 block text-xs">
+            Desde
+          </span>
           <input
             type="month"
             name="desde"
@@ -106,7 +110,9 @@ export default async function ReportesPage({
           />
         </label>
         <label className="text-sm">
-          <span className="text-muted-foreground mb-1 block text-xs">Hasta</span>
+          <span className="text-muted-foreground mb-1 block text-xs">
+            Hasta
+          </span>
           <input
             type="month"
             name="hasta"
@@ -226,10 +232,10 @@ function ProfitLossTable({ report }: { report: ProfitLossReport }) {
   ];
   return (
     <div className="glass-solid overflow-x-auto rounded-xl">
-      <table className="min-w-[980px] w-full text-sm">
+      <table className="w-full min-w-[980px] text-sm">
         <thead>
           <tr className="text-muted-foreground border-border border-b text-xs">
-            <th className="sticky left-0 bg-background px-4 py-3 text-left">
+            <th className="bg-background sticky left-0 px-4 py-3 text-left">
               Estado de Resultados
             </th>
             {report.months.map((month) => (
@@ -293,7 +299,7 @@ function SectionRows({
       <TotalRow label={label} values={total} months={months} />
       {rows.map((row) => (
         <tr key={row.key} className="border-border/50 border-b">
-          <td className="sticky left-0 bg-background px-4 py-2 pl-8">
+          <td className="bg-background sticky left-0 px-4 py-2 pl-8">
             <span className="block">{row.label}</span>
             {row.detail && (
               <span className="text-muted-foreground block text-xs">
@@ -367,13 +373,7 @@ function TotalRow({
   );
 }
 
-function MoneyCell({
-  value,
-  strong,
-}: {
-  value: number;
-  strong?: boolean;
-}) {
+function MoneyCell({ value, strong }: { value: number; strong?: boolean }) {
   return (
     <td
       className={cn(

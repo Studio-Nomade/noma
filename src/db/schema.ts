@@ -1559,6 +1559,9 @@ export const emailChannels = pgTable(
     // Nombre de la variable de entorno con el webhook de Slack del canal
     // (nunca la URL). Null → SLACK_OPERATIONS_WEBHOOK_URL.
     slackWebhookEnv: text("slack_webhook_env"),
+    // Encargado de la cuenta (propietario del proyecto de Asana) en copia de
+    // entregas, consultas y comentarios, aunque entregue otra persona.
+    ccProjectOwner: boolean("cc_project_owner").default(false).notNull(),
     // Envío mensual del informe de solicitudes (destinatarios, servicio,
     // responsable). Null → el canal no tiene informe mensual. Vive en noma-ops.
     monthlyReport: jsonb("monthly_report").$type<MonthlyReportConfig>(),

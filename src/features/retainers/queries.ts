@@ -78,10 +78,6 @@ export async function getRetainerHealth() {
       ),
     )
     .where(eq(retainers.status, "active"))
-    .groupBy(
-      retainers.id,
-      clients.id,
-      retainerPeriods.id,
-    )
+    .groupBy(retainers.id, clients.id, retainerPeriods.id)
     .orderBy(clients.companyName);
 }

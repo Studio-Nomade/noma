@@ -55,6 +55,8 @@ export const HANDLED_STORY_SUBTYPES = [
   "added_to_project",
   // Tarea reabierta → aviso en el canal de Slack del proyecto.
   "marked_incomplete",
+  // «Correo de contacto» completado → Noma abre el hilo de correo.
+  "text_custom_field_changed",
 ];
 
 /**

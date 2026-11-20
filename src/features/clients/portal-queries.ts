@@ -123,10 +123,7 @@ export async function getPortalData(token: string): Promise<PortalData | null> {
         ),
       )
       .where(
-        and(
-          eq(retainers.clientId, client.id),
-          eq(retainers.status, "active"),
-        ),
+        and(eq(retainers.clientId, client.id), eq(retainers.status, "active")),
       )
       .orderBy(projects.name),
   ]);

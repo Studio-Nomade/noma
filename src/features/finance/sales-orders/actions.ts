@@ -86,8 +86,7 @@ export async function createSalesOrderFromProposal(
 
     const ufClp = Number(rates.ufClp) || 0;
     const items: LineItem[] = services.map((service) => ({
-      amount:
-        Number(service.customPriceAmount ?? service.priceAmount) || null,
+      amount: Number(service.customPriceAmount ?? service.priceAmount) || null,
       currency: (service.customPriceCurrency ??
         service.priceCurrency ??
         "UF") as Currency,
@@ -233,10 +232,7 @@ export async function saveBillingPlan(
           ? Math.round((total * item.value) / 100)
           : Math.round(item.value),
     }));
-    const sum = prepared.reduce(
-      (acc, item) => acc + item.calculatedAmount,
-      0,
-    );
+    const sum = prepared.reduce((acc, item) => acc + item.calculatedAmount, 0);
     if (Math.abs(sum - total) > 1) {
       return {
         ok: false,
@@ -313,11 +309,14 @@ export async function sendSalesOrder(
       body: appendTextSignature(message.body, sender.signatureText),
       attachment: { filename: bundle.filename, content: pdf },
     });
-    await db.update(salesOrders).set({
-      status: "ENVIADA",
-      sentAt: new Date(),
-      updatedAt: new Date(),
-    }).where(eq(salesOrders.id, id));
+    await db
+      .update(salesOrders)
+      .set({
+        status: "ENVIADA",
+        sentAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(salesOrders.id, id));
     await logActivity({
       entityType: "sales_order",
       entityId: id,

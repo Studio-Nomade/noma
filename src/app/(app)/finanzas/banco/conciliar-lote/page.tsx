@@ -27,9 +27,7 @@ export default async function BatchReconciliationPage({
       )
     : { rows: [], total: 0 };
   const txns = transactions.rows.filter((txn) => txn.tipo === tipo);
-  const docs = await getOpenDocumentsFor(
-    tipo === "ABONO" ? "VENTA" : "COMPRA",
-  );
+  const docs = await getOpenDocumentsFor(tipo === "ABONO" ? "VENTA" : "COMPRA");
   return (
     <>
       <Link
@@ -117,7 +115,12 @@ function SelectionTable({
             key={row.id}
             className="hover:bg-accent/40 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm"
           >
-            <input type="checkbox" name={name} value={row.id} className="size-4" />
+            <input
+              type="checkbox"
+              name={name}
+              value={row.id}
+              className="size-4"
+            />
             <span className="min-w-0 flex-1">
               <span className="block truncate">{row.primary}</span>
               <span className="text-muted-foreground text-xs">

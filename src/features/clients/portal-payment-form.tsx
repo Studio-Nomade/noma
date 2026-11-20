@@ -50,7 +50,9 @@ export function PortalPaymentForm({
           />
         </label>
         <label className="block text-xs">
-          <span className="text-muted-foreground mb-1 block">Fecha de pago</span>
+          <span className="text-muted-foreground mb-1 block">
+            Fecha de pago
+          </span>
           <input
             name="paidAt"
             type="date"

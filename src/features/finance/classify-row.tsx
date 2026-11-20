@@ -31,7 +31,11 @@ export function ClassifyRow({
   }
 
   return (
-    <form ref={formRef} action={submit} className="flex flex-wrap items-center gap-2">
+    <form
+      ref={formRef}
+      action={submit}
+      className="flex flex-wrap items-center gap-2"
+    >
       <input type="hidden" name="id" value={docId} />
       <select
         name="ledgerAccountId"
