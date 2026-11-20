@@ -477,6 +477,13 @@
       "when": 1795212357443,
       "tag": "0067_email_channels_cc_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1795213872070,
+      "tag": "0068_slack_notify_queue",
+      "breakpoints": true
     }
   ]
 }

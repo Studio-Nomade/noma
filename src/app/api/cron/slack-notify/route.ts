@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { gateCronRequest } from "@/lib/cron";
+import { flushPendingSlackNotices } from "@/features/slack-notify/process";
 import {
   ensureLinkWebhooks,
   reconcileLinkStories,
@@ -26,5 +27,7 @@ export async function GET(request: Request) {
     deadline: deadline - 120_000,
   });
   const reconcile = await reconcileLinkStories({ dryRun, deadline });
-  return NextResponse.json({ ok: true, dryRun, webhooks, reconcile });
+  // Fuera del horario hábil, lo reconciliado queda en cola (08:55 hábil).
+  const queue = dryRun ? null : await flushPendingSlackNotices({ deadline });
+  return NextResponse.json({ ok: true, dryRun, webhooks, reconcile, queue });
 }

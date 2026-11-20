@@ -1980,6 +1980,14 @@ export const slackNotifyLog = pgTable(
     asanaTaskGid: text("asana_task_gid"),
     kind: text("kind"),
     body: text("body"),
+    // Fuera del horario hábil el aviso queda en cola y sale a las 08:55 del
+    // siguiente día hábil (agrupado por tarea).
+    deliverAt: timestamp("deliver_at", { withTimezone: true }),
+    payload: jsonb("payload").$type<{
+      text: string;
+      mrkdwn: string;
+      rootGid: string;
+    }>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

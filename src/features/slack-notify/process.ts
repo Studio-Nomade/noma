@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { asanaSlackLinks, slackNotifyLog, slackTaskThreads } from "@/db/schema";
 import {
@@ -12,6 +12,10 @@ import {
   type AsanaStory,
   type AsanaTaskState,
 } from "@/features/asana/asana";
+import {
+  businessHoursFromEnv,
+  deferredSendAt,
+} from "@/features/email/business-hours";
 import { isEmailChannelProject } from "@/features/email/store";
 import {
   EMAIL_FLOW_EVENTS,
@@ -47,6 +51,7 @@ const MAX_PARENT_DEPTH = 3;
 export type SlackNotifyOutcome =
   | "enviado"
   | "agrupado"
+  | "programado"
   | "sin_bot"
   | "sin_vinculo"
   | "sin_evento"
@@ -261,6 +266,37 @@ async function publish(input: {
 }
 
 /**
+ * Horario hábil (lun–vie 9:00–18:00 Santiago, sin feriados): fuera de él, el
+ * aviso interno queda en cola en su fila del registro y sale a las 08:55 del
+ * siguiente día hábil, agrupado por tarea (flushPendingSlackNotices).
+ * Devuelve true si quedó en cola.
+ */
+async function queueIfOffHours(input: {
+  eventKey: string;
+  ctx: TaskContext;
+  message: SlackMessage;
+  now?: Date;
+}): Promise<boolean> {
+  const deliverAt = deferredSendAt(
+    input.now ?? new Date(),
+    businessHoursFromEnv(),
+  );
+  if (!deliverAt) return false;
+  await db
+    .update(slackNotifyLog)
+    .set({
+      deliverAt,
+      payload: {
+        text: input.message.text,
+        mrkdwn: input.message.mrkdwn,
+        rootGid: input.ctx.rootGid,
+      },
+    })
+    .where(eq(slackNotifyLog.eventKey, input.eventKey));
+  return true;
+}
+
+/**
  * Esqueleto común: vínculo activo, evento encendido, sin repetir lo que avisa
  * el flujo de correo, clave de idempotencia reservada; arma y publica. Nunca
  * lanza.
@@ -313,6 +349,10 @@ async function notifyEvent(input: {
       // Nada que publicar (p. ej. asignación sin persona): queda registrado.
       published = true;
       return "sin_evento";
+    }
+    if (await queueIfOffHours({ eventKey: input.eventKey, ctx, message })) {
+      published = true;
+      return "programado";
     }
     const outcome = await publish({
       link,
@@ -411,12 +451,9 @@ export async function postTeamNoticeToThread(input: {
     });
     claimed = true;
     const ctx = await taskContext(input.taskGid);
-    await publish({
-      link,
-      eventKey,
-      ctx,
-      message: { text: input.text, mrkdwn: input.mrkdwn },
-    });
+    const message = { text: input.text, mrkdwn: input.mrkdwn };
+    if (await queueIfOffHours({ eventKey, ctx, message })) return true;
+    await publish({ link, eventKey, ctx, message });
     return true;
   } catch (error) {
     console.error("[slack-notify:team]", input.taskGid, error);
@@ -428,4 +465,95 @@ export async function postTeamNoticeToThread(input: {
     }
     return false;
   }
+}
+
+/**
+ * Publica los avisos internos que quedaron en cola fuera del horario hábil y
+ * cuya hora ya llegó: un mensaje por tarea (sus eventos, en orden), en el
+ * hilo de la solicitud. Lo llaman el pg_cron de las 08:55
+ * (scheduled-deliveries), el cron slack-notify y cada webhook de Asana.
+ */
+export async function flushPendingSlackNotices(
+  options: { deadline?: number; now?: Date } = {},
+) {
+  const result = { pending: 0, sent: 0, failed: 0 };
+  if (!slackBotConfigured()) return result;
+  const now = options.now ?? new Date();
+  const rows = await db
+    .select()
+    .from(slackNotifyLog)
+    .where(
+      and(
+        isNull(slackNotifyLog.slackTs),
+        isNotNull(slackNotifyLog.payload),
+        lte(slackNotifyLog.deliverAt, now),
+      ),
+    )
+    .orderBy(asc(slackNotifyLog.createdAt))
+    .limit(200);
+  result.pending = rows.length;
+
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    if (!row.slackChannelId || !row.payload) continue;
+    const key = `${row.slackChannelId}:${row.asanaTaskGid ?? row.eventKey}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+
+  for (const group of groups.values()) {
+    if (options.deadline && Date.now() > options.deadline) break;
+    const [first] = group;
+    const channel = first.slackChannelId!;
+    const rootGid = first.payload!.rootGid;
+    const body = group
+      .map((row) => row.payload!.mrkdwn)
+      .join("\n")
+      .slice(0, 2900);
+    try {
+      const [thread] = await db
+        .select()
+        .from(slackTaskThreads)
+        .where(eq(slackTaskThreads.asanaTaskGid, rootGid))
+        .limit(1);
+      const threadTs =
+        thread?.slackChannelId === channel ? thread.threadTs : null;
+      const posted = await postBotMessage({
+        channel,
+        text: first.payload!.text,
+        mrkdwn: body,
+        threadTs,
+      });
+      for (const [index, row] of group.entries()) {
+        await db
+          .update(slackNotifyLog)
+          .set({
+            slackTs: posted.ts,
+            slackChannelId: posted.channel,
+            // El cuerpo agrupado queda en la primera fila (agrupación de 60 s).
+            body: index === 0 ? body : null,
+            deliverAt: null,
+          })
+          .where(eq(slackNotifyLog.eventKey, row.eventKey));
+      }
+      if (!threadTs) {
+        await db
+          .insert(slackTaskThreads)
+          .values({
+            asanaTaskGid: rootGid,
+            slackChannelId: posted.channel,
+            threadTs: posted.ts,
+          })
+          .onConflictDoUpdate({
+            target: slackTaskThreads.asanaTaskGid,
+            set: { slackChannelId: posted.channel, threadTs: posted.ts },
+          });
+      }
+      result.sent += 1;
+    } catch (error) {
+      // Queda en cola para la siguiente pasada.
+      result.failed += 1;
+      console.error("[slack-notify:cola]", first.eventKey, error);
+    }
+  }
+  return result;
 }
