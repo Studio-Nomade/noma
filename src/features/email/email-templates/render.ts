@@ -497,6 +497,59 @@ export function renderConsultaEmail(input: ConsultaInput): RenderedEmail {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 09 · Comentario del equipo («COMENTARIO»)
+// ─────────────────────────────────────────────────────────────
+export type CommentInput = Common & {
+  /** Texto del comentario, tal cual (un párrafo por línea). */
+  text: string | null;
+  files?: DeliveryFile[];
+  author?: string | null;
+};
+
+export function renderCommentEmail(input: CommentInput): RenderedEmail {
+  const paragraphs = (input.text ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const files = (input.files ?? []).filter((file) => safeUrl(file.url));
+  const first =
+    paragraphs[0] ?? (files.length ? "Te compartimos los archivos." : "");
+  const view = {
+    ...baseView(input, {
+      titulo: "Comentario del equipo",
+      preheader: first.length > 110 ? `${first.slice(0, 107)}…` : first,
+      stage: null,
+    }),
+    parrafos: paragraphs,
+    tiene_archivos: files.length > 0,
+    archivos: files.map((file) => ({
+      etiqueta: file.label,
+      detalle: file.detail ?? "",
+      url: file.url,
+    })),
+    autor: input.author ?? "",
+  };
+  const text = [
+    hello(input.requesterName),
+    "",
+    ...paragraphs,
+    ...(files.length
+      ? [
+          "",
+          "Archivos:",
+          ...files.map(
+            (file) =>
+              `- ${file.label}${file.detail ? ` (${file.detail})` : ""}: ${file.url}`,
+          ),
+        ]
+      : []),
+    ...(input.author ? ["", `${input.author} · Studio Nomade`] : []),
+    ...textFooter(input),
+  ].join("\n");
+  return { html: render("09_comentario_equipo", view), text };
+}
+
+// ─────────────────────────────────────────────────────────────
 // 04 · Entrega NN
 // ─────────────────────────────────────────────────────────────
 export type DeliveryFile = {

@@ -976,6 +976,29 @@ export async function getUserEmail(userGid: string): Promise<string | null> {
   return user?.email ?? null;
 }
 
+/**
+ * Propietario del proyecto (encargado de la cuenta): el campo nativo de
+ * Asana. Null si no tiene o el token no lo ve.
+ */
+export async function getProjectOwner(
+  projectGid: string,
+): Promise<{ gid: string; name: string | null; email: string | null } | null> {
+  const project = await asanaRequest<{
+    owner?: {
+      gid?: string;
+      name?: string | null;
+      email?: string | null;
+    } | null;
+  }>(
+    "GET",
+    `/projects/${encodeURIComponent(projectGid)}?opt_fields=owner.gid,owner.name,owner.email`,
+  );
+  const owner = project?.owner;
+  return owner?.gid
+    ? { gid: owner.gid, name: owner.name ?? null, email: owner.email ?? null }
+    : null;
+}
+
 export async function setTaskAssignee(taskGid: string, userGid: string) {
   await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
     body: { assignee: userGid },

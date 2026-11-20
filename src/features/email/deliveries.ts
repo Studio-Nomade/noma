@@ -6,6 +6,7 @@ import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
   addStory,
   getStory,
+  getProjectOwner,
   getTaskAssignee,
   getTaskState,
   getUserEmail,
@@ -27,8 +28,11 @@ import {
   formatRound,
   parseClientRelayCommand,
   type ClientRelayCommand,
+  commentCommandActive,
+  parseCommentCommand,
   parseConsultaCommand,
   parseDeliveryCommand,
+  type CommentCommand,
 } from "./delivery-command";
 import { ROUNDS_FIELD } from "@/features/reports/metrics";
 import { deliveryCc } from "./delivery-team";
@@ -59,6 +63,7 @@ import { CONTACT_FIELD } from "./thread-open-rules";
 import { processLifecycleStory, type LifecycleOutcome } from "./task-lifecycle";
 import {
   escapeHtml,
+  renderCommentEmail,
   renderConsultaEmail,
   renderDeliveryEmail,
   renderEvaluationEmail,
@@ -96,6 +101,7 @@ type Command =
       kind: "consulta";
       consulta: NonNullable<ReturnType<typeof parseConsultaCommand>>;
     }
+  | { kind: "comentario"; comment: CommentCommand }
   | { kind: "evaluacion" }
   | { kind: "cliente"; relay: ClientRelayCommand };
 
@@ -108,6 +114,10 @@ export function storyCommand(story: AsanaStory): Command | null {
     if (delivery) return { kind: "delivery", delivery };
     const consulta = parseConsultaCommand(story.text);
     if (consulta) return { kind: "consulta", consulta };
+    const comment = parseCommentCommand(story.text, story.html_text);
+    if (comment && commentCommandActive(story.created_at)) {
+      return { kind: "comentario", comment };
+    }
     return null;
   }
   if (
@@ -199,7 +209,12 @@ export async function processAsanaStory(
   if (piece && command.kind === "evaluacion") return "skipped_not_delivery";
 
   const round = command.kind === "delivery" ? command.delivery.round : 0;
-  const files = command.kind === "delivery" ? command.delivery.files : [];
+  const files =
+    command.kind === "delivery"
+      ? command.delivery.files
+      : command.kind === "comentario"
+        ? command.comment.files
+        : [];
   // Los ajustes pendientes son de la solicitud completa: una pieza no los
   // da por aplicados (los reparte el equipo entre las subtareas).
   const applied =
@@ -211,7 +226,9 @@ export async function processAsanaStory(
       ? command.delivery.note
       : command.kind === "consulta"
         ? command.consulta.questions.map((question) => question.text).join("\n")
-        : null;
+        : command.kind === "comentario"
+          ? command.comment.text
+          : null;
 
   // Reclamo idempotente: una story → un envío. Se reintenta solo si falló.
   const [inserted] = await db
@@ -221,7 +238,12 @@ export async function processAsanaStory(
       kind: command.kind,
       round,
       asanaStoryGid: story.gid,
-      links: command.kind === "delivery" ? command.delivery.links : [],
+      links:
+        command.kind === "delivery"
+          ? command.delivery.links
+          : command.kind === "comentario"
+            ? command.comment.links
+            : [],
       files,
       appliedAdjustments: applied,
       note,
@@ -305,6 +327,20 @@ export async function processAsanaStory(
       blocking: command.consulta.blocking,
       author: authorLabel(story),
     });
+  } else if (command.kind === "comentario") {
+    if (!command.comment.text && !command.comment.files.length) {
+      await reject(
+        "El comentario no trae texto.",
+        "Noma no envió el comentario: escribe «Comentario» y debajo el texto para el cliente.",
+      );
+      return "rejected_no_links";
+    }
+    rendered = renderCommentEmail({
+      ...common,
+      text: command.comment.text,
+      files: command.comment.files,
+      author: authorLabel(story),
+    });
   } else {
     rendered = renderEvaluationEmail({
       ...common,
@@ -324,12 +360,17 @@ export async function processAsanaStory(
   const team =
     command.kind === "evaluacion"
       ? null
-      : await studioTeam(taskGid, story.created_by.gid);
+      : await studioTeam(
+          taskGid,
+          story.created_by.gid,
+          channel.ccProjectOwner ? channel.asanaProjectGid : null,
+        );
   const cc = team
     ? deliveryCc({
         requestCc: request.ccEmails ?? [],
         commenterEmail: team.commenterEmail,
         assigneeEmail: team.assignee?.email ?? null,
+        managerEmail: team.managerEmail,
         studioDomain: studioDomain(),
         exclude: [request.requesterEmail, channel.alias],
       })
@@ -393,7 +434,11 @@ export async function processAsanaStory(
         .set({ status: "scheduled", updatedAt: new Date() })
         .where(eq(requestDeliveries.id, delivery.id));
       const what =
-        command.kind === "delivery" ? `la Entrega ${padded}` : "la consulta";
+        command.kind === "delivery"
+          ? `la Entrega ${padded}`
+          : command.kind === "comentario"
+            ? "el comentario"
+            : "la consulta";
       await addStory(
         taskGid,
         `<body><em>Fuera del horario hábil (lunes a viernes, 9:00 a 18:00): Noma enviará ${what} al cliente ${escapeHtml(formatBusinessSlot(sendAt))}. Para enviarla de inmediato, escribe «ENVIAR AHORA» en el comentario de la entrega.</em></body>`,
@@ -461,6 +506,20 @@ export async function processAsanaStory(
       entityType: "client_request",
       entityId: request.id,
       action: "email_consulta_sent",
+    });
+    return "sent";
+  }
+
+  // Comentario: llega al hilo sin mover el Estado ni la ronda de entrega.
+  if (command.kind === "comentario") {
+    await addStory(
+      taskGid,
+      `<body><em>Noma envió el comentario al cliente en el hilo de la solicitud (para: ${escapeHtml(request.requesterEmail)}${cc.length ? `; copia: ${escapeHtml(cc.join(", "))}` : ""}).</em></body>`,
+    ).catch((error) => console.error("[email:comentario:story]", error));
+    await logActivity({
+      entityType: "client_request",
+      entityId: request.id,
+      action: "email_comment_sent",
     });
     return "sent";
   }
@@ -611,13 +670,20 @@ async function resolveDeliveryRequest(taskGid: string): Promise<{
 }
 
 /** Correo de quien comenta y responsable de la tarea (null si Asana falla). */
-async function studioTeam(taskGid: string, commenterGid: string) {
+async function studioTeam(
+  taskGid: string,
+  commenterGid: string,
+  managerProjectGid: string | null = null,
+) {
   try {
-    const [commenterEmail, assignee] = await Promise.all([
+    const [commenterEmail, assignee, manager] = await Promise.all([
       getUserEmail(commenterGid).catch(() => null),
       getTaskAssignee(taskGid),
+      managerProjectGid
+        ? getProjectOwner(managerProjectGid).catch(() => null)
+        : Promise.resolve(null),
     ]);
-    return { commenterEmail, assignee };
+    return { commenterEmail, assignee, managerEmail: manager?.email ?? null };
   } catch (error) {
     console.error("[email:delivery:team]", error);
     return null;

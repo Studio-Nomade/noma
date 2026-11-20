@@ -1,8 +1,9 @@
 /**
- * Equipo en copia de las entregas y consultas: quien comenta en Asana (el que
- * ejecuta) y el responsable de la tarea (quien supervisa) quedan en el hilo
- * con el cliente para dar seguimiento. Solo direcciones del estudio.
- * Módulo puro.
+ * Equipo en copia de las entregas, consultas y comentarios: quien comenta en
+ * Asana (el que ejecuta), el encargado de la cuenta (propietario del
+ * proyecto, si el canal lo pide) y el responsable de la tarea (quien
+ * supervisa) quedan en el hilo con el cliente. Solo direcciones del estudio,
+ * sin repetir. Módulo puro.
  */
 
 import { domainOf, normalizeEmail } from "./addresses";
@@ -14,6 +15,8 @@ export function deliveryCc(input: {
   requestCc: readonly string[];
   commenterEmail: string | null;
   assigneeEmail: string | null;
+  /** Encargado de la cuenta (propietario del proyecto), si va en copia. */
+  managerEmail?: string | null;
   studioDomain: string;
   /** Solicitante y direcciones propias (alias, casilla): nunca en copia. */
   exclude: readonly string[];
@@ -29,7 +32,11 @@ export function deliveryCc(input: {
     out.push(normalized);
   };
   // El equipo va primero para que el tope nunca lo deje fuera.
-  for (const email of [input.commenterEmail, input.assigneeEmail]) {
+  for (const email of [
+    input.commenterEmail,
+    input.managerEmail ?? null,
+    input.assigneeEmail,
+  ]) {
     if (email && domainOf(email) === studio) push(email);
   }
   for (const email of input.requestCc) push(email);
