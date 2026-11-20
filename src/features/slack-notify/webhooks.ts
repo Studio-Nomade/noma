@@ -70,11 +70,16 @@ async function registerWebhook(link: LinkRow, baseUrl: string) {
  * desactivó por fallas.
  */
 export async function ensureLinkWebhooks(
-  options: { dryRun?: boolean; deadline?: number } = {},
+  options: { dryRun?: boolean; deadline?: number; projectGid?: string } = {},
 ): Promise<WebhookReport[]> {
   const baseUrl = appBaseUrl();
   if (!baseUrl) throw new Error("Sin URL pública (NEXT_PUBLIC_SITE_URL).");
-  const links = await db.select().from(asanaSlackLinks);
+  const links = options.projectGid
+    ? await db
+        .select()
+        .from(asanaSlackLinks)
+        .where(eq(asanaSlackLinks.asanaProjectGid, options.projectGid))
+    : await db.select().from(asanaSlackLinks);
   const rows = links.length
     ? await db
         .select()

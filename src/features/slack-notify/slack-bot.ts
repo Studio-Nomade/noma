@@ -118,3 +118,56 @@ export async function updateBotMessage(input: {
     throw new Error(`Slack chat.update: ${result.error ?? "error"}`);
   }
 }
+
+export type BotChannel = {
+  id: string;
+  name: string;
+  isPrivate: boolean;
+  /** El bot está en el canal (en los privados, necesario para publicar). */
+  isMember: boolean;
+};
+
+/**
+ * Canales que ve el bot (públicos y los privados donde está invitado),
+ * sin archivados. Permisos: channels:read y groups:read.
+ */
+export async function listBotChannels(): Promise<BotChannel[]> {
+  const out: BotChannel[] = [];
+  let cursor = "";
+  for (let page = 0; page < 10; page += 1) {
+    const result = await slackApi<
+      SlackApiResponse & {
+        channels?: {
+          id: string;
+          name: string;
+          is_private?: boolean;
+          is_member?: boolean;
+        }[];
+        response_metadata?: { next_cursor?: string };
+      }
+    >(
+      "conversations.list",
+      {
+        types: "public_channel,private_channel",
+        exclude_archived: "true",
+        limit: "1000",
+        ...(cursor ? { cursor } : {}),
+      },
+      { form: true },
+    );
+    if (!result.ok) {
+      throw new Error(`Slack conversations.list: ${result.error ?? "error"}`);
+    }
+    for (const channel of result.channels ?? []) {
+      out.push({
+        id: channel.id,
+        name: channel.name,
+        isPrivate: Boolean(channel.is_private),
+        isMember: Boolean(channel.is_member),
+      });
+    }
+    cursor = result.response_metadata?.next_cursor ?? "";
+    if (!cursor) break;
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
