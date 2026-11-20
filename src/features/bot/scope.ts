@@ -50,16 +50,16 @@ export async function classifyScope(input: {
 
   const summaryTerms = significantTerms(input.summary);
   const exclusionMatches = matches(summaryTerms, proposal?.exclusions ?? "");
-  if (
-    explicitAdditional(input.summary) ||
-    exclusionMatches.length > 0
-  ) {
+  if (explicitAdditional(input.summary) || exclusionMatches.length > 0) {
     return {
       scopeClass: "additional",
-      estimatedUnits: retainer ? estimateUnits(input.summary, retainer.unit) : null,
+      estimatedUnits: retainer
+        ? estimateUnits(input.summary, retainer.unit)
+        : null,
       retainerPeriodId: null,
       remaining: null,
-      unit: retainer?.unit === "hours" ? "hours" : retainer ? "deliverables" : null,
+      unit:
+        retainer?.unit === "hours" ? "hours" : retainer ? "deliverables" : null,
       reason: exclusionMatches.length
         ? `Coincide con exclusiones registradas (${exclusionMatches.slice(0, 4).join(", ")}).`
         : "La solicitud se presenta explícitamente como adicional o no incluida.",
@@ -84,10 +84,13 @@ export async function classifyScope(input: {
   if (!scopeMatches.length) {
     return {
       scopeClass: "unknown",
-      estimatedUnits: retainer ? estimateUnits(input.summary, retainer.unit) : null,
+      estimatedUnits: retainer
+        ? estimateUnits(input.summary, retainer.unit)
+        : null,
       retainerPeriodId: null,
       remaining: null,
-      unit: retainer?.unit === "hours" ? "hours" : retainer ? "deliverables" : null,
+      unit:
+        retainer?.unit === "hours" ? "hours" : retainer ? "deliverables" : null,
       reason:
         "No hay evidencia suficiente en el alcance registrado; debe confirmarlo el equipo.",
     };

@@ -89,6 +89,7 @@ async function notifyClosedByTeam(
       asanaUrl: request.asanaUrl,
     }),
     channel.slackWebhookEnv,
+    { projectGid: channel.asanaProjectGid, taskGid },
   );
   return "closed_notified";
 }

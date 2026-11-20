@@ -125,7 +125,9 @@ export function AuthorizedSendersCard({
           </p>
         </div>
         {channel && (
-          <Badge variant={channel.status === "active" ? "secondary" : "outline"}>
+          <Badge
+            variant={channel.status === "active" ? "secondary" : "outline"}
+          >
             {channel.status === "active" ? "Activo" : "Pausado"}
           </Badge>
         )}

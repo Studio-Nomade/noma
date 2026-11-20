@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { asanaSlackLinks, slackNotifyLog, slackTaskThreads } from "@/db/schema";
@@ -283,8 +284,9 @@ async function notifyEvent(input: {
     if (!resolved) return "sin_evento";
     const { kind, taskGid } = resolved;
     if (!eventEnabled(link.events, kind)) return "evento_apagado";
-    // Hasta la entrega 6, en los proyectos de correo la solicitud nueva, los
-    // cambios de Estado y el cierre los sigue avisando ese flujo.
+    // En los proyectos de correo, la solicitud nueva, los cambios de Estado y
+    // el cierre los avisa el flujo de solicitudes (postTeamNoticeToThread),
+    // con su contenido propio y en el mismo hilo.
     if (
       EMAIL_FLOW_EVENTS.has(kind) &&
       (await isEmailChannelProject(input.projectGid))
@@ -380,4 +382,50 @@ export function notifyNewTask(input: {
       });
     },
   });
+}
+
+/**
+ * Avisos del flujo de solicitudes (solicitud nueva, entrega, ajustes,
+ * aprobación, cierre) como el bot Noma, en el hilo de la solicitud dentro del
+ * canal vinculado al proyecto, con la misma agrupación de 60 s. Devuelve
+ * false si el proyecto no tiene vínculo activo (o falla): quien llama usa el
+ * webhook de Slack de siempre. Nunca lanza.
+ */
+export async function postTeamNoticeToThread(input: {
+  projectGid: string;
+  taskGid: string;
+  text: string;
+  mrkdwn: string;
+}): Promise<boolean> {
+  if (!slackBotConfigured()) return false;
+  const eventKey = `team:${input.taskGid}:${randomUUID()}`;
+  let claimed = false;
+  try {
+    const link = await activeLinkFor(input.projectGid);
+    if (!link) return false;
+    await db.insert(slackNotifyLog).values({
+      eventKey,
+      slackChannelId: link.slackChannelId,
+      asanaTaskGid: input.taskGid,
+      kind: "team",
+    });
+    claimed = true;
+    const ctx = await taskContext(input.taskGid);
+    await publish({
+      link,
+      eventKey,
+      ctx,
+      message: { text: input.text, mrkdwn: input.mrkdwn },
+    });
+    return true;
+  } catch (error) {
+    console.error("[slack-notify:team]", input.taskGid, error);
+    if (claimed) {
+      await db
+        .delete(slackNotifyLog)
+        .where(eq(slackNotifyLog.eventKey, eventKey))
+        .catch(() => undefined);
+    }
+    return false;
+  }
 }

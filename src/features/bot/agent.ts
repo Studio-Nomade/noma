@@ -107,8 +107,7 @@ export async function runAgentTurn(input: {
     modelInput.push(...(response.output as unknown as ResponseInput));
 
     const calls = response.output.filter(
-      (item): item is ResponseFunctionToolCall =>
-        item.type === "function_call",
+      (item): item is ResponseFunctionToolCall => item.type === "function_call",
     );
     if (!calls.length) {
       const text = response.outputText.trim();
@@ -127,7 +126,9 @@ export async function runAgentTurn(input: {
     }
   }
 
-  throw new Error("El agente excedió el máximo de iteraciones de herramientas.");
+  throw new Error(
+    "El agente excedió el máximo de iteraciones de herramientas.",
+  );
 }
 
 async function executeTool(
@@ -345,7 +346,10 @@ type AgentExecutionContext = {
   confirmed: boolean;
 };
 
-function requestTool(name: "create_asana_task" | "save_request", description: string): Tool {
+function requestTool(
+  name: "create_asana_task" | "save_request",
+  description: string,
+): Tool {
   return {
     type: "function",
     name,

@@ -50,7 +50,10 @@ export async function sendGmail(opts: {
     Buffer.from(opts.body, "utf8").toString("base64"),
   ];
 
-  const all = [...(opts.attachment ? [opts.attachment] : []), ...(opts.attachments ?? [])];
+  const all = [
+    ...(opts.attachment ? [opts.attachment] : []),
+    ...(opts.attachments ?? []),
+  ];
   for (const att of all) {
     const mime = att.mime ?? "application/pdf";
     parts.push(
