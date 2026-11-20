@@ -489,6 +489,7 @@ export async function processAsanaStory(
       asanaUrl: request.asanaUrl,
     }),
     channel.slackWebhookEnv,
+    { projectGid: channel.asanaProjectGid, taskGid },
   );
   await logActivity({
     entityType: "client_request",

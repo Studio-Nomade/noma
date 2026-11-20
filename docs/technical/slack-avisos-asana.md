@@ -38,7 +38,7 @@ Mensajes cortos: una línea con el evento, la mención al responsable y «Abrir 
 
 **Agrupación (60 s):** si ya hubo un aviso de la misma tarea en el canal en los últimos 60 s, el evento nuevo se suma como otra línea a ese mensaje (`chat.update`) en vez de publicar otro. Por ejemplo, reabierta + Estado + comentario quedan en un solo mensaje.
 
-**Proyectos de correo (Grado 360, Equifax):** hasta la entrega 6, `new_task`, `state_change` y `completed` los sigue avisando el flujo de correo (solicitud nueva, entrega, ajustes, cierre). El módulo solo suma ahí las menciones, las reaperturas y las asignaciones.
+**Proyectos de correo (Grado 360, Equifax):** `new_task`, `state_change` y `completed` los avisa el flujo de solicitudes (solicitud nueva, entrega, ajustes, cierre), también por el bot y en el hilo (ver «Flujo de solicitudes por el bot»). El módulo suma ahí las menciones, las reaperturas y las asignaciones.
 
 `marked_incomplete` y el evento `task` `added` se sumaron a los filtros del webhook (`WEBHOOK_FILTERS`). El mantenimiento de webhooks actualiza los filtros de los webhooks ya registrados.
 
@@ -65,3 +65,12 @@ El cron `/api/cron/slack-notify` corre en Vercel cada día y también acepta `Be
 Los filtros de los webhooks ya registrados los mantiene al día `syncWebhookFilters` (cron `email-maintenance`).
 
 **El webhook atiende dos flujos.** El aviso de Slack corre en todo proyecto vinculado. El flujo de solicitudes (ENTREGA/CONSULTA/CLIENTE, «Planificada» al asignar, cierre) corre solo en los proyectos de un canal de correo (`isEmailChannelProject`). Así un webhook en CFO o COO no aplica reglas de solicitudes.
+
+## Flujo de solicitudes por el bot (entrega 6)
+
+Los avisos del flujo de correo (`notifyNewClientRequest` y `notifyTeamEvent`) reciben la tarea de Asana (`thread: { projectGid, taskGid }`):
+
+- **Proyecto con vínculo activo** (Grado 360, Equifax): el bot Noma publica en el canal vinculado, en el hilo de la solicitud. El aviso de solicitud nueva abre el hilo, con el mismo contenido de siempre (folio, cliente final, canal, prioridad, entrega, quién pide, «Sin responsable» y «Abrir en Asana»). Entrega, ajustes, aprobación de pieza y cierre caen en ese hilo y se agrupan en 60 s con los demás avisos de la tarea; por ejemplo, el cliente pide ajustes y Noma reabre la tarea.
+- **Sin vínculo, o si el bot falla:** el webhook del canal (`slack_webhook_env`) de siempre. Cuando todos los canales de correo estén vinculados, esa columna y las variables de webhook se pueden retirar.
+
+Por eso, en los proyectos de correo el módulo no repite `new_task`, `state_change` ni `completed`: esos avisos los da el flujo de solicitudes, con su contenido propio y en el mismo hilo.
