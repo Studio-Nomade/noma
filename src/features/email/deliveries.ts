@@ -58,6 +58,8 @@ import {
   wantsImmediateSend,
 } from "./business-hours";
 import { isLifecycleStory } from "./lifecycle-rules";
+import { openThreadForTask, type ThreadOpenOutcome } from "./thread-open";
+import { CONTACT_FIELD } from "./thread-open-rules";
 import { processLifecycleStory, type LifecycleOutcome } from "./task-lifecycle";
 import {
   escapeHtml,
@@ -87,7 +89,8 @@ export type DeliveryOutcome =
   | "rejected_no_links"
   | "scheduled"
   | ClientRelayOutcome
-  | LifecycleOutcome;
+  | LifecycleOutcome
+  | ThreadOpenOutcome;
 
 type Command =
   | {
@@ -150,6 +153,19 @@ export async function processAsanaStory(
 ): Promise<DeliveryOutcome> {
   const botUserGid = options.botUserGid ?? (await resolveBotUserGid());
   const story = options.story ?? (await getStory(storyGid));
+  // «Correo de contacto» completado en una tarea sin hilo: Noma lo abre.
+  if (
+    story.resource_subtype === "text_custom_field_changed" &&
+    foldName(story.custom_field?.name ?? "") === foldName(CONTACT_FIELD)
+  ) {
+    const taskGid = story.target?.gid;
+    if (!taskGid || !options.projectGid) return "skipped_no_request";
+    return openThreadForTask({
+      taskGid,
+      projectGid: options.projectGid,
+      announce: true,
+    });
+  }
   // Asignaciones y cierres hechos por el equipo (no por el bot).
   if (isLifecycleStory(story)) {
     if (!story.created_by || story.created_by.gid === botUserGid) {

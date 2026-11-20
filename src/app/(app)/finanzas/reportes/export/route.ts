@@ -106,7 +106,12 @@ export async function GET(request: Request) {
   const s2 = wb.addWorksheet("Flujo real");
   s2.columns = [
     { header: "Período", key: "periodo", width: 12 },
-    { header: "Ingresos", key: "ingresos", width: 16, style: { numFmt: MONEY } },
+    {
+      header: "Ingresos",
+      key: "ingresos",
+      width: 16,
+      style: { numFmt: MONEY },
+    },
     { header: "Egresos", key: "egresos", width: 16, style: { numFmt: MONEY } },
     { header: "Neto", key: "neto", width: 16, style: { numFmt: MONEY } },
   ];
@@ -116,8 +121,18 @@ export async function GET(request: Request) {
   const s3 = wb.addWorksheet("Flujo proyectado");
   s3.columns = [
     { header: "Período", key: "periodo", width: 12 },
-    { header: "Por cobrar", key: "porCobrar", width: 16, style: { numFmt: MONEY } },
-    { header: "Por pagar", key: "porPagar", width: 16, style: { numFmt: MONEY } },
+    {
+      header: "Por cobrar",
+      key: "porCobrar",
+      width: 16,
+      style: { numFmt: MONEY },
+    },
+    {
+      header: "Por pagar",
+      key: "porPagar",
+      width: 16,
+      style: { numFmt: MONEY },
+    },
     { header: "Neto", key: "neto", width: 16, style: { numFmt: MONEY } },
   ];
   proyectado.forEach((r) => s3.addRow(r));
@@ -140,7 +155,12 @@ export async function GET(request: Request) {
     { header: "Línea", key: "linea", width: 30 },
     { header: "Ventas", key: "ventas", width: 16, style: { numFmt: MONEY } },
     { header: "Compras", key: "compras", width: 16, style: { numFmt: MONEY } },
-    { header: "Resultado", key: "resultado", width: 16, style: { numFmt: MONEY } },
+    {
+      header: "Resultado",
+      key: "resultado",
+      width: 16,
+      style: { numFmt: MONEY },
+    },
   ];
   porLinea.forEach((r) => s5.addRow(r));
 

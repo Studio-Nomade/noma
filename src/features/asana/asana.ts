@@ -776,6 +776,26 @@ export type AsanaTaskState = {
   }[];
 };
 
+/** Tarea con lo necesario para abrir su hilo de correo (descripción, fecha). */
+export type AsanaTaskForThread = AsanaTaskState & {
+  notes?: string | null;
+  created_at?: string | null;
+  permalink_url?: string | null;
+};
+
+export async function getTaskForThread(taskGid: string) {
+  return asanaRequest<AsanaTaskForThread>(
+    "GET",
+    `/tasks/${encodeURIComponent(taskGid)}?opt_fields=gid,name,notes,completed,created_at,due_on,permalink_url,parent.gid,projects.gid,custom_fields.gid,custom_fields.name,custom_fields.display_value,custom_fields.enum_value.name`,
+  );
+}
+
+export async function setTaskName(taskGid: string, name: string) {
+  await asanaRequest("PUT", `/tasks/${encodeURIComponent(taskGid)}`, {
+    body: { name },
+  });
+}
+
 export async function getTaskState(taskGid: string) {
   return asanaRequest<AsanaTaskState>(
     "GET",

@@ -242,7 +242,8 @@ export async function getAttachment(
 
 // ── Respuesta en el mismo hilo ───────────────────────────────
 export type SendReplyInput = {
-  threadId: string;
+  /** Sin hilo: el mensaje abre uno nuevo (p. ej. «Solicitud registrada»). */
+  threadId?: string | null;
   from: EmailAddress; // alias del cliente (debe estar como "Enviar como")
   to: string[];
   cc?: string[];
@@ -282,7 +283,10 @@ export async function sendReply(input: SendReplyInput): Promise<{
     "/messages/send",
     {
       method: "POST",
-      body: { raw: encodeBase64Url(raw), threadId: input.threadId },
+      body: {
+        raw: encodeBase64Url(raw),
+        ...(input.threadId ? { threadId: input.threadId } : {}),
+      },
       timeoutMs: 20_000,
     },
   );

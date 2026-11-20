@@ -330,6 +330,22 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Apertura automática del hilo («Solicitud registrada»)
+
+Al crear una tarea en un proyecto con canal y con **«Correo de contacto»**, Noma abre el hilo de correo para dejar trazabilidad y respaldo (modelo A, spec del 20-11). Sirve, por ejemplo, para una solicitud que llegó por WhatsApp.
+
+1. **Registra la solicitud** con folio (`created_via = "asana"`, idempotente por `asana-task:<gid>`). La tarea pasa a llamarse «[FOLIO] Título» y queda con «Folio NOMA».
+2. **Envía al contacto** «Solicitud registrada · [FOLIO] Título» desde el alias del canal, con la plantilla de solicitud recibida. Ese correo **es el hilo**: desde ahí funcionan ENTREGA, CONSULTA, COMENTARIO, CLIENTE y la aprobación por correo.
+3. **Avisa:** comenta en la tarea y manda el aviso de solicitud nueva al hilo de Slack del proyecto.
+
+**Disparadores**
+- **Evento `task added`** del proyecto.
+- **Story `text_custom_field_changed`** de «Correo de contacto»: el correo se completó después.
+- **Paso `asanaThreadOpenings`** del cron `email-maintenance`, que revisa las tareas modificadas en las últimas 48 h.
+
+**Cuándo no abre:** subtareas, tareas completadas, tareas que ya tienen folio de Noma (las crea el flujo de correo) y tareas creadas antes de `NOMA_THREAD_OPEN_SINCE` (por defecto 21-11-2026, 00:00 Santiago). Tampoco abre si el contacto no es de un dominio permitido ni un contacto registrado del cliente; en ese caso lo comenta en la tarea.
+
+**Si el correo no sale**, un reintento lo vuelve a enviar sin crear otra solicitud. Un corte ambiguo queda para revisión manual.
 ### Encargado de la cuenta en copia (`cc_project_owner`)
 
 Las entregas, consultas y comentarios llevan en copia, sin repetir direcciones y solo si son del estudio:

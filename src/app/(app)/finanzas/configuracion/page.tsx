@@ -149,175 +149,178 @@ export default async function ConfiguracionPage({
 
       {/* ── Reglas de clasificación ── */}
       {tab === "clasificacion" ? (
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-heading text-base font-medium">
-            Reglas de clasificación
-          </h2>
-          <form action={applyRulesToUnclassified}>
-            <button
-              type="submit"
-              className="border-border rounded-md border px-3 py-2 text-sm"
-            >
-              Aplicar reglas a documentos sin clasificar
-            </button>
-          </form>
-        </div>
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-heading text-base font-medium">
+              Reglas de clasificación
+            </h2>
+            <form action={applyRulesToUnclassified}>
+              <button
+                type="submit"
+                className="border-border rounded-md border px-3 py-2 text-sm"
+              >
+                Aplicar reglas a documentos sin clasificar
+              </button>
+            </form>
+          </div>
 
-        <div className="glass-solid mb-4 overflow-x-auto rounded-xl">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                <th className="px-4 py-3">Prioridad</th>
-                <th className="px-4 py-3">Regla</th>
-                <th className="px-4 py-3">Condición</th>
-                <th className="px-4 py-3">Asigna</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="text-muted-foreground px-4 py-6 text-center"
-                  >
-                    Sin reglas. Crea una abajo para clasificar automáticamente.
-                  </td>
+          <div className="glass-solid mb-4 overflow-x-auto rounded-xl">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-border border-b text-left text-xs">
+                  <th className="px-4 py-3">Prioridad</th>
+                  <th className="px-4 py-3">Regla</th>
+                  <th className="px-4 py-3">Condición</th>
+                  <th className="px-4 py-3">Asigna</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ) : (
-                rules.map((r) => (
-                  <tr key={r.id} className="border-border/60 border-b">
-                    <td className="px-4 py-3 tabular-nums">{r.priority}</td>
-                    <td className="px-4 py-3 font-medium">{r.name}</td>
-                    <td className="text-muted-foreground px-4 py-3 text-xs">
-                      {FIELD_LABELS[r.matchField]} {r.matchOperator} “
-                      {r.matchValue}”
-                    </td>
-                    <td className="px-4 py-3 text-xs">
-                      {[r.ledgerName, r.lineName, r.centerName]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge value={r.isActive ? "Activo" : "Inactivo"} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-3">
-                        <form action={toggleClassificationRule}>
-                          <input type="hidden" name="id" value={r.id} />
-                          <input
-                            type="hidden"
-                            name="isActive"
-                            value={String(r.isActive)}
-                          />
-                          <button
-                            type="submit"
-                            className="text-muted-foreground hover:text-foreground text-xs"
-                          >
-                            {r.isActive ? "Desactivar" : "Activar"}
-                          </button>
-                        </form>
-                        <form action={deleteClassificationRule}>
-                          <input type="hidden" name="id" value={r.id} />
-                          <button
-                            type="submit"
-                            className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
-                          >
-                            Eliminar
-                          </button>
-                        </form>
-                      </div>
+              </thead>
+              <tbody>
+                {rules.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="text-muted-foreground px-4 py-6 text-center"
+                    >
+                      Sin reglas. Crea una abajo para clasificar
+                      automáticamente.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  rules.map((r) => (
+                    <tr key={r.id} className="border-border/60 border-b">
+                      <td className="px-4 py-3 tabular-nums">{r.priority}</td>
+                      <td className="px-4 py-3 font-medium">{r.name}</td>
+                      <td className="text-muted-foreground px-4 py-3 text-xs">
+                        {FIELD_LABELS[r.matchField]} {r.matchOperator} “
+                        {r.matchValue}”
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {[r.ledgerName, r.lineName, r.centerName]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge
+                          value={r.isActive ? "Activo" : "Inactivo"}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-3">
+                          <form action={toggleClassificationRule}>
+                            <input type="hidden" name="id" value={r.id} />
+                            <input
+                              type="hidden"
+                              name="isActive"
+                              value={String(r.isActive)}
+                            />
+                            <button
+                              type="submit"
+                              className="text-muted-foreground hover:text-foreground text-xs"
+                            >
+                              {r.isActive ? "Desactivar" : "Activar"}
+                            </button>
+                          </form>
+                          <form action={deleteClassificationRule}>
+                            <input type="hidden" name="id" value={r.id} />
+                            <button
+                              type="submit"
+                              className="text-muted-foreground text-xs hover:text-[var(--status-red)]"
+                            >
+                              Eliminar
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <form
-          action={createClassificationRule}
-          className="glass grid grid-cols-1 gap-3 rounded-xl p-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          <Field
-            name="name"
-            label="Nombre de la regla"
-            placeholder="Arriendo oficina"
-            required
-          />
-          <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
-              Campo
-            </label>
-            <select
-              name="matchField"
-              className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="CONTACTO">Nombre contacto</option>
-              <option value="RUT">RUT</option>
-              <option value="GLOSA">Glosa</option>
-              <option value="MONTO">Monto</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
-              Operador
-            </label>
-            <select
-              name="matchOperator"
-              className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="equals">igual a</option>
-              <option value="contains">contiene</option>
-              <option value="gte">≥ (monto)</option>
-              <option value="lte">≤ (monto)</option>
-            </select>
-          </div>
-          <Field
-            name="matchValue"
-            label="Valor"
-            placeholder="inmobiliaria"
-            required
-          />
-          <SelectField name="ledgerAccountId" label="Cuenta contable">
-            {options.ledgers.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.code} · {o.name}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField name="businessLineId" label="Línea de negocio">
-            {options.lines.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField name="costCenterId" label="Centro de costo">
-            {options.centers.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </SelectField>
-          <Field
-            name="priority"
-            label="Prioridad (menor = antes)"
-            placeholder="100"
-            type="number"
-          />
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="bg-foreground text-background rounded-md px-4 py-2 text-sm font-medium"
-            >
-              Crear regla
-            </button>
-          </div>
-        </form>
-      </section>
+          <form
+            action={createClassificationRule}
+            className="glass grid grid-cols-1 gap-3 rounded-xl p-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <Field
+              name="name"
+              label="Nombre de la regla"
+              placeholder="Arriendo oficina"
+              required
+            />
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs">
+                Campo
+              </label>
+              <select
+                name="matchField"
+                className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="CONTACTO">Nombre contacto</option>
+                <option value="RUT">RUT</option>
+                <option value="GLOSA">Glosa</option>
+                <option value="MONTO">Monto</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs">
+                Operador
+              </label>
+              <select
+                name="matchOperator"
+                className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="equals">igual a</option>
+                <option value="contains">contiene</option>
+                <option value="gte">≥ (monto)</option>
+                <option value="lte">≤ (monto)</option>
+              </select>
+            </div>
+            <Field
+              name="matchValue"
+              label="Valor"
+              placeholder="inmobiliaria"
+              required
+            />
+            <SelectField name="ledgerAccountId" label="Cuenta contable">
+              {options.ledgers.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.code} · {o.name}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField name="businessLineId" label="Línea de negocio">
+              {options.lines.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField name="costCenterId" label="Centro de costo">
+              {options.centers.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </SelectField>
+            <Field
+              name="priority"
+              label="Prioridad (menor = antes)"
+              placeholder="100"
+              type="number"
+            />
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="bg-foreground text-background rounded-md px-4 py-2 text-sm font-medium"
+              >
+                Crear regla
+              </button>
+            </div>
+          </form>
+        </section>
       ) : (
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -332,11 +335,7 @@ export default async function ConfiguracionPage({
             </div>
             {accounts[0] && (
               <form action={runAutomaticReconciliation}>
-                <input
-                  type="hidden"
-                  name="accountId"
-                  value={accounts[0].id}
-                />
+                <input type="hidden" name="accountId" value={accounts[0].id} />
                 <button
                   type="submit"
                   className="bg-foreground text-background rounded-md px-4 py-2 text-sm font-medium"
