@@ -890,6 +890,33 @@ export async function getTaskAssignee(
   };
 }
 
+/** Personas del espacio de trabajo con su correo (paginado). */
+export async function listWorkspaceUsers(workspaceGid: string) {
+  const users: { gid: string; name: string | null; email: string | null }[] =
+    [];
+  let offset: string | null = null;
+  for (let page = 0; page < 10; page += 1) {
+    const params = new URLSearchParams({
+      opt_fields: "gid,name,email",
+      limit: "100",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<
+      { gid: string; name?: string | null; email?: string | null }[]
+    >("GET", `/workspaces/${encodeURIComponent(workspaceGid)}/users?${params}`);
+    for (const user of envelope?.data ?? []) {
+      users.push({
+        gid: user.gid,
+        name: user.name ?? null,
+        email: user.email ?? null,
+      });
+    }
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return users;
+}
+
 /** Correo de un usuario de Asana (null si el token no lo puede ver). */
 export async function getUserEmail(userGid: string): Promise<string | null> {
   const user = await asanaRequest<{ email?: string | null }>(

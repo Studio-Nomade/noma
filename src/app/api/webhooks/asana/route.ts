@@ -13,6 +13,7 @@ import {
   flushScheduledDeliveries,
   processAsanaStory,
 } from "@/features/email/deliveries";
+import { notifyAsanaStory } from "@/features/slack-notify/process";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -73,6 +74,10 @@ export async function POST(request: Request) {
         return;
       }
       for (const event of events) {
+        // Aviso en el canal de Slack del proyecto (si está vinculado). Va
+        // también con lo que hace la cuenta de Noma: así los agentes avisan
+        // al equipo sin cuentas personales.
+        await notifyAsanaStory({ storyGid: event.storyGid, projectGid });
         // Stories de Noma: solo comentarios (pueden ser «CLIENTE», que
         // registra un mensaje del cliente); el resto se ignora sin pedirlo.
         if (

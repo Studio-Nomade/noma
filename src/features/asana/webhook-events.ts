@@ -53,6 +53,8 @@ export const HANDLED_STORY_SUBTYPES = [
   // Subtareas (piezas) dentro de una solicitud: campos y sin duplicado.
   "added_to_task",
   "added_to_project",
+  // Tarea reabierta → aviso en el canal de Slack del proyecto.
+  "marked_incomplete",
 ];
 
 /**
