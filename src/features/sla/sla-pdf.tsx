@@ -6,7 +6,8 @@ import {
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { BRAND } from "@/lib/brand/brand";
+import { AREA_THEME, BRAND } from "@/lib/brand/brand";
+import type { Area } from "@/types/enums";
 
 export type SlaPdfData = {
   title: string;
@@ -15,6 +16,8 @@ export type SlaPdfData = {
   sections: { label: string; body: string }[];
   signedByName?: string | null;
   signedAt?: string | null;
+  /** Área principal: define el color de la banda y el rótulo del documento. */
+  area?: Area | null;
 };
 
 const s = StyleSheet.create({
@@ -59,11 +62,17 @@ const s = StyleSheet.create({
 });
 
 function SlaPdf({ data }: { data: SlaPdfData }) {
+  const theme = data.area ? AREA_THEME[data.area] : null;
   return (
     <Document title={data.title} author={BRAND.name}>
       <Page size="A4" style={s.page}>
-        <View style={s.band} />
-        <Text style={s.kicker}>Acuerdo de Nivel de Servicio (SLA)</Text>
+        <View
+          style={[s.band, theme ? { backgroundColor: theme.accent } : {}]}
+        />
+        <Text style={s.kicker}>
+          Acuerdo de Nivel de Servicio (SLA)
+          {theme ? ` · ${theme.label}` : ""}
+        </Text>
         <Text style={s.title}>{data.title}</Text>
         <Text style={s.meta}>
           {data.clientName} · {data.projectName}

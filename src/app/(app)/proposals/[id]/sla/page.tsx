@@ -5,7 +5,8 @@ import { requireUser } from "@/lib/auth";
 import { roleFor } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { getProposal } from "@/features/proposals/queries";
-import { getSlaByProposal } from "@/features/sla/queries";
+import { getAreaSlaTemplate, getSlaByProposal } from "@/features/sla/queries";
+import { BASE_PARAM_KEYS } from "@/features/sla/template";
 import { getInvoiceByProposal } from "@/features/invoices/queries";
 import { getClientContacts } from "@/features/clients/queries";
 import { SlaEditor } from "@/features/sla/sla-editor";
@@ -28,14 +29,22 @@ export default async function SlaPage({
   const isFinance = access.canFinance;
   const approved = proposal.status === "Aprobada";
 
-  const [sla, invoice, contacts, kickoffBody] = await Promise.all([
+  const areas = row.projectAreas?.length ? row.projectAreas : [row.projectArea];
+
+  const [sla, invoice, contacts, kickoffBody, template] = await Promise.all([
     getSlaByProposal(id),
     isFinance && approved ? getInvoiceByProposal(id) : Promise.resolve(null),
     isFinance && approved && proposal.clientId
       ? getClientContacts(proposal.clientId)
       : Promise.resolve([]),
     isFinance && approved ? buildKickoffBody(id) : Promise.resolve(""),
+    approved && access.canLegal
+      ? getAreaSlaTemplate(areas)
+      : Promise.resolve(null),
   ]);
+  const templateFields = (template?.variables ?? []).filter(
+    (v) => v.source === "param" && !BASE_PARAM_KEYS.includes(v.key),
+  );
 
   return (
     <>
@@ -65,7 +74,12 @@ export default async function SlaPage({
         <div className="space-y-6">
           <div className="glass rounded-xl p-6">
             {access.canLegal ? (
-              <SlaEditor proposalId={id} sla={sla} />
+              <SlaEditor
+                proposalId={id}
+                sla={sla}
+                templateName={template?.name ?? null}
+                templateFields={templateFields}
+              />
             ) : sla ? (
               <div className="space-y-4">
                 <p className="text-muted-foreground text-sm">

@@ -28,6 +28,7 @@ export async function GET(
     sections: sla.sections ?? [],
     signedByName: sla.signedByName,
     signedAt: sla.signedAt ? sla.signedAt.toISOString() : null,
+    area: row.projectAreas?.[0] ?? row.projectArea,
   });
 
   return new Response(new Uint8Array(pdf), {

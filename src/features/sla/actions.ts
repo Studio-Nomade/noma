@@ -13,8 +13,14 @@ import type { SlaStatus } from "@/types/enums";
 import { getProposal, getProposalServices } from "@/features/proposals/queries";
 import { getClient } from "@/features/clients/queries";
 import { computeTotals, type LineItem } from "@/features/proposals/totals";
-import { buildSlaSections, type SlaParams } from "./generate";
-import { getSlaByProposal } from "./queries";
+import { SERVICE_TIER_META, type ServiceTier } from "@/features/services/tiers";
+import { buildSlaSections, type SlaParams, type SlaSection } from "./generate";
+import {
+  getAreaSlaTemplate,
+  getServiceSlaClauses,
+  getSlaByProposal,
+} from "./queries";
+import { buildSlaFromTemplate, type SlaVars } from "./template";
 
 /** Genera (o regenera) el SLA de una propuesta a partir de sus datos + params. */
 export async function generateSla(
@@ -51,16 +57,83 @@ export async function generateSla(
       ...(params ?? {}),
     };
 
-    const sections = buildSlaSections({
-      clientName: clientName ?? "Cliente",
-      legalName: client?.legalName,
-      rut: client?.rut,
-      projectName,
-      areasLabel,
-      services: services.map((s) => ({ name: s.name, area: s.area })),
-      totalLabel: formatMoney(totals.totalClp, "CLP"),
-      params: mergedParams,
-    });
+    const totalLabel = formatMoney(totals.totalClp, "CLP");
+    const template = await getAreaSlaTemplate(areas);
+    let sections: SlaSection[];
+    if (template) {
+      const clausesByService = await getServiceSlaClauses(
+        services.map((sv) => sv.serviceId),
+      );
+      const onlyUf =
+        totals.subtotalUf > 0 &&
+        totals.subtotalClpDirect === 0 &&
+        totals.subtotalUsd === 0;
+      const vars: SlaVars = {
+        ...(mergedParams.campos ?? {}),
+        cliente: clientName ?? "Cliente",
+        razon_social: client?.legalName || clientName,
+        rut_cliente: client?.rut,
+        proyecto: projectName,
+        areas: areasLabel,
+        total: onlyUf
+          ? `${formatMoney(totals.subtotalUf, "UF")} + IVA (${totalLabel} IVA incluido, a la UF del día)`
+          : totalLabel,
+        fecha: new Date().toLocaleDateString("es-CL", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+        rondas_cambios: mergedParams.rondasCambios ?? 2,
+        plazo_aprobacion_dias: mergedParams.plazoAprobacionDias ?? 3,
+        vigencia_meses: mergedParams.vigenciaMeses ?? 6,
+        condiciones_pago:
+          mergedParams.condicionesPago ?? "según hitos de cada servicio.",
+        lugar: mergedParams.lugar,
+      };
+      sections = buildSlaFromTemplate({
+        template: {
+          name: template.name,
+          sections: template.sections,
+          serviceBlock: template.serviceBlock ?? null,
+          variables: template.variables,
+        },
+        services: services.map((sv) => {
+          const amount = sv.customPriceAmount ?? sv.priceAmount;
+          const currency = (sv.customPriceCurrency ??
+            sv.priceCurrency ??
+            "UF") as LineItem["currency"];
+          return {
+            serviceId: sv.serviceId,
+            name: sv.name,
+            tierLabel:
+              SERVICE_TIER_META[sv.variantTier as ServiceTier]?.shortLabel ??
+              sv.variantTier,
+            description: sv.description,
+            methodology: sv.methodology,
+            deliverables: sv.deliverables,
+            exclusions: sv.serviceExclusions,
+            estimatedTime: sv.estimatedTime,
+            valueLabel:
+              amount == null
+                ? "según propuesta"
+                : `${formatMoney(Number(amount) * (sv.quantity ?? 1), currency ?? "UF")} + IVA`,
+          };
+        }),
+        clausesByService,
+        vars,
+      });
+    } else {
+      sections = buildSlaSections({
+        clientName: clientName ?? "Cliente",
+        legalName: client?.legalName,
+        rut: client?.rut,
+        projectName,
+        areasLabel,
+        services: services.map((s) => ({ name: s.name, area: s.area })),
+        totalLabel,
+        params: mergedParams,
+      });
+    }
 
     if (existing) {
       await db
