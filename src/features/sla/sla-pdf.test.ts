@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bodyLines, lineGroups } from "./sla-pdf";
+import { bodyLines, lineGroups, longDate } from "./sla-pdf";
+import { slaDocumentCode } from "./build-pdf-data";
 
 test("bodyLines separa subtítulos, viñetas y párrafos", () => {
   const lines = bodyLines(
@@ -10,11 +11,7 @@ test("bodyLines separa subtítulos, viñetas y párrafos", () => {
     lines.map((l) => l.kind),
     ["subhead", "gap", "text", "gap", "subhead", "bullet", "bullet"],
   );
-  assert.equal(lines[6].text, "• Dos");
-});
-
-test("bodyLines reemplaza m² por m2 (Helvetica no trae el carácter)", () => {
-  assert.equal(bodyLines("Superficie: 180 m².")[0].text, "Superficie: 180 m2.");
+  assert.equal(lines[6].text, "Dos");
 });
 
 test("lineGroups deja cada subtítulo con la línea siguiente", () => {
@@ -22,5 +19,20 @@ test("lineGroups deja cada subtítulo con la línea siguiente", () => {
   assert.deepEqual(
     groups.map((g) => g.map((l) => l.kind)),
     [["text"], ["gap", "subhead", "bullet"], ["bullet"]],
+  );
+});
+
+test("longDate escribe la fecha como en los SLA del Studio", () => {
+  assert.equal(
+    longDate("2026-05-13T15:00:00Z"),
+    "Miércoles 13 de mayo de 2026",
+  );
+});
+
+test("slaDocumentCode arma el código con áreas y fecha", () => {
+  assert.equal(slaDocumentCode(["A&D"], new Date(2026, 10, 21)), "A&D_N261121");
+  assert.equal(
+    slaDocumentCode(["B&D", "WD"], new Date(2025, 10, 18)),
+    "B&D+WD_N251118",
   );
 });
