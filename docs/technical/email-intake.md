@@ -330,6 +330,15 @@ Orden sugerido para encender: `retainers-open` (solo base de datos) →
 `email-maintenance` (cuando el piloto de correo esté listo) → `whatsapp-drain`
 (después de revisar el backlog).
 
+### Tareas hechas a mano: folio automático
+
+Toda tarea nueva creada a mano en un proyecto con canal recibe folio. Noma registra la solicitud, la renombra «[FOLIO] Título», completa «Folio NOMA» y avisa en el hilo de Slack del proyecto, aunque la tarea no tenga «Correo de contacto».
+
+- **Espera antes de registrar.** El webhook espera `NEW_TASK_SETTLE_MS` (30 s) para que terminen de escribir el título. Si sigue sin título, la registran el cambio de «Correo de contacto» o el mantenimiento diario.
+- **Sin contacto:** Noma lo comenta en la tarea. Cuando se complete «Correo de contacto», abre el hilo («Solicitud registrada», ver la sección siguiente).
+- **ENTREGA, CONSULTA o COMENTARIO en una solicitud sin hilo:** no se envía, y Noma pide en la tarea completar el contacto. Vale también para las subtareas (piezas), que entregan en el hilo de su tarea madre.
+- **Duplicados:** se pueden crear tareas a mano siempre que no existan ya en el tablero. Al cliente le llega la confirmación de que su solicitud fue tomada por el equipo.
+
 ### Apertura automática del hilo («Solicitud registrada»)
 
 Al crear una tarea en un proyecto con canal y con **«Correo de contacto»**, Noma abre el hilo de correo para dejar trazabilidad y respaldo (modelo A, spec del 20-11). Sirve, por ejemplo, para una solicitud que llegó por WhatsApp.

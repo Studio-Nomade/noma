@@ -66,19 +66,23 @@ export function contactEmailFrom(value: string | null | undefined) {
 }
 
 export type ThreadOpenDecision =
-  | { open: true; contactEmail: string; title: string }
+  | {
+      open: true;
+      /** null: la tarea recibe folio, pero sin hilo hasta tener contacto. */
+      contactEmail: string | null;
+      title: string;
+    }
   | {
       open: false;
       reason:
-        | "subtarea"
-        | "completada"
-        | "con_folio"
-        | "sin_contacto"
-        | "sin_titulo"
-        | "anterior";
+        "subtarea" | "completada" | "con_folio" | "sin_titulo" | "anterior";
     };
 
-/** ¿Noma abre el hilo de esta tarea? */
+/**
+ * ¿Noma registra esta tarea (folio y nombre «[FOLIO] Título»)? Toda tarea
+ * hecha a mano en un proyecto con canal recibe folio; con «Correo de
+ * contacto» además se le escribe al cliente en un hilo nuevo.
+ */
 export function decideThreadOpen(input: {
   name: string | null | undefined;
   completed: boolean;
@@ -99,12 +103,17 @@ export function decideThreadOpen(input: {
   ) {
     return { open: false, reason: "anterior" };
   }
-  const contactEmail = contactEmailFrom(input.contactField);
-  if (!contactEmail) return { open: false, reason: "sin_contacto" };
   const title = cleanTaskTitle(input.name);
   if (title.length < 3) return { open: false, reason: "sin_titulo" };
-  return { open: true, contactEmail, title };
+  return {
+    open: true,
+    contactEmail: contactEmailFrom(input.contactField),
+    title,
+  };
 }
+
+/** Espera antes de registrar una tarea recién creada (que terminen de escribirla). */
+export const NEW_TASK_SETTLE_MS = 30_000;
 
 /** Resumen corto de la descripción de la tarea para el correo. */
 export function summaryFromNotes(notes: string | null | undefined, max = 600) {
