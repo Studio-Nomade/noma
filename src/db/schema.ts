@@ -2155,6 +2155,8 @@ export const slas = pgTable("slas", {
       plazoAprobacionDias?: number;
       vigenciaMeses?: number;
       condicionesPago?: string;
+      // datos propios de la plantilla del área (p. ej. dirección del inmueble)
+      campos?: Record<string, string>;
     }>()
     .default({}),
   // secciones redactadas (generadas + editadas)
@@ -2166,6 +2168,53 @@ export const slas = pgTable("slas", {
   signedAt: timestamp("signed_at", { withTimezone: true }),
   ...timestamps,
 });
+
+// ── sla_templates (SLA estándar por área + cláusulas por servicio) ──
+// Fila de área: service_id nulo, con secciones y variables `{{clave}}`.
+// Fila de servicio: service_id + cláusulas propias que se agregan a su bloque.
+// El contenido real se importa desde noma-ops (scripts/data/import_sla_templates.ts).
+export const slaTemplates = pgTable(
+  "sla_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    area: areaEnum("area").notNull(),
+    serviceId: uuid("service_id").references(() => services.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    sections: jsonb("sections")
+      .$type<{ label: string; body: string }[]>()
+      .default([])
+      .notNull(),
+    serviceBlock: jsonb("service_block").$type<{
+      title: string;
+      body: string;
+    } | null>(),
+    variables: jsonb("variables")
+      .$type<
+        {
+          key: string;
+          source: "noma" | "param" | "service";
+          description?: string;
+        }[]
+      >()
+      .default([])
+      .notNull(),
+    clauses: text("clauses"),
+    status: serviceStatusEnum("status").default("Activo").notNull(),
+    sourceFile: text("source_file"),
+    ...timestamps,
+  },
+  (t) => [
+    index("sla_templates_area_idx").on(t.area),
+    uniqueIndex("sla_templates_area_default_unique")
+      .on(t.area)
+      .where(sql`${t.serviceId} is null`),
+    uniqueIndex("sla_templates_service_unique")
+      .on(t.serviceId)
+      .where(sql`${t.serviceId} is not null`),
+  ],
+);
 
 // ── sales_orders (nota de venta; congela la cotización aceptada) ──
 export const salesOrders = pgTable(
@@ -2865,6 +2914,8 @@ export type EmailInboundEvent = typeof emailInboundEvents.$inferSelect;
 export type RequestDelivery = typeof requestDeliveries.$inferSelect;
 export type AsanaWebhook = typeof asanaWebhooks.$inferSelect;
 export type Sla = typeof slas.$inferSelect;
+export type SlaTemplate = typeof slaTemplates.$inferSelect;
+export type NewSlaTemplate = typeof slaTemplates.$inferInsert;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type CfoRequest = typeof cfoRequests.$inferSelect;

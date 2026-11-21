@@ -6,6 +6,8 @@ export type SlaParams = {
   plazoAprobacionDias?: number;
   vigenciaMeses?: number;
   condicionesPago?: string;
+  /** Datos propios de la plantilla del área (claves de sus variables). */
+  campos?: Record<string, string>;
 };
 
 export type SlaInput = {
