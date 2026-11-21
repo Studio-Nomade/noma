@@ -23,6 +23,16 @@ export async function getSla(id: string) {
  */
 export async function getAreaSlaTemplate(areas: readonly Area[]) {
   if (!areas.length) return null;
+  try {
+    return await findAreaSlaTemplate(areas);
+  } catch (err) {
+    // Si la migración de sla_templates aún no corre, se usa el texto genérico.
+    console.warn("[sla] plantillas no disponibles:", err);
+    return null;
+  }
+}
+
+async function findAreaSlaTemplate(areas: readonly Area[]) {
   const rows = await db
     .select()
     .from(slaTemplates)
@@ -44,18 +54,24 @@ export async function getAreaSlaTemplate(areas: readonly Area[]) {
 export async function getServiceSlaClauses(serviceIds: string[]) {
   const map = new Map<string, string | null>();
   if (!serviceIds.length) return map;
-  const rows = await db
-    .select({
-      serviceId: slaTemplates.serviceId,
-      clauses: slaTemplates.clauses,
-    })
-    .from(slaTemplates)
-    .where(
-      and(
-        inArray(slaTemplates.serviceId, serviceIds),
-        eq(slaTemplates.status, "Activo"),
-      ),
-    );
+  let rows: { serviceId: string | null; clauses: string | null }[];
+  try {
+    rows = await db
+      .select({
+        serviceId: slaTemplates.serviceId,
+        clauses: slaTemplates.clauses,
+      })
+      .from(slaTemplates)
+      .where(
+        and(
+          inArray(slaTemplates.serviceId, serviceIds),
+          eq(slaTemplates.status, "Activo"),
+        ),
+      );
+  } catch (err) {
+    console.warn("[sla] cláusulas no disponibles:", err);
+    return map;
+  }
   for (const row of rows)
     if (row.serviceId) map.set(row.serviceId, row.clauses);
   return map;
