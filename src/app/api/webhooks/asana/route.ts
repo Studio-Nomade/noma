@@ -16,6 +16,7 @@ import {
 } from "@/features/email/deliveries";
 import { isEmailChannelProject } from "@/features/email/store";
 import { openThreadForTask } from "@/features/email/thread-open";
+import { NEW_TASK_SETTLE_MS } from "@/features/email/thread-open-rules";
 import {
   flushPendingSlackNotices,
   notifyAsanaStory,
@@ -86,15 +87,6 @@ export async function POST(request: Request) {
       // Tareas nuevas primero: abren el hilo donde caen los demás avisos.
       for (const event of newTasks) {
         await notifyNewTask({ taskGid: event.taskGid, projectGid });
-        // Proyecto con canal: con «Correo de contacto», Noma abre el hilo de
-        // correo («Solicitud registrada · [FOLIO] Título»).
-        if (emailProject) {
-          await openThreadForTask({
-            taskGid: event.taskGid,
-            projectGid,
-            announce: true,
-          });
-        }
       }
       let botUserGid: string;
       try {
@@ -127,6 +119,19 @@ export async function POST(request: Request) {
           });
         } catch (error) {
           console.error("[asana:webhook:story]", event.storyGid, error);
+        }
+      }
+      // Tareas hechas a mano en un proyecto con canal: tras unos segundos
+      // (que terminen de escribirla), Noma asigna folio y, con «Correo de
+      // contacto», abre el hilo con el cliente.
+      if (emailProject && newTasks.length) {
+        await new Promise((resolve) => setTimeout(resolve, NEW_TASK_SETTLE_MS));
+        for (const event of newTasks) {
+          await openThreadForTask({
+            taskGid: event.taskGid,
+            projectGid,
+            announce: true,
+          });
         }
       }
       // De paso: avisos internos en cola cuya hora hábil ya llegó.

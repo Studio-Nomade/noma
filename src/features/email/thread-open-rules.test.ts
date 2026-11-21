@@ -29,7 +29,20 @@ test("abre el hilo con correo de contacto y título", () => {
   });
 });
 
-test("no abre: subtarea, completada, con folio, sin contacto, antigua", () => {
+test("sin contacto: folio igual, sin hilo", () => {
+  assert.deepEqual(decideThreadOpen({ ...base, contactField: "" }), {
+    open: true,
+    contactEmail: null,
+    title: "Mailing promo Live",
+  });
+  assert.deepEqual(decideThreadOpen({ ...base, contactField: "pendiente" }), {
+    open: true,
+    contactEmail: null,
+    title: "Mailing promo Live",
+  });
+});
+
+test("no registra: subtarea, completada, con folio, antigua, sin título", () => {
   const reason = (patch: Partial<typeof base>) => {
     const decision = decideThreadOpen({ ...base, ...patch });
     return decision.open ? "open" : decision.reason;
@@ -37,8 +50,6 @@ test("no abre: subtarea, completada, con folio, sin contacto, antigua", () => {
   assert.equal(reason({ isSubtask: true }), "subtarea");
   assert.equal(reason({ completed: true }), "completada");
   assert.equal(reason({ name: "[BOX-NOV-0003] Mailing" }), "con_folio");
-  assert.equal(reason({ contactField: "" }), "sin_contacto");
-  assert.equal(reason({ contactField: "pendiente" }), "sin_contacto");
   assert.equal(reason({ createdAt: "2026-11-20T14:00:00.000Z" }), "anterior");
   assert.equal(reason({ createdAt: "" }), "anterior");
   assert.equal(reason({ name: "  " }), "sin_titulo");
