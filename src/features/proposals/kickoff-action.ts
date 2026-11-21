@@ -88,6 +88,7 @@ export async function sendKickoff(
         sections: sla.sections ?? [],
         signedByName: sla.signedByName,
         signedAt: sla.signedAt ? sla.signedAt.toISOString() : null,
+        area: bundle.data.areas[0],
       });
       attachments.push({
         filename: `SLA - ${bundle.filename}`,

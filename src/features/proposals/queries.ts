@@ -108,6 +108,9 @@ export async function getProposalServices(proposalId: string) {
       serviceExclusions: sql<
         string | null
       >`coalesce(${serviceVariants.exclusions}, ${services.exclusions})`,
+      estimatedTime: sql<
+        string | null
+      >`coalesce(${serviceVariants.estimatedTime}, ${services.estimatedTime})`,
       requirements: services.requirements,
     })
     .from(proposalServices)

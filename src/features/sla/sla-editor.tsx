@@ -19,6 +19,7 @@ import {
 import { SLA_STATUSES, type SlaStatus } from "@/types/enums";
 import type { Sla } from "@/db/schema";
 import type { SlaParams } from "./generate";
+import { pendingKeys, type SlaTemplateVariable } from "./template";
 import {
   generateSla,
   updateSlaSection,
@@ -29,9 +30,13 @@ import {
 export function SlaEditor({
   proposalId,
   sla,
+  templateName = null,
+  templateFields = [],
 }: {
   proposalId: string;
   sla: Sla | null;
+  templateName?: string | null;
+  templateFields?: SlaTemplateVariable[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -57,7 +62,12 @@ export function SlaEditor({
   if (!sla) {
     return (
       <div className="space-y-4">
-        <ParamsForm params={params} setParams={setParams} />
+        <ParamsForm
+          params={params}
+          setParams={setParams}
+          templateName={templateName}
+          templateFields={templateFields}
+        />
         <Button
           onClick={() =>
             run(() => generateSla(proposalId, params), "SLA generado")
@@ -72,6 +82,7 @@ export function SlaEditor({
   }
 
   const signed = Boolean(sla.signedAt);
+  const missing = pendingKeys(sla.sections ?? []);
 
   return (
     <div className="space-y-6">
@@ -114,9 +125,22 @@ export function SlaEditor({
         </div>
       </div>
 
+      {missing.length > 0 && (
+        <div className="border-border bg-accent/40 rounded-xl border p-4 text-sm">
+          <strong>Datos por completar antes de firmar:</strong>{" "}
+          {missing.join(", ")}. Complétalos en los parámetros y regenera, o
+          edita la sección directamente.
+        </div>
+      )}
+
       {/* Parámetros + regenerar */}
       <div className="border-border rounded-xl border p-4">
-        <ParamsForm params={params} setParams={setParams} />
+        <ParamsForm
+          params={params}
+          setParams={setParams}
+          templateName={templateName}
+          templateFields={templateFields}
+        />
         <Button
           size="sm"
           variant="outline"
@@ -185,61 +209,91 @@ export function SlaEditor({
 function ParamsForm({
   params,
   setParams,
+  templateName,
+  templateFields,
 }: {
   params: SlaParams;
   setParams: (p: SlaParams) => void;
+  templateName: string | null;
+  templateFields: SlaTemplateVariable[];
 }) {
   const set = (patch: Partial<SlaParams>) => setParams({ ...params, ...patch });
+  const setCampo = (key: string, value: string) =>
+    setParams({
+      ...params,
+      campos: { ...(params.campos ?? {}), [key]: value },
+    });
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="space-y-1.5">
-        <Label>Lugar de suscripción</Label>
-        <Input
-          value={params.lugar ?? ""}
-          onChange={(e) => set({ lugar: e.target.value })}
-          placeholder="Santiago"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Rondas de cambios</Label>
-        <Input
-          type="number"
-          value={params.rondasCambios ?? ""}
-          onChange={(e) =>
-            set({ rondasCambios: Number(e.target.value) || undefined })
-          }
-          placeholder="2"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Plazo de aprobación (días)</Label>
-        <Input
-          type="number"
-          value={params.plazoAprobacionDias ?? ""}
-          onChange={(e) =>
-            set({ plazoAprobacionDias: Number(e.target.value) || undefined })
-          }
-          placeholder="3"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Vigencia (meses)</Label>
-        <Input
-          type="number"
-          value={params.vigenciaMeses ?? ""}
-          onChange={(e) =>
-            set({ vigenciaMeses: Number(e.target.value) || undefined })
-          }
-          placeholder="6"
-        />
-      </div>
-      <div className="space-y-1.5 sm:col-span-2">
-        <Label>Condiciones de pago</Label>
-        <Input
-          value={params.condicionesPago ?? ""}
-          onChange={(e) => set({ condicionesPago: e.target.value })}
-          placeholder="50% al inicio y 50% contra entrega final."
-        />
+    <div className="space-y-4">
+      {templateName && (
+        <p className="text-muted-foreground text-xs">
+          Plantilla: <strong>{templateName}</strong>
+        </p>
+      )}
+      {templateFields.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {templateFields.map((field) => (
+            <div key={field.key} className="space-y-1.5">
+              <Label>{field.description ?? field.key}</Label>
+              <Input
+                value={params.campos?.[field.key] ?? ""}
+                onChange={(e) => setCampo(field.key, e.target.value)}
+                placeholder={field.key}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Lugar de suscripción</Label>
+          <Input
+            value={params.lugar ?? ""}
+            onChange={(e) => set({ lugar: e.target.value })}
+            placeholder="Santiago"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Rondas de cambios</Label>
+          <Input
+            type="number"
+            value={params.rondasCambios ?? ""}
+            onChange={(e) =>
+              set({ rondasCambios: Number(e.target.value) || undefined })
+            }
+            placeholder="2"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Plazo de aprobación (días)</Label>
+          <Input
+            type="number"
+            value={params.plazoAprobacionDias ?? ""}
+            onChange={(e) =>
+              set({ plazoAprobacionDias: Number(e.target.value) || undefined })
+            }
+            placeholder="3"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Vigencia (meses)</Label>
+          <Input
+            type="number"
+            value={params.vigenciaMeses ?? ""}
+            onChange={(e) =>
+              set({ vigenciaMeses: Number(e.target.value) || undefined })
+            }
+            placeholder="6"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Condiciones de pago</Label>
+          <Input
+            value={params.condicionesPago ?? ""}
+            onChange={(e) => set({ condicionesPago: e.target.value })}
+            placeholder="50% al inicio y 50% contra entrega final."
+          />
+        </div>
       </div>
     </div>
   );
