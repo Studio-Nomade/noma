@@ -19,6 +19,7 @@ import { buildProposalPdfData } from "./build-pdf-data";
 import { renderProposalPdf } from "./proposal-pdf";
 import { getSlaByProposal } from "@/features/sla/queries";
 import { renderSlaPdf } from "@/features/sla/sla-pdf";
+import { buildSlaPdfData } from "@/features/sla/build-pdf-data";
 import { getInvoiceByProposal } from "@/features/invoices/queries";
 
 /** Cuerpo por defecto del correo de inicio oficial (con datos de transferencia). */
@@ -80,19 +81,11 @@ export async function sendKickoff(
       content: await renderProposalPdf(bundle.data),
     });
     // SLA (si existe)
-    if (sla) {
-      const slaPdf = await renderSlaPdf({
-        title: bundle.data.title,
-        clientName: bundle.clientName,
-        projectName: bundle.projectName,
-        sections: sla.sections ?? [],
-        signedByName: sla.signedByName,
-        signedAt: sla.signedAt ? sla.signedAt.toISOString() : null,
-        area: bundle.data.areas[0],
-      });
+    const slaPdf = sla ? await buildSlaPdfData(proposalId) : null;
+    if (slaPdf) {
       attachments.push({
-        filename: `SLA - ${bundle.filename}`,
-        content: slaPdf,
+        filename: slaPdf.filename,
+        content: await renderSlaPdf(slaPdf.data),
       });
     }
 

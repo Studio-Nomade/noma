@@ -35,6 +35,10 @@ export const BRAND = {
 export type AreaTheme = {
   label: string;
   accent: string;
+  /** Casilla del área (pie de SLA y documentos). Sin casilla: BRAND.email. */
+  email?: string;
+  /** Ícono del área sin rótulo (public/), usado en el pie de los SLA. */
+  icon?: string;
   /** Banner opcional por área (lo provee el Design System). */
   banner?: string;
 };
@@ -44,10 +48,29 @@ export type AreaTheme = {
  * Acentos provisorios dentro de la paleta Nomade; el equipo de diseño los ajusta.
  */
 export const AREA_THEME: Record<Area, AreaTheme> = {
-  "B&D": { label: "Branding & Design", accent: "#f48134" },
-  WD: { label: "Web Design", accent: "#1d1d1b" },
-  "A&D": { label: "Architecture & Design", accent: "#8a6d3b" },
-  "A&A": { label: "Audiovisual & Animation", accent: "#a0de00" },
+  "B&D": {
+    label: "Branding & Design",
+    accent: "#f48134",
+    email: "branding@studionomade.cl",
+    icon: "/assets/areas/bd-icon.png",
+  },
+  WD: {
+    label: "Web Design",
+    accent: "#1d1d1b",
+    email: "webdesign@studionomade.cl",
+    icon: "/assets/areas/wd-icon.png",
+  },
+  "A&D": {
+    label: "Architecture & Design",
+    accent: "#8a6d3b",
+    email: "architecture@studionomade.cl",
+    icon: "/assets/areas/ad-icon.png",
+  },
+  "A&A": {
+    label: "Audiovisual & Animation",
+    accent: "#a0de00",
+    icon: "/assets/areas/aa-icon.png",
+  },
   CE: { label: "Clínica de Emprendimientos", accent: "#c96a4a" },
   MP: { label: "Mercado Público", accent: "#2f6f6f" },
   SN: { label: "Studio Nomade", accent: "#1d1d1b" },
