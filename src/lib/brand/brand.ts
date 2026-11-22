@@ -63,6 +63,7 @@ export const AREA_THEME: Record<Area, AreaTheme> = {
   "A&D": {
     label: "Architecture & Design",
     accent: "#8a6d3b",
+    email: "architecture@studionomade.cl",
     icon: "/assets/areas/ad-icon.png",
   },
   "A&A": {
