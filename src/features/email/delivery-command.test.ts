@@ -94,6 +94,7 @@ test("extrae links (texto y href) y la nota del equipo", () => {
       { label: "Figma", url: "https://figma.com/x", detail: null },
       { label: "canva", url: "https://www.canva.com/design/xyz", detail: null },
     ],
+    attachments: [],
     note: "Se ajustó el color del CTA.\nQuedamos atentos",
   });
 });
@@ -103,6 +104,7 @@ test("entrega sin nota", () => {
     round: 1,
     links: ["https://x.cl/a"],
     files: [{ label: "Archivo 01", url: "https://x.cl/a", detail: null }],
+    attachments: [],
     note: null,
   });
 });
@@ -205,6 +207,7 @@ test("COMENTARIO: primera palabra + «:» o salto de línea", () => {
     text: "Los archivos están arriba nuevamente, con el logo corregido.",
     links: [],
     files: [],
+    attachments: [],
   });
   assert.equal(
     parseCommentCommand("COMENTARIO: actualizamos la ficha.")?.text,
@@ -235,6 +238,7 @@ test("COMENTARIO: links como archivos y sin «ENVIAR AHORA»", () => {
     text: null,
     links: [],
     files: [],
+    attachments: [],
   });
 });
 
@@ -244,4 +248,30 @@ test("COMENTARIO: solo desde la fecha de corte", () => {
   assert.equal(commentCommandActive("2026-11-20T12:00:00.000Z", since), false);
   assert.equal(commentCommandActive(null, since), false);
   assert.equal(commentCommandActive("2026-11-20T12:00:00.000Z", ""), true);
+});
+
+test("ENTREGA con «Adjunto:» (archivo adjunto a la tarea, sin link)", () => {
+  const parsed = parseDeliveryCommand(
+    "ENTREGA 01\nAdjunto: 20261127_Decision_Summit_Cooperativas.zip\nVista previa: https://drive.google.com/a\nLos HTML van en el zip.",
+  );
+  assert.deepEqual(parsed?.attachments, [
+    "20261127_Decision_Summit_Cooperativas.zip",
+  ]);
+  assert.equal(parsed?.files.length, 1);
+  assert.equal(parsed?.note, "Los HTML van en el zip.");
+  // Solo adjunto, en minúsculas: también es entrega.
+  const loose = parseDeliveryCommand("Entrega 02\nAdjuntos: «correos.zip»");
+  assert.equal(loose?.round, 2);
+  assert.deepEqual(loose?.attachments, ["correos.zip"]);
+  assert.deepEqual(loose?.links, []);
+  // Sin link ni adjunto, «entrega 2» en minúsculas sigue siendo conversación.
+  assert.equal(parseDeliveryCommand("entrega 2\nla vemos mañana"), null);
+});
+
+test("COMENTARIO con «Adjunto:»", () => {
+  const parsed = parseCommentCommand(
+    "Comentario\nVa el zip actualizado.\nAdjunto: correos-v2.zip",
+  );
+  assert.deepEqual(parsed?.attachments, ["correos-v2.zip"]);
+  assert.equal(parsed?.text, "Va el zip actualizado.");
 });

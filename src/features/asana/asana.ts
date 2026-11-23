@@ -739,6 +739,58 @@ export async function getStory(storyGid: string) {
   );
 }
 
+/** Archivo adjunto a una tarea (subido a Asana o enlazado desde Drive, Box…). */
+export type AsanaAttachment = {
+  gid: string;
+  name: string;
+  size?: number | null;
+  host?: string | null;
+  download_url?: string | null;
+  created_at?: string | null;
+};
+
+/** Adjuntos de la tarea. `download_url` vence en unos minutos: descargar al tiro. */
+export async function listTaskAttachments(taskGid: string, maxPages = 5) {
+  const attachments: AsanaAttachment[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      parent: taskGid,
+      opt_fields: "name,size,host,download_url,created_at",
+      limit: "100",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<AsanaAttachment[]>(
+      "GET",
+      `/attachments?${params}`,
+    );
+    attachments.push(...(envelope?.data ?? []));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return attachments;
+}
+
+/** Descarga un adjunto subido a Asana (URL firmada, sin token). */
+export async function downloadAsanaAttachment(downloadUrl: string) {
+  let res: Response;
+  try {
+    res = await fetch(downloadUrl, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    throw new AsanaApiError("No se pudo descargar el adjunto de Asana.", null);
+  }
+  if (!res.ok) {
+    throw new AsanaApiError(
+      `Descarga del adjunto de Asana → HTTP ${res.status}`,
+      res.status,
+    );
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /** Todas las stories de la tarea (paginado; tope de seguridad 1.000). */
 export async function listTaskStories(taskGid: string, maxPages = 10) {
   const stories: AsanaStory[] = [];

@@ -15,15 +15,15 @@ Los correos al cliente usan 7 plantillas con la identidad de Studio Nomade
 (`src/features/email/email-templates/`, HTML Mustache + texto plano). Todas van en
 el mismo hilo y, salvo la confirmación, muestran solo lo nuevo:
 
-| #   | Correo                  | Lo dispara                                                      | En Asana                                         |
-| --- | ----------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
-| 01  | Solicitud recibida      | Correo nuevo al alias                                           | Crea la tarea (Por revisar vía regla)            |
-| 02  | Comentario recibido     | Respuesta del cliente con datos o una pregunta                  | Comentario; fecha y prioridad si cambian         |
-| 03  | Tenemos una consulta    | Comentario `CONSULTA` (o `CONSULTA BLOQUEA`)                    | Sin cambio                                       |
-| 04  | Entrega NN              | Comentario `ENTREGA NN` + un archivo por línea (`Nombre: link`) | Enviado a cliente                                |
-| 05  | Ajustes recibidos       | Respuesta con cambios sobre una entrega                         | Con ajustes (reabre)                             |
-| 06  | Solicitud aprobada      | Respuesta que aprueba la última entrega                         | Aprobado · ¿Ticket Activo? Finalizado · completa |
-| 07  | Solicitud en evaluación | Estado → «Fuera de alcance / En evaluación»                     | **Borrador** en Gmail para revisión humana       |
+| #   | Correo                  | Lo dispara                                                                          | En Asana                                         |
+| --- | ----------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 01  | Solicitud recibida      | Correo nuevo al alias                                                               | Crea la tarea (Por revisar vía regla)            |
+| 02  | Comentario recibido     | Respuesta del cliente con datos o una pregunta                                      | Comentario; fecha y prioridad si cambian         |
+| 03  | Tenemos una consulta    | Comentario `CONSULTA` (o `CONSULTA BLOQUEA`)                                        | Sin cambio                                       |
+| 04  | Entrega NN              | Comentario `ENTREGA NN` + un archivo por línea (`Nombre: link` o `Adjunto: nombre`) | Enviado a cliente                                |
+| 05  | Ajustes recibidos       | Respuesta con cambios sobre una entrega                                             | Con ajustes (reabre)                             |
+| 06  | Solicitud aprobada      | Respuesta que aprueba la última entrega                                             | Aprobado · ¿Ticket Activo? Finalizado · completa |
+| 07  | Solicitud en evaluación | Estado → «Fuera de alcance / En evaluación»                                         | **Borrador** en Gmail para revisión humana       |
 
 **Folio:** `PREFIJO-MES-NNNN` (`G360-NOV-0042`): mes de ingreso en America/Santiago y
 correlativo por cliente que no se reinicia. Los folios antiguos (`EQ-0142`) se siguen
@@ -348,6 +348,7 @@ Al crear una tarea en un proyecto con canal y con **«Correo de contacto»**, No
 3. **Avisa:** comenta en la tarea y manda el aviso de solicitud nueva al hilo de Slack del proyecto.
 
 **Disparadores**
+
 - **Evento `task added`** del proyecto.
 - **Story `text_custom_field_changed`** de «Correo de contacto»: el correo se completó después.
 - **Paso `asanaThreadOpenings`** del cron `email-maintenance`, que revisa las tareas modificadas en las últimas 48 h.
@@ -355,9 +356,11 @@ Al crear una tarea en un proyecto con canal y con **«Correo de contacto»**, No
 **Cuándo no abre:** subtareas, tareas completadas, tareas que ya tienen folio de Noma (las crea el flujo de correo) y tareas creadas antes de `NOMA_THREAD_OPEN_SINCE` (por defecto 21-11-2026, 00:00 Santiago). Tampoco abre si el contacto no es de un dominio permitido ni un contacto registrado del cliente; en ese caso lo comenta en la tarea.
 
 **Si el correo no sale**, un reintento lo vuelve a enviar sin crear otra solicitud. Un corte ambiguo queda para revisión manual.
+
 ### Encargado de la cuenta en copia (`cc_project_owner`)
 
 Las entregas, consultas y comentarios llevan en copia, sin repetir direcciones y solo si son del estudio:
+
 1. Quien comenta.
 2. El **encargado de la cuenta**, si el canal tiene `cc_project_owner: true`.
 3. El responsable de la tarea.
@@ -366,6 +369,7 @@ Las entregas, consultas y comentarios llevan en copia, sin repetir direcciones y
 - **Va siempre en copia**, aunque la entrega la haga otra persona. Ejemplo: en Box va Cata.
 - **Canales sin la opción** (Equifax, Grado 360): siguen como hasta ahora, con el responsable y quien comenta.
 - **Configuración.** Se activa en `email-channels.json` (noma-ops) y se copia a `email_channels.cc_project_owner` (migración 0067) con `npm run email:seed-channels`.
+
 ### Comentarios al cliente (`COMENTARIO`)
 
 Todo lo que el equipo le quiere decir al cliente y que no es entrega ni consulta: avisar que se volvieron a subir los archivos, actualizar información o aclarar algo.
@@ -383,6 +387,31 @@ Los archivos están arriba nuevamente, con el logo corregido.
 - **Copias y horario.** Las mismas que una entrega: quien comenta y el responsable de la tarea van en copia. Rige el mismo horario hábil, salvo «ENVIAR AHORA».
 - **Registro.** Queda en `request_deliveries` con `kind = "comentario"`, idempotente por story, y Noma deja un comentario de control en la tarea.
 - **Fecha de corte.** Solo cuentan los comentarios desde `NOMA_COMMENT_COMMAND_SINCE` (por defecto 21-11-2026, 00:00 Santiago). Así la reconciliación nunca le envía al cliente un comentario antiguo que empezara con «Comentario:».
+
+### Archivos adjuntos en entregas y comentarios (`Adjunto:`)
+
+Sirve para mandar un archivo que el cliente no puede abrir desde un link, por ejemplo un zip con los HTML de un mailing.
+
+1. **Adjunta el archivo a la tarea** de Asana con «Adjuntar archivo».
+2. **Comenta** `ENTREGA NN` o `Comentario`, con una línea `Adjunto: nombre del archivo` por cada archivo:
+
+   ```
+   ENTREGA 01
+   Adjunto: 20261127_Decision_Summit_Cooperativas.zip
+   Vista previa: https://drive.google.com/…
+   ```
+
+**Cómo funciona:**
+
+- **Correo:** Noma descarga el archivo de la tarea justo antes de enviar y lo adjunta. En «Para revisar» aparece con la marca «Adjunto» y su peso, en vez del botón «Abrir».
+- **Combinación:** se pueden mezclar adjuntos y links. Una entrega puede llevar solo adjuntos.
+- **Nombre:** basta con el nombre o una parte única de él. No distingue mayúsculas ni tildes, y la extensión es opcional. Si hay dos archivos con el mismo nombre, toma el más reciente.
+- **No se envía y Noma lo avisa en la tarea si:**
+  - el archivo no está en la tarea; Noma lista los adjuntos que sí hay;
+  - el archivo está enlazado desde Drive u otro servicio en vez de subido a Asana;
+  - los adjuntos superan los **18 MB** en total; en ese caso, compártelos como link.
+- **Envío:** los correos con adjuntos salen por el endpoint de subida de Gmail (`/upload/…/messages/send`, hasta 35 MB por correo).
+- **Fuera de horario hábil:** la entrega queda programada y el archivo se descarga al enviarla.
 
 ### Mensajes del cliente por otros canales (`CLIENTE`)
 

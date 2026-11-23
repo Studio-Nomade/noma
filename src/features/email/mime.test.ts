@@ -331,3 +331,42 @@ test("cuerpo declarado Latin-1/Windows-1252 que en realidad es UTF-8", () => {
     "¿Podrían revisar la redistribución?",
   );
 });
+
+test("buildMimeMessage con adjuntos: multipart/mixed y nombre UTF-8", () => {
+  const raw = buildMimeMessage(
+    {
+      from: { name: "Design Team", email: "equifax@studionomade.cl" },
+      to: ["cliente@equifax.com"],
+      subject: "Re: Solicitud",
+      html: "<p>Hola</p>",
+      text: "Hola",
+      attachments: [
+        {
+          filename: "Correos Decisión.zip",
+          mimeType: "application/zip",
+          content: Buffer.from("PK-zip"),
+        },
+      ],
+    },
+    "b1",
+  );
+  assert.match(raw, /Content-Type: multipart\/mixed; boundary="b1_mixed"/);
+  assert.match(raw, /Content-Type: multipart\/alternative; boundary="b1"/);
+  assert.match(raw, /filename="Correos Decision\.zip"/);
+  assert.match(raw, /filename\*=UTF-8''Correos%20Decisi%C3%B3n\.zip/);
+  assert.ok(raw.includes(Buffer.from("PK-zip").toString("base64")));
+  assert.match(raw, /--b1_mixed--\r\n$/);
+  // Sin adjuntos, sigue siendo multipart/alternative.
+  const plain = buildMimeMessage(
+    {
+      from: { name: "Design Team", email: "equifax@studionomade.cl" },
+      to: ["cliente@equifax.com"],
+      subject: "Re: Solicitud",
+      html: "<p>Hola</p>",
+      text: "Hola",
+    },
+    "b2",
+  );
+  assert.match(plain, /Content-Type: multipart\/alternative; boundary="b2"/);
+  assert.doesNotMatch(plain, /multipart\/mixed/);
+});

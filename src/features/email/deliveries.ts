@@ -15,21 +15,31 @@ import { db } from "@/db";
 import { clientRequests, requestDeliveries } from "@/db/schema";
 import {
   addStory,
+  downloadAsanaAttachment,
   getStory,
   getProjectOwner,
   getTaskAssignee,
   getTaskState,
   getUserEmail,
   listSubtasks,
+  listTaskAttachments,
   listTaskStories,
   resolveBotUserGid,
   setEnumFieldByName,
   setNumberFieldByName,
   setTaskAssignee,
   taskFieldValue,
+  type AsanaAttachment,
   type AsanaStory,
 } from "@/features/asana/asana";
 import { foldName } from "@/features/asana/custom-fields";
+import {
+  MAX_ATTACHMENTS_BYTES,
+  formatBytes,
+  matchAttachments,
+  mimeTypeFor,
+} from "./attachments";
+import type { OutgoingAttachment } from "./mime";
 import { notifyTeamEvent } from "@/features/bot/notify";
 import { deliverySentMessage } from "@/features/bot/team-events";
 import { logActivity } from "@/lib/activity";
@@ -314,12 +324,74 @@ export async function processAsanaStory(
     await addStory(taskGid, `<body><em>${comment}</em></body>`);
   };
 
+  // Adjuntos («Adjunto: nombre»): archivos subidos a la tarea de Asana que
+  // viajan adjuntos en el correo (p. ej. un zip con HTML que el cliente no
+  // puede abrir desde Drive).
+  const requestedAttachments =
+    command.kind === "delivery"
+      ? command.delivery.attachments
+      : command.kind === "comentario"
+        ? command.comment.attachments
+        : [];
+  const what =
+    command.kind === "delivery"
+      ? `la Entrega ${padded}`
+      : command.kind === "comentario"
+        ? "el comentario"
+        : "la consulta";
+  let attachmentPlan: AsanaAttachment[] = [];
+  if (requestedAttachments.length) {
+    const available = await listTaskAttachments(taskGid);
+    const { matched, missing } = matchAttachments(
+      requestedAttachments,
+      available.map((item) => ({
+        gid: item.gid,
+        name: item.name,
+        size: item.size ?? null,
+        downloadable:
+          Boolean(item.download_url) && (item.host ?? "asana") === "asana",
+        createdAt: item.created_at ?? null,
+      })),
+    );
+    if (missing.length) {
+      const names = available.map((item) => `«${item.name}»`).join(", ");
+      await reject(
+        `Adjunto no encontrado: ${missing.join(", ")}.`,
+        `Noma no envió ${what}: no encontró ${missing.map((name) => `«${escapeHtml(name)}»`).join(", ")} entre los archivos adjuntos a esta tarea. ${available.length ? `Adjuntos de la tarea: ${escapeHtml(names)}.` : "La tarea no tiene archivos adjuntos."} Adjunta el archivo a la tarea y comenta de nuevo con «Adjunto: nombre del archivo».`,
+      );
+      return "rejected_no_links";
+    }
+    const linked = matched.filter((item) => !item.downloadable);
+    if (linked.length) {
+      await reject(
+        "Adjunto enlazado desde otro servicio.",
+        `Noma no envió ${what}: ${linked.map((item) => `«${escapeHtml(item.name)}»`).join(", ")} está enlazado desde otro servicio (Drive, Dropbox…), no subido a Asana. Súbelo como archivo a la tarea o compártelo como link («Nombre: link»).`,
+      );
+      return "rejected_no_links";
+    }
+    const total = matched.reduce((sum, item) => sum + (item.size ?? 0), 0);
+    if (total > MAX_ATTACHMENTS_BYTES) {
+      await reject(
+        "Adjuntos sobre el tope.",
+        `Noma no envió ${what}: los adjuntos pesan ${escapeHtml(formatBytes(total))} y el tope por correo es ${escapeHtml(formatBytes(MAX_ATTACHMENTS_BYTES))}. Súbelos a Drive y compártelos como link («Nombre: link»).`,
+      );
+      return "rejected_no_links";
+    }
+    attachmentPlan = matched.map((item) =>
+      available.find((candidate) => candidate.gid === item.gid)!,
+    );
+  }
+  const attachmentInfo = attachmentPlan.map((item) => ({
+    name: item.name,
+    sizeLabel: formatBytes(item.size) || null,
+  }));
+
   let rendered: RenderedEmail;
   if (command.kind === "delivery") {
-    if (!command.delivery.links.length) {
+    if (!command.delivery.links.length && !attachmentPlan.length) {
       await reject(
         "El comentario no trae links.",
-        `Noma no envió la Entrega ${padded}: el comentario no trae links. Comenta de nuevo «ENTREGA ${padded}» con el/los link(s), uno por línea como «Nombre: link».`,
+        `Noma no envió la Entrega ${padded}: el comentario no trae links ni adjuntos. Comenta de nuevo «ENTREGA ${padded}» con el/los link(s), uno por línea como «Nombre: link», o con «Adjunto: nombre del archivo» si el archivo está adjunto a la tarea.`,
       );
       return "rejected_no_links";
     }
@@ -327,6 +399,7 @@ export async function processAsanaStory(
       ...common,
       round,
       files: command.delivery.files,
+      attachments: attachmentInfo,
       note: command.delivery.note,
       author: authorLabel(story),
       appliedAdjustments: applied.map((item) => item.text),
@@ -351,7 +424,11 @@ export async function processAsanaStory(
       author: authorLabel(story),
     });
   } else if (command.kind === "comentario") {
-    if (!command.comment.text && !command.comment.files.length) {
+    if (
+      !command.comment.text &&
+      !command.comment.files.length &&
+      !attachmentPlan.length
+    ) {
       await reject(
         "El comentario no trae texto.",
         "Noma no envió el comentario: escribe «Comentario» y debajo el texto para el cliente.",
@@ -362,6 +439,7 @@ export async function processAsanaStory(
       ...common,
       text: command.comment.text,
       files: command.comment.files,
+      attachments: attachmentInfo,
       author: authorLabel(story),
     });
   } else {
@@ -456,12 +534,6 @@ export async function processAsanaStory(
         .update(requestDeliveries)
         .set({ status: "scheduled", updatedAt: new Date() })
         .where(eq(requestDeliveries.id, delivery.id));
-      const what =
-        command.kind === "delivery"
-          ? `la Entrega ${padded}`
-          : command.kind === "comentario"
-            ? "el comentario"
-            : "la consulta";
       await addStory(
         taskGid,
         `<body><em>Fuera del horario hábil (lunes a viernes, 9:00 a 18:00): Noma enviará ${what} al cliente ${escapeHtml(formatBusinessSlot(sendAt))}. Para enviarla de inmediato, escribe «ENVIAR AHORA» en el comentario de la entrega.</em></body>`,
@@ -470,9 +542,30 @@ export async function processAsanaStory(
     }
   }
 
+  let attachments: OutgoingAttachment[] = [];
+  if (attachmentPlan.length) {
+    try {
+      attachments = await downloadAttachments(taskGid, attachmentPlan);
+    } catch (error) {
+      // No salió nada: queda "failed" y la reconciliación lo reintenta.
+      await db
+        .update(requestDeliveries)
+        .set({
+          status: "failed",
+          error:
+            error instanceof Error
+              ? error.message.slice(0, 500)
+              : "No se pudo descargar el adjunto.",
+          updatedAt: new Date(),
+        })
+        .where(eq(requestDeliveries.id, delivery.id));
+      throw error;
+    }
+  }
+
   let sent: Awaited<ReturnType<typeof sendReply>>;
   try {
-    sent = await sendReply(message);
+    sent = await sendReply({ ...message, attachments });
   } catch (error) {
     // Solo un 4xx garantiza que no salió; 5xx/red pudo haber salido.
     const definite =
@@ -654,6 +747,30 @@ type UsableRequest = EmailRequest & {
   emailChannelId: string;
   requesterEmail: string;
 };
+
+/**
+ * Descarga los adjuntos justo antes de enviar: la `download_url` de Asana
+ * vence en minutos, así que se vuelve a pedir la lista de la tarea.
+ */
+async function downloadAttachments(
+  taskGid: string,
+  plan: AsanaAttachment[],
+): Promise<OutgoingAttachment[]> {
+  const fresh = await listTaskAttachments(taskGid);
+  const files: OutgoingAttachment[] = [];
+  for (const item of plan) {
+    const current = fresh.find((candidate) => candidate.gid === item.gid);
+    const url = current?.download_url ?? item.download_url;
+    if (!url)
+      throw new Error(`El adjunto «${item.name}» ya no está en la tarea.`);
+    files.push({
+      filename: item.name,
+      mimeType: mimeTypeFor(item.name),
+      content: await downloadAsanaAttachment(url),
+    });
+  }
+  return files;
+}
 
 async function findEmailRequestByTask(taskGid: string) {
   return db.query.clientRequests.findFirst({

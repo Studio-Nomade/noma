@@ -350,3 +350,29 @@ test("09 · comentario del equipo: texto tal cual, archivos y firma", () => {
   assert.match(text, /- Pieza: https:\/\/drive\.google\.com\/x/);
   assert.match(text, /Catalina Torres · Studio Nomade/);
 });
+
+test("04 y 09 · adjuntos en el correo (sin botón Abrir)", () => {
+  const delivery = renderDeliveryEmail({
+    ...COMMON,
+    round: 1,
+    files: [],
+    attachments: [
+      { name: "Decision_Summit_Cooperativas.zip", sizeLabel: "9,9 MB" },
+    ],
+  });
+  assertWellFormed(delivery);
+  assert.match(delivery.html, /Decision_Summit_Cooperativas\.zip/);
+  assert.match(delivery.html, /Adjunto en este correo · 9,9 MB/);
+  assert.match(delivery.html, />Adjunto<\/td>/);
+  assert.doesNotMatch(delivery.html, />Abrir<\/a>/);
+  assert.match(delivery.text, /adjunto en este correo, 9,9 MB/);
+
+  const comment = renderCommentEmail({
+    ...COMMON,
+    text: null,
+    attachments: [{ name: "correos-v2.zip" }],
+  });
+  assertWellFormed(comment);
+  assert.match(comment.html, /Te compartimos los archivos|correos-v2\.zip/);
+  assert.match(comment.html, /correos-v2\.zip/);
+});
