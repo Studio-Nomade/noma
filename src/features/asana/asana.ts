@@ -1201,3 +1201,40 @@ export async function ensureEnumOption(
   fieldCache.delete(projectGid);
   return true;
 }
+
+export type OpenProjectTask = {
+  gid: string;
+  name: string;
+  due_on: string | null;
+  permalink_url?: string;
+  assignee?: { name?: string; email?: string } | null;
+  memberships?: { section?: { name?: string } | null }[];
+  custom_fields?: { name?: string; display_value?: string | null }[];
+};
+
+/** Tareas abiertas (de primer nivel) de un proyecto, con responsable y Estado. */
+export async function listOpenProjectTasks(
+  projectGid: string,
+  maxPages = 3,
+): Promise<OpenProjectTask[]> {
+  const out: OpenProjectTask[] = [];
+  let offset: string | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({
+      project: projectGid,
+      completed_since: "now",
+      limit: "100",
+      opt_fields:
+        "gid,name,due_on,permalink_url,assignee.name,assignee.email,memberships.section.name,custom_fields.name,custom_fields.display_value",
+    });
+    if (offset) params.set("offset", offset);
+    const envelope = await asanaRequestEnvelope<OpenProjectTask[]>(
+      "GET",
+      `/tasks?${params.toString()}`,
+    );
+    out.push(...(envelope?.data ?? []));
+    offset = envelope?.next_page?.offset ?? null;
+    if (!offset) break;
+  }
+  return out;
+}
