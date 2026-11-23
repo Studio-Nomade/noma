@@ -30,6 +30,7 @@ export {
   type ConfirmationInput,
   type ConsultaInput,
   type DeliveryFile,
+  type EmailAttachmentInfo,
   type DeliveryInput,
   type EvaluationInput,
   type FieldChange,

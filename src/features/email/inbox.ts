@@ -6,6 +6,7 @@ import { userIntegrations } from "@/db/schema";
 import { getGoogleAccessToken } from "@/features/google/auth";
 import type { EmailAddress } from "./addresses";
 import {
+  type OutgoingAttachment,
   buildMimeMessage,
   decodeBase64Url,
   encodeBase64Url,
@@ -26,6 +27,8 @@ import {
  */
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
+const GMAIL_UPLOAD_API =
+  "https://gmail.googleapis.com/upload/gmail/v1/users/me";
 
 export class GmailApiError extends Error {
   constructor(
@@ -97,6 +100,54 @@ async function gmailFetch<T>(
     );
   }
   return (await res.json()) as T;
+}
+
+/**
+ * Envío con adjuntos: el endpoint de subida admite mensajes de hasta 35 MB
+ * (el JSON con `raw` no está pensado para cuerpos grandes). Multipart: los
+ * metadatos (hilo) y el mensaje RFC 822.
+ */
+async function gmailUploadSend(
+  raw: string,
+  threadId: string | null,
+): Promise<{ id: string; threadId: string }> {
+  const token = await mailboxAccessToken();
+  const boundary = `noma_upload_${Date.now().toString(36)}`;
+  const body = Buffer.concat([
+    Buffer.from(
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(threadId ? { threadId } : {})}\r\n--${boundary}\r\nContent-Type: message/rfc822\r\n\r\n`,
+      "utf8",
+    ),
+    Buffer.from(raw, "utf8"),
+    Buffer.from(`\r\n--${boundary}--\r\n`, "utf8"),
+  ]);
+  let res: Response;
+  try {
+    res = await fetch(
+      `${GMAIL_UPLOAD_API}/messages/send?uploadType=multipart`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`,
+        },
+        body,
+        cache: "no-store",
+        signal: AbortSignal.timeout(45_000),
+      },
+    );
+  } catch {
+    throw new GmailApiError("No se pudo conectar con Gmail.", null);
+  }
+  if (res.status === 401) tokenCache = null;
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => "")).slice(0, 200);
+    throw new GmailApiError(
+      `Gmail /messages/send (adjuntos) → HTTP ${res.status}: ${detail}`,
+      res.status,
+    );
+  }
+  return (await res.json()) as { id: string; threadId: string };
 }
 
 // ── Watch (Pub/Sub) ──────────────────────────────────────────
@@ -252,6 +303,7 @@ export type SendReplyInput = {
   text: string;
   inReplyTo: string | null;
   references: string[];
+  attachments?: OutgoingAttachment[];
 };
 
 /**
@@ -278,18 +330,18 @@ export async function sendReply(input: SendReplyInput): Promise<{
     inReplyTo: input.inReplyTo,
     references: input.references,
     messageId: generatedId,
+    attachments: input.attachments,
   });
-  const sent = await gmailFetch<{ id: string; threadId: string }>(
-    "/messages/send",
-    {
-      method: "POST",
-      body: {
-        raw: encodeBase64Url(raw),
-        ...(input.threadId ? { threadId: input.threadId } : {}),
-      },
-      timeoutMs: 20_000,
-    },
-  );
+  const sent = input.attachments?.length
+    ? await gmailUploadSend(raw, input.threadId ?? null)
+    : await gmailFetch<{ id: string; threadId: string }>("/messages/send", {
+        method: "POST",
+        body: {
+          raw: encodeBase64Url(raw),
+          ...(input.threadId ? { threadId: input.threadId } : {}),
+        },
+        timeoutMs: 20_000,
+      });
   // Gmail puede reescribir el Message-ID; se lee el definitivo (degradable).
   const messageId = await getMessageIdHeader(sent.id).catch(() => generatedId);
   return { id: sent.id, threadId: sent.threadId, messageId };
