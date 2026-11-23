@@ -376,3 +376,8 @@ test("04 y 09 · adjuntos en el correo (sin botón Abrir)", () => {
   assert.match(comment.html, /Te compartimos los archivos|correos-v2\.zip/);
   assert.match(comment.html, /correos-v2\.zip/);
 });
+
+test("pie de todas las plantillas: Santiago | Madrid | Lisboa", () => {
+  const email = renderCommentEmail({ ...COMMON, text: "Hola" });
+  assert.match(email.html, /Santiago \| Madrid \| Lisboa/);
+});
