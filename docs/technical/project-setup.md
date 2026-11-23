@@ -1,7 +1,7 @@
 # Proyectos nuevos de Asana → carpeta en Drive y canal de Slack
 
 Reemplaza el Zap «Crear Canal y Carpeta en Drive | Asana». Código:
-`src/features/project-setup/` · endpoint `/api/cron/project-setup` (pg_cron).
+`src/features/project-setup/` · endpoint `/api/cron/project-setup` (cron de Vercel cada 10 min).
 
 ## Reglas
 
@@ -38,22 +38,17 @@ Reemplaza el Zap «Crear Canal y Carpeta en Drive | Asana». Código:
    unidades y volver a entrar en `/login?mailbox=requests` (agrega el scope
    `drive`).
 3. **Vercel**: `CRON_PROJECT_SETUP_ENABLED=true`. Opcional:
-   `NOMA_PROJECT_SETUP_SINCE` (ISO; por defecto 2026-11-19 00:00 Santiago):
+   `NOMA_PROJECT_SETUP_SINCE` (ISO; por defecto 2026-11-24 00:00 Santiago):
    solo se preparan proyectos creados desde esa fecha.
-4. **pg_cron** (cada 10 min, lun–vie 08:00–20:59 Santiago ≈ 11–23 UTC):
+4. **Cron**: `vercel.json` llama a `/api/cron/project-setup` cada 10 minutos,
+   de lunes a viernes entre 08:00 y 20:59 de Santiago (`*/10 11-23 * * 1-5`,
+   UTC). Requiere el plan Pro de Vercel. Autentica con `CRON_SECRET`, como el
+   resto de los cron.
 
-```sql
-select cron.schedule(
-  'noma-proyectos-nuevos',
-  '*/10 11-23 * * 1-5',
-  $$ select net.http_get(
-       url := 'https://noma.studionomade.cl/api/cron/project-setup',
-       headers := jsonb_build_object(
-         'Authorization',
-         'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
-                       where name = 'noma_scheduler_secret')
-       ),
-       timeout_milliseconds := 55000
-     ) $$
-);
-```
+## Avisos
+
+Cuando el canal queda definido (creado, reutilizado o elegido con `CANAL …`),
+Noma lo vincula a los avisos de Asana (`asana_slack_links`, pantalla
+`/settings/slack-links`) y registra el webhook del proyecto: desde ese momento
+el bot avisa en ese canal las tareas nuevas, asignaciones, cambios de Estado,
+menciones y cierres, con un hilo por tarea.

@@ -33,6 +33,8 @@ import {
   slackBotConfigured,
   userIdByEmail,
 } from "./slack-bot";
+import { linkProjectToChannel } from "@/features/slack-notify/links";
+import { ensureLinkWebhooks } from "@/features/slack-notify/webhooks";
 
 /** Tarea que Noma crea cuando el cliente ya tiene otro canal. */
 export const CHANNEL_DECISION_TASK = "Noma · ¿Qué canal de Slack usamos?";
@@ -40,7 +42,7 @@ export const CHANNEL_DECISION_TASK = "Noma · ¿Qué canal de Slack usamos?";
 /** Solo proyectos creados desde la puesta en marcha (no los históricos). */
 function setupSince(): Date {
   const raw = process.env.NOMA_PROJECT_SETUP_SINCE?.trim();
-  const date = raw ? new Date(raw) : new Date("2026-11-19T03:00:00Z");
+  const date = raw ? new Date(raw) : new Date("2026-11-24T03:00:00Z");
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
@@ -80,7 +82,7 @@ export type ProjectSetupResult = {
 /**
  * Prepara los proyectos nuevos de Asana (reemplaza el Zap «Crear Canal y
  * Carpeta en Drive»). Idempotente: las marcas «Noma · …» en la descripción del
- * proyecto dicen qué ya está hecho. Lo llama pg_cron cada pocos minutos.
+ * proyecto dicen qué ya está hecho. Lo llama el cron de Vercel cada 10 minutos.
  */
 export async function processNewProjects({
   deadline = Date.now() + 45_000,
@@ -173,6 +175,17 @@ export async function processNewProjects({
           result.channel = resolved.channel.name;
           lines.push(
             `<strong>${escapeHtml(SETUP_MARK.channel)}</strong> #${escapeHtml(resolved.channel.name)}`,
+          );
+          // El canal queda vinculado a los avisos de Asana del proyecto (bot
+          // Noma, hilo por tarea); el webhook lo registra ensureLinkWebhooks.
+          await linkProjectToChannel({
+            asanaProjectGid: project.gid,
+            asanaProjectName: project.name,
+            slackChannelId: resolved.channel.id,
+            slackChannelName: resolved.channel.name,
+          });
+          await ensureLinkWebhooks({ projectGid: project.gid }).catch((error) =>
+            console.error("[project-setup:webhook]", error),
           );
           await postToChannel(
             resolved.channel.id,
