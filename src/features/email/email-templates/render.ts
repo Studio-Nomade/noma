@@ -503,6 +503,7 @@ export type CommentInput = Common & {
   /** Texto del comentario, tal cual (un párrafo por línea). */
   text: string | null;
   files?: DeliveryFile[];
+  attachments?: EmailAttachmentInfo[];
   author?: string | null;
 };
 
@@ -512,8 +513,10 @@ export function renderCommentEmail(input: CommentInput): RenderedEmail {
     .map((line) => line.trim())
     .filter(Boolean);
   const files = (input.files ?? []).filter((file) => safeUrl(file.url));
+  const attachments = input.attachments ?? [];
   const first =
-    paragraphs[0] ?? (files.length ? "Te compartimos los archivos." : "");
+    paragraphs[0] ??
+    (files.length || attachments.length ? "Te compartimos los archivos." : "");
   const view = {
     ...baseView(input, {
       titulo: "Comentario del equipo",
@@ -521,19 +524,22 @@ export function renderCommentEmail(input: CommentInput): RenderedEmail {
       stage: null,
     }),
     parrafos: paragraphs,
-    tiene_archivos: files.length > 0,
-    archivos: files.map((file) => ({
-      etiqueta: file.label,
-      detalle: file.detail ?? "",
-      url: file.url,
-    })),
+    tiene_archivos: files.length + attachments.length > 0,
+    archivos: [
+      ...files.map((file) => ({
+        etiqueta: file.label,
+        detalle: file.detail ?? "",
+        url: file.url,
+      })),
+      ...attachmentRows(attachments),
+    ],
     autor: input.author ?? "",
   };
   const text = [
     hello(input.requesterName),
     "",
     ...paragraphs,
-    ...(files.length
+    ...(files.length || attachments.length
       ? [
           "",
           "Archivos:",
@@ -541,6 +547,7 @@ export function renderCommentEmail(input: CommentInput): RenderedEmail {
             (file) =>
               `- ${file.label}${file.detail ? ` (${file.detail})` : ""}: ${file.url}`,
           ),
+          ...attachmentTextLines(attachments),
         ]
       : []),
     ...(input.author ? ["", `${input.author} · Studio Nomade`] : []),
@@ -558,9 +565,30 @@ export type DeliveryFile = {
   detail?: string | null;
 };
 
+/** Archivo que viaja adjunto en el correo (sin link). */
+export type EmailAttachmentInfo = { name: string; sizeLabel?: string | null };
+
+function attachmentRows(attachments: EmailAttachmentInfo[] | undefined) {
+  return (attachments ?? []).map((item) => ({
+    etiqueta: item.name,
+    detalle: ["Adjunto en este correo", item.sizeLabel]
+      .filter(Boolean)
+      .join(" · "),
+    url: "",
+  }));
+}
+
+function attachmentTextLines(attachments: EmailAttachmentInfo[] | undefined) {
+  return (attachments ?? []).map(
+    (item) =>
+      `- ${item.name} (adjunto en este correo${item.sizeLabel ? `, ${item.sizeLabel}` : ""})`,
+  );
+}
+
 export type DeliveryInput = Common & {
   round: number;
   files: DeliveryFile[];
+  attachments?: EmailAttachmentInfo[];
   note?: string | null;
   author?: string | null;
   appliedAdjustments?: string[];
@@ -590,11 +618,14 @@ export function renderDeliveryEmail(input: DeliveryInput): RenderedEmail {
     tiene_ajustes_aplicados: applied.length > 0 && input.round > 1,
     entrega_anterior: pad2(Math.max(1, input.round - 1)),
     ajustes_aplicados: applied,
-    archivos: files.map((file) => ({
-      etiqueta: file.label,
-      detalle: file.detail ?? "",
-      url: file.url,
-    })),
+    archivos: [
+      ...files.map((file) => ({
+        etiqueta: file.label,
+        detalle: file.detail ?? "",
+        url: file.url,
+      })),
+      ...attachmentRows(input.attachments),
+    ],
     nota_equipo: input.note?.trim() ?? "",
     autor: input.author ?? "",
     guia_ajustes: ADJUSTMENTS_GUIDE,
@@ -618,6 +649,7 @@ export function renderDeliveryEmail(input: DeliveryInput): RenderedEmail {
       (file) =>
         `- ${file.label}${file.detail ? ` (${file.detail})` : ""}: ${file.url}`,
     ),
+    ...attachmentTextLines(input.attachments),
     ...(view.nota_equipo
       ? ["", view.nota_equipo + (view.autor ? ` — ${view.autor}` : "")]
       : []),

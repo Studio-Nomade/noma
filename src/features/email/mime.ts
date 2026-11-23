@@ -440,7 +440,29 @@ export type OutgoingEmail = {
   references?: string[];
   messageId?: string | null;
   date?: Date;
+  /** Archivos adjuntos (multipart/mixed). */
+  attachments?: OutgoingAttachment[];
 };
+
+export type OutgoingAttachment = {
+  filename: string;
+  mimeType: string;
+  content: Buffer;
+};
+
+/** filename ASCII de respaldo + filename* UTF-8 (RFC 2231). */
+function attachmentNameParams(filename: string) {
+  const ascii = filename
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/["\\]/g, "_");
+  const encoded = encodeURIComponent(filename).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return { ascii, encoded };
+}
 
 const ASCII_PRINTABLE = /^[\x20-\x7e]*$/;
 
@@ -522,10 +544,10 @@ export function buildMimeMessage(
       ? `References: ${email.references.join("\r\n ")}`
       : null,
     "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ].filter((line): line is string => line !== null);
 
-  const body = [
+  const attachments = email.attachments ?? [];
+  const alternative = [
     `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
@@ -537,7 +559,30 @@ export function buildMimeMessage(
     "",
     wrapBase64(Buffer.from(email.html, "utf8").toString("base64")),
     `--${boundary}--`,
-    "",
   ];
+  if (!attachments.length) {
+    headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+    return `${headers.join("\r\n")}\r\n\r\n${[...alternative, ""].join("\r\n")}`;
+  }
+  const mixed = `${boundary}_mixed`;
+  headers.push(`Content-Type: multipart/mixed; boundary="${mixed}"`);
+  const body = [
+    `--${mixed}`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+    ...alternative,
+  ];
+  for (const attachment of attachments) {
+    const { ascii, encoded } = attachmentNameParams(attachment.filename);
+    body.push(
+      `--${mixed}`,
+      `Content-Type: ${attachment.mimeType}; name="${ascii}"`,
+      `Content-Disposition: attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrapBase64(attachment.content.toString("base64")),
+    );
+  }
+  body.push(`--${mixed}--`, "");
   return `${headers.join("\r\n")}\r\n\r\n${body.join("\r\n")}`;
 }

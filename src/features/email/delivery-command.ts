@@ -20,7 +20,10 @@ function matchCommand(text: string, htmlText?: string | null) {
   if (strict) return strict;
   const loose = text.match(LOOSE_DELIVERY_LINE_RE);
   if (!loose) return null;
-  return extractUrls(text, htmlText).length ? loose : null;
+  return extractUrls(text, htmlText).length ||
+    hasAttachmentLine(text.slice(loose[0].length))
+    ? loose
+    : null;
 }
 
 /** Links que nunca se mandan al cliente (menciones y tareas de Asana). */
@@ -46,8 +49,29 @@ export type DeliveryCommand = {
   links: string[];
   /** Un archivo por link, con nombre (`Nombre: link`) y detalle entre (…). */
   files: DeliveryCommandFile[];
+  /** Archivos adjuntos a la tarea de Asana que van en el correo («Adjunto: nombre»). */
+  attachments: string[];
   note: string | null;
 };
+
+/**
+ * «Adjunto: nombre.zip» (o «Adjuntos:»), sin link: el archivo está adjunto a
+ * la tarea de Asana y Noma lo manda adjunto en el correo. Una línea por
+ * archivo.
+ */
+const ATTACHMENT_LINE_RE = /^\s*[-–—•*]?\s*adjuntos?\s*[:·\-–—]\s*(\S.*?)\s*$/i;
+
+function attachmentName(line: string) {
+  if (/https?:\/\//i.test(line)) return null;
+  const match = line.match(ATTACHMENT_LINE_RE);
+  return match
+    ? match[1].replace(/^[«"“']+|[»"”']+$/g, "").trim() || null
+    : null;
+}
+
+function hasAttachmentLine(body: string) {
+  return body.split("\n").some((line) => attachmentName(line) !== null);
+}
 
 function cleanUrl(url: string) {
   return url.replace(/[.,;:!?»”]+$/, "");
@@ -89,8 +113,8 @@ export function parseDeliveryCommand(
 
   const links = extractUrls(text, htmlText);
   const body = text.slice(match[0].length);
-  const { files, note } = parseFilesAndNote(body, htmlText, links);
-  return { round, links, files, note };
+  const { files, note, attachments } = parseFilesAndNote(body, htmlText, links);
+  return { round, links, files, attachments, note };
 }
 
 /**
@@ -102,11 +126,21 @@ export function parseFilesAndNote(
   body: string,
   htmlText: string | null | undefined,
   links: string[] = extractUrls(body, htmlText),
-): { files: DeliveryCommandFile[]; note: string | null } {
+): {
+  files: DeliveryCommandFile[];
+  note: string | null;
+  attachments: string[];
+} {
   const anchorLabels = anchorTexts(htmlText);
   const files: DeliveryCommandFile[] = [];
+  const attachments: string[] = [];
   const noteLines: string[] = [];
   for (const rawLine of body.split("\n")) {
+    const attachment = attachmentName(rawLine);
+    if (attachment) {
+      if (!attachments.includes(attachment)) attachments.push(attachment);
+      continue;
+    }
     const lineUrls = extractUrls(rawLine);
     if (!lineUrls.length) {
       noteLines.push(rawLine.replace(/^[\s\-–—•*]+$/, "").trimEnd());
@@ -154,7 +188,7 @@ export function parseFilesAndNote(
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { files, note: note || null };
+  return { files, note: note || null, attachments };
 }
 
 const GENERIC_ANCHOR = /^(link|enlace|aqu[ií]|ac[aá]|ver|here|click|clic)$/i;
@@ -278,6 +312,7 @@ export type CommentCommand = {
   text: string | null;
   links: string[];
   files: DeliveryCommandFile[];
+  attachments: string[];
 };
 
 export function parseCommentCommand(
@@ -289,8 +324,8 @@ export function parseCommentCommand(
   if (!match) return null;
   const body = text.slice(match[0].length);
   const links = extractUrls(body, htmlText);
-  const { files, note } = parseFilesAndNote(body, htmlText, links);
-  return { text: note, links, files };
+  const { files, note, attachments } = parseFilesAndNote(body, htmlText, links);
+  return { text: note, links, files, attachments };
 }
 
 /**
