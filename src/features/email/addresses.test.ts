@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canonicalMailbox,
   channelBySenderDomain,
   externalRecipients,
-  isIgnoredSender,
   isAllowedSenderDomain,
+  isIgnoredSender,
   isPublicEmailDomain,
   matchAlias,
   parseAddressList,
@@ -198,4 +199,17 @@ test("remitentes ignorados por canal, sin distinguir mayúsculas", () => {
   ];
   assert.equal(isIgnoredSender(channels, "Servicio@Cliente.com"), true);
   assert.equal(isIgnoredSender(channels, "marketing@cliente.com"), false);
+});
+
+test("canonicalMailbox: en Gmail los puntos y el +etiqueta no cambian la casilla", () => {
+  assert.equal(
+    canonicalMailbox("Nombre.Apellido@gmail.com"),
+    canonicalMailbox("nombreapellido@gmail.com"),
+  );
+  assert.equal(canonicalMailbox("n.a+etiqueta@googlemail.com"), "na@gmail.com");
+  // En otros dominios los puntos sí cuentan.
+  assert.notEqual(
+    canonicalMailbox("nombre.apellido@cliente.cl"),
+    canonicalMailbox("nombreapellido@cliente.cl"),
+  );
 });

@@ -12,7 +12,11 @@ import {
   folioCounters,
   projects,
 } from "@/db/schema";
-import { isAllowedSenderDomain, normalizeEmail } from "./addresses";
+import {
+  canonicalMailbox,
+  isAllowedSenderDomain,
+  normalizeEmail,
+} from "./addresses";
 import { formatFolio } from "./folio";
 import type { HistoryMessage } from "./inbox";
 
@@ -121,17 +125,16 @@ export async function isTrustedSender(
 ): Promise<boolean> {
   const sender = normalizeEmail(email);
   if (isAllowedSenderDomain(sender, channel.allowedSenderDomains)) return true;
-  const [contact] = await db
-    .select({ id: clientContacts.id })
+  // Contactos del cliente, comparados por casilla (en Gmail los puntos no
+  // cuentan: nombre.apellido@gmail.com es nombreapellido@gmail.com).
+  const contacts = await db
+    .select({ email: clientContacts.email })
     .from(clientContacts)
-    .where(
-      and(
-        eq(clientContacts.clientId, channel.clientId),
-        sql`lower(${clientContacts.email}) = ${sender}`,
-      ),
-    )
-    .limit(1);
-  return Boolean(contact);
+    .where(eq(clientContacts.clientId, channel.clientId));
+  const wanted = canonicalMailbox(sender);
+  return contacts.some(
+    (contact) => contact.email && canonicalMailbox(contact.email) === wanted,
+  );
 }
 
 // ── Folio correlativo ────────────────────────────────────────
