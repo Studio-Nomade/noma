@@ -468,6 +468,67 @@ export async function postTeamNoticeToThread(input: {
 }
 
 /**
+ * Aviso del equipo que no es de una tarea (p. ej. un correo de remitente no
+ * autorizado en el alias del cliente): el bot lo publica como mensaje nuevo
+ * en el canal vinculado al proyecto. Fuera del horario hábil queda en cola.
+ * false si el proyecto no tiene vínculo activo: quien llama usa el webhook.
+ * Nunca lanza.
+ */
+export async function postTeamNoticeToChannel(input: {
+  projectGid: string;
+  text: string;
+  mrkdwn: string;
+}): Promise<boolean> {
+  if (!slackBotConfigured()) return false;
+  const eventKey = `team-channel:${input.projectGid}:${randomUUID()}`;
+  let claimed = false;
+  try {
+    const link = await activeLinkFor(input.projectGid);
+    if (!link) return false;
+    await db.insert(slackNotifyLog).values({
+      eventKey,
+      slackChannelId: link.slackChannelId,
+      kind: "team",
+    });
+    claimed = true;
+    const deliverAt = deferredSendAt(new Date(), businessHoursFromEnv());
+    if (deliverAt) {
+      await db
+        .update(slackNotifyLog)
+        .set({
+          deliverAt,
+          payload: { text: input.text, mrkdwn: input.mrkdwn, rootGid: "" },
+        })
+        .where(eq(slackNotifyLog.eventKey, eventKey));
+      return true;
+    }
+    const posted = await postBotMessage({
+      channel: link.slackChannelId,
+      text: input.text,
+      mrkdwn: input.mrkdwn,
+    });
+    await db
+      .update(slackNotifyLog)
+      .set({
+        slackTs: posted.ts,
+        slackChannelId: posted.channel,
+        body: input.mrkdwn,
+      })
+      .where(eq(slackNotifyLog.eventKey, eventKey));
+    return true;
+  } catch (error) {
+    console.error("[slack-notify:team-channel]", input.projectGid, error);
+    if (claimed) {
+      await db
+        .delete(slackNotifyLog)
+        .where(eq(slackNotifyLog.eventKey, eventKey))
+        .catch(() => undefined);
+    }
+    return false;
+  }
+}
+
+/**
  * Publica los avisos internos que quedaron en cola fuera del horario hábil y
  * cuya hora ya llegó: un mensaje por tarea (sus eventos, en orden), en el
  * hilo de la solicitud. Lo llaman el pg_cron de las 08:55
@@ -535,7 +596,8 @@ export async function flushPendingSlackNotices(
           })
           .where(eq(slackNotifyLog.eventKey, row.eventKey));
       }
-      if (!threadTs) {
+      // Los avisos de canal (sin tarea) no abren hilo de tarea.
+      if (!threadTs && rootGid) {
         await db
           .insert(slackTaskThreads)
           .values({
