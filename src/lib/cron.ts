@@ -37,6 +37,9 @@ import { timingSafeEqual } from "node:crypto";
  * - `slack-notify`: registra (o recrea) el webhook de Asana de cada proyecto
  *   vinculado a un canal de Slack y avisa las menciones y tareas reabiertas
  *   de las últimas 24 h que se perdieron. Publica en Slack como el bot Noma.
+ * - `project-setup`: proyectos nuevos de Asana («Cliente | Proyecto») →
+ *   carpeta en la unidad del área y canal de Slack (cron de Vercel cada 10
+ *   min en horario hábil).
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
@@ -50,6 +53,8 @@ export const CRON_JOBS = {
   "monthly-reports": "CRON_MONTHLY_REPORTS_ENABLED",
   "meetings-digest": "CRON_MEETINGS_DIGEST_ENABLED",
   "slack-notify": "CRON_SLACK_NOTIFY_ENABLED",
+  // Proyectos nuevos de Asana → carpeta en Drive y canal de Slack.
+  "project-setup": "CRON_PROJECT_SETUP_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;

@@ -36,19 +36,36 @@ const FIELD_ALIASES: Record<string, string[]> = {
   neto: ["monto neto", "neto"],
   iva: ["monto iva", "monto iva recuperable", "iva"],
   total: ["monto total", "total"],
-  // Cartola bancaria (BCI: "Cheques y otros cargos", "Depósitos y Abono", …)
-  fecha: ["fecha", "fecha movimiento"],
-  glosa: ["descripcion", "glosa", "detalle"],
-  cargo: ["cheques y otros cargos", "cargos", "cargo"],
-  abono: ["depositos y abono", "depositos y abonos", "abonos", "abono"],
-  saldo: ["saldo diario", "saldo"],
+  // Cartola bancaria (BCI: "Cheques y otros cargos", "Depósitos y Abono", …;
+  // export de movimientos de BCI empresas: "Fecha de transacción",
+  // "Glosa detalle", "Ingreso (+)", "Egreso (-)", "Saldo contable").
+  fecha: [
+    "fecha",
+    "fecha movimiento",
+    "fecha de transaccion",
+    "fecha contable",
+  ],
+  glosa: ["descripcion", "glosa", "detalle", "glosa detalle"],
+  cargo: ["cheques y otros cargos", "cargos", "cargo", "egreso (-)"],
+  abono: [
+    "depositos y abono",
+    "depositos y abonos",
+    "abonos",
+    "abono",
+    "ingreso (+)",
+  ],
+  saldo: ["saldo diario", "saldo", "saldo contable"],
   documento: [
     "n° documento",
     "nº documento",
     "n documento",
     "nro documento",
     "numero documento",
+    "codigo transferencia",
   ],
+  // Contraparte de la transferencia (solo en el export de movimientos).
+  contraparte: ["nombre"],
+  contraparteRut: ["rut"],
 };
 
 /**
@@ -203,7 +220,18 @@ export function mapTransactions(
     const descripcion = pick(row, mapping, "glosa").trim() || "(sin glosa)";
     // El N° de documento del banco distingue movimientos iguales del mismo día
     // (p. ej. dos transferencias del mismo cliente por el mismo monto).
-    const glosa = documento ? `${descripcion} · doc ${documento}` : descripcion;
+    // La contraparte (nombre y RUT) ayuda a conciliar contra el cliente.
+    const contraparte = [
+      pick(row, mapping, "contraparte").trim(),
+      pick(row, mapping, "contraparteRut").trim(),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const base =
+      contraparte && !descripcion.includes(contraparte)
+        ? `${descripcion} · ${contraparte}`
+        : descripcion;
+    const glosa = documento ? `${base} · doc ${documento}` : base;
     let monto = 0;
     let tipo: BankTxnType;
 
