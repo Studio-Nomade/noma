@@ -11,6 +11,21 @@ export function normalizeEmail(value: string): string {
   return value.trim().replace(/^<|>$/g, "").toLowerCase();
 }
 
+/**
+ * Casilla canónica para comparar remitentes: en Gmail los puntos y el «+etiqueta»
+ * de la parte local no cambian la casilla (nombre.apellido@ = nombreapellido@).
+ */
+export function canonicalMailbox(email: string): string {
+  const normalized = normalizeEmail(email);
+  const at = normalized.lastIndexOf("@");
+  if (at === -1) return normalized;
+  let local = normalized.slice(0, at);
+  let domain = normalized.slice(at + 1);
+  if (domain === "googlemail.com") domain = "gmail.com";
+  if (domain === "gmail.com") local = local.split("+")[0].replace(/\./g, "");
+  return `${local}@${domain}`;
+}
+
 export function domainOf(email: string): string {
   const at = email.lastIndexOf("@");
   return at === -1 ? "" : email.slice(at + 1).toLowerCase();

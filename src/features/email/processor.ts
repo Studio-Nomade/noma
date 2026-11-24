@@ -172,6 +172,7 @@ async function processEmailEvent(
         subject: email.subject,
         clientName: channel?.clientName,
         slackWebhookEnv: channel?.slackWebhookEnv,
+        projectGid: channel?.asanaProjectGid,
         reason: `Respuesta a ${reply.request.folio ?? "solicitud"} con remitente no verificado (${auth.reason}).`,
       });
       return {
@@ -234,6 +235,7 @@ async function processEmailEvent(
       subject: email.subject,
       clientName: channel.clientName,
       slackWebhookEnv: channel.slackWebhookEnv,
+      projectGid: channel.asanaProjectGid,
       reason: `Reenvío de ${email.from.email} de una respuesta a ${forwardedFolio}: súmala como comentario en esa tarea.`,
     });
     return {
@@ -251,6 +253,7 @@ async function processEmailEvent(
       subject: email.subject,
       clientName: channel.clientName,
       slackWebhookEnv: channel.slackWebhookEnv,
+      projectGid: channel.asanaProjectGid,
       reason: !auth.verified
         ? `Remitente sin autenticar (${auth.reason}).`
         : forwarded

@@ -1,6 +1,9 @@
 import "server-only";
 import { resolveSlackWebhook } from "@/features/email/channel-config";
-import { postTeamNoticeToThread } from "@/features/slack-notify/process";
+import {
+  postTeamNoticeToChannel,
+  postTeamNoticeToThread,
+} from "@/features/slack-notify/process";
 import { parseSlackUserIds } from "./team-events";
 
 const TIMEOUT_MS = 5_000;
@@ -11,7 +14,11 @@ type SlackBlock = {
 };
 
 /** Tarea de Asana del aviso: con vínculo activo, va en su hilo por el bot. */
-export type NoticeThread = { projectGid: string; taskGid: string } | null;
+/** Hilo de la tarea en el canal del proyecto; sin `taskGid`, mensaje nuevo en ese canal. */
+export type NoticeThread = {
+  projectGid: string;
+  taskGid?: string | null;
+} | null;
 
 async function sendOperationsNotification(
   text: string,
@@ -21,13 +28,20 @@ async function sendOperationsNotification(
 ): Promise<{ connected: boolean; reason?: string }> {
   // Proyecto vinculado a un canal (asana_slack_links): publica el bot Noma en
   // el hilo de la solicitud. Sin vínculo, el webhook del canal de siempre.
-  if (thread?.projectGid && thread.taskGid) {
-    const posted = await postTeamNoticeToThread({
-      projectGid: thread.projectGid,
-      taskGid: thread.taskGid,
-      text,
-      mrkdwn: blocks.map((block) => block.text.text).join("\n"),
-    });
+  if (thread?.projectGid) {
+    const mrkdwn = blocks.map((block) => block.text.text).join("\n");
+    const posted = thread.taskGid
+      ? await postTeamNoticeToThread({
+          projectGid: thread.projectGid,
+          taskGid: thread.taskGid,
+          text,
+          mrkdwn,
+        })
+      : await postTeamNoticeToChannel({
+          projectGid: thread.projectGid,
+          text,
+          mrkdwn,
+        });
     if (posted) return { connected: true };
   }
   const webhookUrl = resolveSlackWebhook(webhookEnv);
@@ -158,6 +172,8 @@ export async function notifyUnknownEmailSender(input: {
   /** Motivo (p. ej. remitente sin autenticación DMARC/DKIM/SPF). */
   reason?: string | null;
   slackWebhookEnv?: string | null;
+  /** Proyecto de Asana del canal: el aviso va a su canal de Slack vinculado. */
+  projectGid?: string | null;
 }) {
   return sendOperationsNotification(
     "Correo de remitente no autorizado",
@@ -180,6 +196,7 @@ export async function notifyUnknownEmailSender(input: {
       },
     ],
     input.slackWebhookEnv,
+    input.projectGid ? { projectGid: input.projectGid } : null,
   );
 }
 
