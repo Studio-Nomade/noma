@@ -171,3 +171,63 @@ export async function listBotChannels(): Promise<BotChannel[]> {
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/** Correo de un usuario de Slack (permiso users:read.email). */
+export async function getSlackUserEmail(
+  userId: string,
+): Promise<string | null> {
+  const result = await slackApi<
+    SlackApiResponse & {
+      user?: { is_bot?: boolean; profile?: { email?: string } };
+    }
+  >("users.info", { user: userId }, { form: true });
+  if (!result.ok || result.user?.is_bot) return null;
+  return result.user?.profile?.email?.toLowerCase() ?? null;
+}
+
+export type SlackHistoryMessage = {
+  ts: string;
+  text: string;
+  user?: string;
+  botId?: string;
+};
+
+/**
+ * Mensajes recientes de una conversación (mensaje directo o canal): con
+ * `threadTs`, las respuestas de ese hilo; si no, los últimos del canal.
+ * Permisos: im:history (directos) o channels:history (canales).
+ */
+export async function getConversationMessages(input: {
+  channel: string;
+  threadTs?: string | null;
+  limit?: number;
+}): Promise<SlackHistoryMessage[]> {
+  const limit = String(input.limit ?? 12);
+  const result = await slackApi<
+    SlackApiResponse & {
+      messages?: {
+        ts: string;
+        text?: string;
+        user?: string;
+        bot_id?: string;
+      }[];
+    }
+  >(
+    input.threadTs ? "conversations.replies" : "conversations.history",
+    input.threadTs
+      ? { channel: input.channel, ts: input.threadTs, limit }
+      : { channel: input.channel, limit },
+    { form: true },
+  );
+  if (!result.ok) {
+    throw new Error(`Slack historial: ${result.error ?? "error"}`);
+  }
+  const messages = (result.messages ?? []).map((m) => ({
+    ts: m.ts,
+    text: m.text ?? "",
+    user: m.user,
+    botId: m.bot_id,
+  }));
+  // conversations.history viene del más nuevo al más antiguo.
+  return input.threadTs ? messages : messages.reverse();
+}
