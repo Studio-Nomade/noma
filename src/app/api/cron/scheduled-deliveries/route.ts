@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
+import { flushScheduledAreaSends } from "@/features/email/area-deliveries";
 import { flushScheduledDeliveries } from "@/features/email/deliveries";
 import { flushPendingSlackNotices } from "@/features/slack-notify/process";
 import { gateCronRequest } from "@/lib/cron";
@@ -45,16 +46,23 @@ export async function GET(request: Request) {
   });
   if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
   const result = await flushScheduledDeliveries({
-    deadline: Date.now() + 40_000,
+    deadline: Date.now() + 30_000,
+  });
+  // Modelo B: correos desde la cuenta de quien comenta.
+  const area = await flushScheduledAreaSends({
+    deadline: Date.now() + 12_000,
+  }).catch((error) => {
+    console.error("[cron:scheduled-deliveries:area]", error);
+    return null;
   });
   // Avisos internos de Slack que quedaron en cola fuera del horario hábil.
   const slack = await flushPendingSlackNotices({
-    deadline: Date.now() + 15_000,
+    deadline: Date.now() + 10_000,
   }).catch((error) => {
     console.error("[cron:scheduled-deliveries:slack]", error);
     return null;
   });
-  return NextResponse.json({ ok: true, ...result, slack });
+  return NextResponse.json({ ok: true, ...result, area, slack });
 }
 
 export const POST = GET;
