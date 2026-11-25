@@ -2034,6 +2034,73 @@ export const emailSignatures = pgTable("email_signatures", {
   ...timestamps,
 });
 
+// ── Modelo B · correo desde la cuenta de quien comenta ───────
+// Proyectos generales de área (Clínica de Emprendimientos, Web Design…):
+// ENTREGA/CONSULTA/COMENTARIO salen desde la cuenta de Google de quien
+// comenta (respaldo: operations@ con copia a esa persona).
+export const areaEmailProjects = pgTable("area_email_projects", {
+  asanaProjectGid: text("asana_project_gid").primaryKey(),
+  /** Sigla del área en el asunto: CE, WD, A&D, A&A, B&D. */
+  areaCode: text("area_code").notNull(),
+  /** Nombre del área para el pie del correo. */
+  areaLabel: text("area_label").notNull(),
+  /** active | paused */
+  status: text("status").default("active").notNull(),
+  ...timestamps,
+});
+
+/** Hilos de correo de una tarea (uno por asunto y por casilla). */
+export type AreaMailboxThread = {
+  mailbox: string;
+  threadId: string | null;
+  subject: string;
+  lastMessageId: string;
+  references: string[];
+};
+
+export const areaEmailThreads = pgTable("area_email_threads", {
+  /** Tarea principal (las subtareas entregan en el hilo de su madre). */
+  asanaTaskGid: text("asana_task_gid").primaryKey(),
+  asanaProjectGid: text("asana_project_gid").notNull(),
+  /** «CE - Cliente | Solicitud», sin «- Entrega NN». */
+  subjectBase: text("subject_base").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  threads: jsonb("threads").$type<AreaMailboxThread[]>().default([]).notNull(),
+  lastRound: integer("last_round").default(0).notNull(),
+  ...timestamps,
+});
+
+export const areaEmailSends = pgTable(
+  "area_email_sends",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Idempotencia: un comentario de Asana produce a lo más un envío. */
+    asanaStoryGid: text("asana_story_gid").notNull().unique(),
+    asanaTaskGid: text("asana_task_gid").notNull(),
+    asanaProjectGid: text("asana_project_gid").notNull(),
+    /** delivery | consulta | comentario */
+    kind: text("kind").notNull(),
+    round: integer("round").default(0).notNull(),
+    /** sending | sent | scheduled | failed | rejected | unknown */
+    status: text("status").default("sending").notNull(),
+    /** personal (cuenta de quien comenta) | operations (respaldo) */
+    via: text("via"),
+    fromEmail: text("from_email"),
+    toEmails: text("to_emails").array(),
+    ccEmails: text("cc_emails").array(),
+    subject: text("subject"),
+    gmailMessageId: text("gmail_message_id"),
+    gmailThreadId: text("gmail_thread_id"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("area_email_sends_task_idx").on(t.asanaTaskGid),
+    index("area_email_sends_status_idx").on(t.status),
+  ],
+);
+
 // ── user_integrations (token de Google para enviar como el usuario) ──
 export const userIntegrations = pgTable("user_integrations", {
   userId: uuid("user_id").primaryKey(), // auth.users.id
