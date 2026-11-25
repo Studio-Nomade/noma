@@ -111,7 +111,6 @@ function fieldText(task: TaskForThread | null, name: string) {
   return field?.display_value?.trim() || null;
 }
 
-
 function validEmail(value: string | null) {
   const email = value ? normalizeEmail(value) : "";
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
@@ -452,6 +451,8 @@ export async function processAreaStory(
     userId: string;
     email: string;
   }): Promise<Sent> => {
+    // La casilla de solicitudes va en copia y en «Responder a»: la
+    // respuesta del cliente le llega a Noma aunque no responda a todos.
     const cc = deliveryCc({
       requestCc: [],
       commenterEmail,
@@ -459,6 +460,9 @@ export async function processAreaStory(
       studioDomain: studioDomain(),
       exclude: [contact, from.email],
     });
+    if (operations && !cc.includes(operations) && operations !== from.email) {
+      cc.push(operations);
+    }
     const headers = threadHeaders(from.email);
     const messageId = generateMessageId(
       from.email.split("@")[1] ?? "studionomade.cl",
@@ -471,6 +475,7 @@ export async function processAreaStory(
       subject,
       html: out.html,
       text: out.text,
+      replyTo: operations ? `${from.email}, ${operations}` : null,
       inReplyTo: headers.inReplyTo,
       references: headers.references,
       messageId,
