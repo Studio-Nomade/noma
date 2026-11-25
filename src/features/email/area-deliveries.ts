@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   type AreaMailboxThread,
@@ -21,6 +21,7 @@ import {
 } from "@/features/asana/asana";
 import { foldName } from "@/features/asana/custom-fields";
 import { normalizeEmail } from "./addresses";
+import { buildReplyStoryHtml } from "./asana-content";
 import {
   areaClientAndRequest,
   areaDeliverySubject,
@@ -691,4 +692,73 @@ export async function flushScheduledAreaSends({
     }
   }
   return { scheduled: rows.length, sent, failed };
+}
+
+/**
+ * Hilo del modelo B al que responde un correo (por In-Reply-To/References
+ * contra los Message-ID que envió Noma). null: no es de un hilo de área.
+ */
+export async function areaThreadByMessageIds(ids: string[]) {
+  const wanted = [...new Set(ids.filter(Boolean))].slice(0, 30);
+  if (!wanted.length) return null;
+  const [row] = await db
+    .select()
+    .from(areaEmailThreads)
+    .where(
+      sql`exists (
+        select 1 from jsonb_array_elements(${areaEmailThreads.threads}) item
+        where item->>'lastMessageId' = any(${wanted}::text[])
+           or exists (
+             select 1 from jsonb_array_elements_text(item->'references') ref
+             where ref = any(${wanted}::text[])
+           )
+      )`,
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Respuesta del cliente en un hilo del modelo B (llega a la casilla de
+ * solicitudes porque va en copia y en «Responder a»): queda como comentario
+ * en la tarea. La aprobación y los ajustes se leen en la entrega 6.
+ */
+export async function recordAreaReply(input: {
+  thread: typeof areaEmailThreads.$inferSelect;
+  fromName: string | null;
+  fromEmail: string;
+  receivedAt: Date;
+  text: string;
+  quoteOmitted: boolean;
+  attachmentNames: string[];
+  messageId: string | null;
+}) {
+  await addStory(
+    input.thread.asanaTaskGid,
+    buildReplyStoryHtml({
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      receivedAt: input.receivedAt,
+      text: input.text,
+      quoteOmitted: input.quoteOmitted,
+      attachmentNames: input.attachmentNames,
+    }),
+  );
+  // El hilo sigue con el último mensaje: la próxima respuesta de Noma va
+  // encadenada a lo que escribió el cliente.
+  if (input.messageId) {
+    const threads = input.thread.threads.map((item, index, all) =>
+      index === all.length - 1
+        ? {
+            ...item,
+            references: [...item.references, item.lastMessageId].slice(-20),
+            lastMessageId: input.messageId!,
+          }
+        : item,
+    );
+    await db
+      .update(areaEmailThreads)
+      .set({ threads, updatedAt: new Date() })
+      .where(eq(areaEmailThreads.asanaTaskGid, input.thread.asanaTaskGid));
+  }
 }

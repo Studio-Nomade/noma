@@ -410,7 +410,8 @@ En los proyectos generales de un área (cada tarea es un cliente o proyecto) no 
 - **Plantilla:** la misma de siempre, con la firma de la persona en vez de «Design Team», una nota de hilo sin folio y un pie con el área y la casilla de envío (`signatureName`, `threadNote` y `footer` en `render.ts`).
 - **Reglas compartidas con el modelo A:** horario hábil (con «ENVIAR AHORA»), adjuntos (`Adjunto:`) e idempotencia por story (`area_email_sends`).
 - **Fuera de horario:** el envío queda `scheduled`. Lo envían el cron de las 08:55 (`scheduled-deliveries`) y, de paso, los webhooks del proyecto.
-- **Pendiente (entrega 6):** procesar las respuestas del cliente que llegan a operations@ en esos hilos (por In-Reply-To/References contra `area_email_threads`) para detectar aprobación o ajustes. Mientras tanto, la respuesta llega a la persona y a operations@, y se gestiona a mano.
+- **Respuestas del cliente:** llegan a operations@, porque va en copia y en `Reply-To`. Si el correo responde a un hilo del modelo B (In-Reply-To o References contra `area_email_threads`), queda como comentario «Respuesta del cliente por correo» en la tarea principal. Las copias del propio equipo se ignoran.
+- **Pendiente (entrega 6):** leer en esas respuestas la aprobación o los ajustes y mover la tarea, como en el modelo A.
 
 ### Archivos adjuntos en entregas y comentarios (`Adjunto:`)
 

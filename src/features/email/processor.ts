@@ -5,6 +5,7 @@ import {
   notifyUnknownEmailSender,
 } from "@/features/bot/notify";
 import { logActivity } from "@/lib/activity";
+import { areaThreadByMessageIds, recordAreaReply } from "./area-deliveries";
 import {
   channelBySenderDomain,
   isIgnoredSender,
@@ -21,6 +22,7 @@ import {
   emailSourceKey,
   handleEmailReply,
   handleNewEmailRequest,
+  replyBody,
   studioDomain,
   type EventProgress,
 } from "./requests";
@@ -192,6 +194,37 @@ async function processEmailEvent(
       note: [`Respuesta (${reply.via}) a ${reply.request.folio}`, result.note]
         .filter(Boolean)
         .join(" · "),
+    };
+  }
+
+  // Modelo B: respuesta del cliente a un correo que salió desde la cuenta de
+  // alguien del estudio (operations@ va en copia y en «Responder a»).
+  const areaThread = await areaThreadByMessageIds([
+    ...(email.inReplyTo ? [email.inReplyTo] : []),
+    ...email.references,
+  ]);
+  if (areaThread) {
+    // La copia de lo que envía el propio equipo también llega aquí.
+    if (email.from.email.toLowerCase().endsWith(`@${studioDomain()}`)) {
+      return {
+        status: "ignored",
+        note: "Correo del equipo en un hilo del modelo B.",
+      };
+    }
+    const body = replyBody(email);
+    await recordAreaReply({
+      thread: areaThread,
+      fromName: email.from.name ?? null,
+      fromEmail: email.from.email,
+      receivedAt: email.date ?? new Date(),
+      text: body.text,
+      quoteOmitted: body.omitted,
+      attachmentNames: email.attachments.map((item) => item.filename),
+      messageId: email.messageId ?? null,
+    });
+    return {
+      status: "done",
+      note: `Respuesta (modelo B) en la tarea ${areaThread.asanaTaskGid}${auth.verified ? "" : " · remitente sin verificar"}`,
     };
   }
 
