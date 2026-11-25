@@ -388,6 +388,30 @@ Los archivos están arriba nuevamente, con el logo corregido.
 - **Registro.** Queda en `request_deliveries` con `kind = "comentario"`, idempotente por story, y Noma deja un comentario de control en la tarea.
 - **Fecha de corte.** Solo cuentan los comentarios desde `NOMA_COMMENT_COMMAND_SINCE` (por defecto 21-11-2026, 00:00 Santiago). Así la reconciliación nunca le envía al cliente un comentario antiguo que empezara con «Comentario:».
 
+### Modelo B · proyectos generales de área (correo desde la cuenta de quien comenta)
+
+En los proyectos generales de un área (cada tarea es un cliente o proyecto) no hay alias de cliente. `ENTREGA NN`, `CONSULTA` y `Comentario` salen **desde la cuenta de Google de quien comenta**.
+
+- **Activación:** tabla `area_email_projects`, con `asana_project_gid`, `area_code` (CE, WD, A&D, A&A, B&D), `area_label` y `status`. El dato real vive en noma-ops. Un proyecto con canal de correo (modelo A) no entra a este flujo.
+- **Destinatario:** el campo «Correo de contacto» de la tarea. Si es una subtarea, el de la subtarea o, si no tiene, el de la tarea principal. Sin contacto, Noma no envía y lo comenta en la tarea.
+- **Copia:** el responsable de la tarea principal, que es el encargado del cliente, y quien comenta cuando el correo sale por el respaldo.
+- **Asunto:** `ÁREA - Cliente | Solicitud`.
+  - Cliente es el campo «Cliente» o, si está vacío, lo que va antes de «|» en el nombre de la tarea.
+  - Cada entrega lleva su propio asunto, `… - Entrega NN`.
+  - Consultas y comentarios responden en el último hilo de la tarea (`Re: …`).
+- **Hilos:** `area_email_threads` guarda, por tarea principal, cada asunto con su casilla, `threadId`, último Message-ID y References. Así las respuestas quedan enlazadas aunque cambie quien envía.
+- **Remitente:** la casilla de la persona, por `user_integrations` y su scope `gmail.send`. El correo de la persona se resuelve con `people_identities` o la API de Asana.
+- **Respaldo:** sale desde la casilla de solicitudes (operations@), con copia a quien comentó y su nombre en el remitente, en estos casos:
+  - la persona no tiene Google conectado;
+  - Gmail rechaza el envío con un 4xx o un token inválido.
+
+  Noma lo explica en la tarea. Un corte de red o un 5xx queda en `unknown` para revisión, porque el correo pudo haber salido.
+
+- **Plantilla:** la misma de siempre, con la firma de la persona en vez de «Design Team», una nota de hilo sin folio y un pie con el área y la casilla de envío (`signatureName`, `threadNote` y `footer` en `render.ts`).
+- **Reglas compartidas con el modelo A:** horario hábil (con «ENVIAR AHORA»), adjuntos (`Adjunto:`) e idempotencia por story (`area_email_sends`).
+- **Fuera de horario:** el envío queda `scheduled`. Lo envían el cron de las 08:55 (`scheduled-deliveries`) y, de paso, los webhooks del proyecto.
+- **Pendiente (entrega 6):** leer las respuestas del cliente en esos hilos para detectar aprobación o ajustes. Por ahora la respuesta llega a la casilla de quien envió y el equipo la gestiona a mano.
+
 ### Archivos adjuntos en entregas y comentarios (`Adjunto:`)
 
 Sirve para mandar un archivo que el cliente no puede abrir desde un link, por ejemplo un zip con los HTML de un mailing.

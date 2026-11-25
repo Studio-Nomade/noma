@@ -14,6 +14,11 @@ import {
   flushScheduledDeliveries,
   processAsanaStory,
 } from "@/features/email/deliveries";
+import {
+  areaProjectConfig,
+  flushScheduledAreaSends,
+  processAreaStory,
+} from "@/features/email/area-deliveries";
 import { isEmailChannelProject } from "@/features/email/store";
 import { openThreadForTask } from "@/features/email/thread-open";
 import { NEW_TASK_SETTLE_MS } from "@/features/email/thread-open-rules";
@@ -84,6 +89,14 @@ export async function POST(request: Request) {
           return false;
         },
       );
+      // Modelo B (proyectos generales de área): correo desde la cuenta de
+      // quien comenta. Solo si el proyecto no tiene canal de correo propio.
+      const areaProject = emailProject
+        ? null
+        : await areaProjectConfig(projectGid).catch((error) => {
+            console.error("[asana:webhook:area]", error);
+            return null;
+          });
       // Tareas nuevas primero: abren el hilo donde caen los demás avisos.
       for (const event of newTasks) {
         await notifyNewTask({ taskGid: event.taskGid, projectGid });
@@ -101,6 +114,17 @@ export async function POST(request: Request) {
         // también con lo que hace la cuenta de Noma: así los agentes avisan
         // al equipo sin cuentas personales.
         await notifyAsanaStory({ storyGid: event.storyGid, projectGid });
+        if (areaProject) {
+          try {
+            await processAreaStory(event.storyGid, {
+              project: areaProject,
+              botUserGid,
+            });
+          } catch (error) {
+            console.error("[asana:webhook:area-story]", event.storyGid, error);
+          }
+          continue;
+        }
         // El flujo de solicitudes solo corre en proyectos de correo.
         if (!emailProject) continue;
         // Stories de Noma: solo comentarios (pueden ser «CLIENTE», que
@@ -138,6 +162,13 @@ export async function POST(request: Request) {
       await flushPendingSlackNotices({ deadline: Date.now() + 10_000 }).catch(
         (error) => console.error("[asana:webhook:slack-cola]", error),
       );
+      if (areaProject) {
+        await flushScheduledAreaSends({
+          limit: 3,
+          deadline: Date.now() + 20_000,
+        }).catch((error) => console.error("[asana:webhook:area-flush]", error));
+        return;
+      }
       if (!emailProject) return;
       // De paso: entregas programadas fuera de horario que ya vencieron.
       await flushScheduledDeliveries({

@@ -180,6 +180,12 @@ type Common = {
   requesterName?: string | null;
   now?: Date;
   assetsBase?: string;
+  /** Firma de quien envía (modelo B); por defecto «Design Team». */
+  signatureName?: string | null;
+  /** Nota del hilo bajo el cuerpo (reemplaza la de folio + alias). */
+  threadNote?: string | null;
+  /** Pie bajo la tarjeta (reemplaza «Correo automático de la solicitud…»). */
+  footer?: string | null;
 };
 
 function baseView(
@@ -205,6 +211,9 @@ function baseView(
     mostrar_estado: extra.stage !== null,
     pasos: extra.stage === null ? [] : stageSteps(extra.stage, extra.allDone),
     cierre: extra.cierre ?? "Quedamos atentos.",
+    firma_nombre: input.signatureName?.trim() || "",
+    nota_hilo: input.threadNote?.trim() || "",
+    pie: input.footer?.trim() || "",
   };
 }
 
@@ -223,9 +232,10 @@ function textFooter(input: Common, closing = "Quedamos atentos.") {
   return [
     "",
     closing,
-    "Design Team · Studio Nomade",
+    `${input.signatureName?.trim() || "Design Team"} · Studio Nomade`,
     "",
-    `Responde este correo para todo lo relacionado con ${input.folio}. Las solicitudes nuevas van en un correo aparte a ${input.alias}.`,
+    input.threadNote?.trim() ||
+      `Responde este correo para todo lo relacionado con ${input.folio}. Las solicitudes nuevas van en un correo aparte a ${input.alias}.`,
   ];
 }
 

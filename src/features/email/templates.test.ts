@@ -381,3 +381,30 @@ test("pie de todas las plantillas: Santiago | Madrid | Lisboa", () => {
   const email = renderCommentEmail({ ...COMMON, text: "Hola" });
   assert.match(email.html, /Santiago \| Madrid \| Lisboa/);
 });
+
+test("modelo B · firma, nota del hilo y pie de la persona", () => {
+  const email = renderDeliveryEmail({
+    ...COMMON,
+    alias: "persona@studionomade.cl",
+    round: 2,
+    files: [{ label: "Logo", url: "https://drive.google.com/x" }],
+    signatureName: "Nombre Apellido",
+    threadNote:
+      "Responde este correo para todo lo relacionado con esta solicitud.",
+    footer:
+      "Studio Nomade · Clínica de Emprendimientos · persona@studionomade.cl",
+  });
+  assert.match(email.html, /^<!DOCTYPE html>/);
+  assert.match(email.html, /Nombre Apellido/);
+  assert.doesNotMatch(email.html, /Design Team/);
+  assert.match(email.html, /relacionado con esta solicitud/);
+  assert.match(email.html, /Studio Nomade · Clínica de Emprendimientos/);
+  assert.match(email.text, /Nombre Apellido · Studio Nomade/);
+  // Sin firma, sigue «Design Team».
+  const plain = renderDeliveryEmail({
+    ...COMMON,
+    round: 1,
+    files: [{ label: "Logo", url: "https://drive.google.com/x" }],
+  });
+  assert.match(plain.html, /Design Team/);
+});
