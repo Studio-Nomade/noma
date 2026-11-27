@@ -13,6 +13,9 @@ export const GOOGLE_BASE_SCOPES = [
   // persona. Scope restringido, pero la app es Interna (solo studionomade.cl)
   // y no requiere verificación de Google.
   "https://www.googleapis.com/auth/gmail.readonly",
+  // gmail.compose: dejar en la casilla de la persona el borrador de la minuta
+  // que aprobó en #noma-reuniones (ella lo revisa y lo envía).
+  "https://www.googleapis.com/auth/gmail.compose",
   // calendar.events: crear reuniones de brief con link de Meet.
   "https://www.googleapis.com/auth/calendar.events",
   // drive.readonly: leer notas de Gemini y buscar documentos.

@@ -32,6 +32,15 @@ export const CAPABILITIES: Record<PersonalProvider, CapabilityDef[]> = {
       ],
     },
     {
+      id: "gmail_drafts",
+      label: "Dejar borradores (minutas)",
+      anyOf: [
+        `${G}gmail.compose`,
+        `${G}gmail.modify`,
+        "https://mail.google.com/",
+      ],
+    },
+    {
       id: "calendar",
       label: "Agenda y reuniones con Meet",
       anyOf: [`${G}calendar.events`, `${G}calendar`],
