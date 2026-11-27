@@ -11,6 +11,12 @@ export const studioMinutesSchema = z.object({
     .describe(
       "3 a 6 líneas con lo esencial, en español de Chile, tono cordial.",
     ),
+  resumen_breve: z
+    .string()
+    .default("")
+    .describe(
+      "1 o 2 oraciones para el cuerpo del correo: objetivo de la reunión y resultado.",
+    ),
   asistentes: z.array(z.string()).default([]).describe("Nombre (empresa)"),
   temas: z
     .array(z.object({ titulo: z.string(), detalle: z.string() }))
@@ -48,6 +54,7 @@ Reglas:
 - Acuerdos y tareas concretos, con responsable y fecha solo si se dijeron (si no, fecha null).
 - Las cifras mencionadas van en «cifras_dichas» tal como se dijeron; se marcan «dicho en la reunión».
 - Observaciones sobre personas, tensiones o temas sensibles van SOLO en «notas_internas», nunca en el resto.
+- «tareas» es el plan de acción: cada tarea parte con un verbo, es verificable y tiene responsable; ordénalas por fecha y prioridad.
 - Si se pide un ajuste a una minuta existente, devuelve la minuta completa con el ajuste aplicado.`;
 
 function esc(s: string) {

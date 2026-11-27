@@ -39,6 +39,7 @@ import {
   replaceDocHtml,
   searchGeminiNotes,
 } from "./google";
+import { renderMinutesEmail } from "./minutes-email";
 import {
   minutesSlackPreview,
   renderStudioMinutes,
@@ -814,12 +815,6 @@ async function approveMinutes(m: StudioMeeting) {
   }
   const data = m.minutes as unknown as StudioMinutes;
   const signer = await signerName(m.requesterEmail);
-  const { html, text } = renderStudioMinutes({
-    title: m.title,
-    dateLabel: dateLabel(m),
-    data,
-    signature: signer,
-  });
   const subject = minutesSubject({
     client: m.clientName,
     type: m.meetingType,
@@ -830,6 +825,21 @@ async function approveMinutes(m: StudioMeeting) {
     m.attendees.map((a) => a.email),
     m.requesterEmail,
   );
+  const toSet = new Set(to);
+  const greetingNames = m.attendees
+    .filter((a) => toSet.has(a.email.toLowerCase()) && a.name)
+    .map((a) => (a.name ?? "").trim().split(/\s+/)[0]);
+  const { html, text } = renderMinutesEmail({
+    client: m.clientName ?? "Studio Nomade",
+    title: m.title,
+    dateLabel: m.startsAt.toLocaleDateString("es-CL", {
+      timeZone: "America/Santiago",
+    }),
+    data,
+    signature: signer,
+    senderEmail: sender.email,
+    greetingNames,
+  });
   const pdf = await exportDocPdf(m.minutesDocId);
   try {
     const draft = await createDraftAsUser({
