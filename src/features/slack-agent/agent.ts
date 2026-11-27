@@ -24,6 +24,8 @@ import {
   slackAgentModel,
 } from "./config";
 import { slackAgentTools } from "./tools";
+import { handleMeetingsChannelMessage } from "@/features/meetings/flow";
+import { meetingsChannel } from "@/features/meetings/rules";
 
 /** Evento `message` de la Events API de Slack (campos que se usan). */
 export type SlackMessageEvent = {
@@ -267,4 +269,6 @@ export async function handleSlackMessageEvent(
   if (event.channel_type === "im") return handleDirectMessage(event, eventId);
   if (event.channel === cfoRequestChannel())
     return handleCfoRequest(event, eventId);
+  if (event.channel === meetingsChannel())
+    return handleMeetingsChannelMessage(event, eventId);
 }
