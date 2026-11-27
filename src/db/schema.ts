@@ -3525,3 +3525,56 @@ export const devPackages = pgTable(
 );
 
 export type DevPackage = typeof devPackages.$inferSelect;
+
+// ── Reuniones del estudio pedidas por Slack (#noma-reuniones) ──
+// Un hilo de Slack = una reunión. Noma propone la invitación, la agenda desde
+// la casilla de operaciones (organizadora, así las notas de Gemini quedan en
+// su Drive), archiva las notas en la carpeta centralizada de la unidad
+// Operations, arma la minuta y, con la aprobación de quien la pidió, deja el
+// borrador del correo en su casilla. Nada sale al cliente sin esa persona.
+export const studioMeetings = pgTable(
+  "studio_meetings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slackChannelId: text("slack_channel_id").notNull(),
+    slackThreadTs: text("slack_thread_ts").notNull(),
+    requesterEmail: text("requester_email").notNull(),
+    // propuesta · agendada · realizada · minuta_borrador · minuta_aprobada ·
+    // cancelada · error
+    status: text("status").default("propuesta").notNull(),
+    title: text("title").notNull(),
+    area: text("area"), // B&D · WD · A&D · A&A · CE · SN
+    clientName: text("client_name"),
+    meetingType: text("meeting_type"),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    durationMin: integer("duration_min").default(30).notNull(),
+    attendees: jsonb("attendees")
+      .$type<{ name?: string; email: string }[]>()
+      .default([])
+      .notNull(),
+    unresolved: text("unresolved").array().default([]).notNull(),
+    agenda: text("agenda"),
+    organizerEmail: text("organizer_email"),
+    calendarEventId: text("calendar_event_id"),
+    calendarLink: text("calendar_link"),
+    meetLink: text("meet_link"),
+    driveFolderId: text("drive_folder_id"),
+    notesFileId: text("notes_file_id"),
+    minutes: jsonb("minutes").$type<Record<string, unknown>>(),
+    minutesDocId: text("minutes_doc_id"),
+    gmailDraftId: text("gmail_draft_id"),
+    // Cambio pedido en el hilo para una reunión ya agendada (espera «ok»).
+    pendingChange: jsonb("pending_change").$type<Record<string, unknown>>(),
+    lastError: text("last_error"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("studio_meetings_thread_uq").on(
+      t.slackChannelId,
+      t.slackThreadTs,
+    ),
+    index("studio_meetings_status_idx").on(t.status),
+  ],
+);
+
+export type StudioMeeting = typeof studioMeetings.$inferSelect;

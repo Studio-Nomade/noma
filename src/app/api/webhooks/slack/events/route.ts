@@ -10,7 +10,8 @@ export const maxDuration = 60;
 
 /**
  * Events API de Slack para la app Noma: mensajes directos con Sebastián y Ana
- * (conversación) y «[SOLICITUD]» en #general-finanzas (tarea en CFO).
+ * (conversación), «[SOLICITUD]» en #general-finanzas (tarea en CFO) y pedidos
+ * de reunión en #noma-reuniones (invitación, notas de Gemini y minuta).
  * Verifica la firma, responde en < 3 s y procesa después con `after()`.
  * Los reintentos de Slack se ignoran: el primer envío ya quedó en proceso.
  */

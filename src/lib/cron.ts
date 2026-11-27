@@ -40,6 +40,10 @@ import { timingSafeEqual } from "node:crypto";
  * - `project-setup`: proyectos nuevos de Asana («Cliente | Proyecto») →
  *   carpeta en la unidad del área y canal de Slack (cron de Vercel cada 10
  *   min en horario hábil).
+ * - `studio-meetings`: reuniones pedidas en #noma-reuniones que ya terminaron
+ *   → notas de Gemini (Drive de operations@) a la carpeta de la reunión en la
+ *   unidad Operations, minuta en un Google Doc y aviso en el hilo de Slack.
+ *   No escribe a nadie: el correo queda como borrador solo con «aprobar».
  */
 export const CRON_JOBS = {
   "whatsapp-drain": "CRON_WHATSAPP_DRAIN_ENABLED",
@@ -55,6 +59,8 @@ export const CRON_JOBS = {
   "slack-notify": "CRON_SLACK_NOTIFY_ENABLED",
   // Proyectos nuevos de Asana → carpeta en Drive y canal de Slack.
   "project-setup": "CRON_PROJECT_SETUP_ENABLED",
+  // Reuniones de #noma-reuniones → notas a la carpeta y minuta.
+  "studio-meetings": "CRON_STUDIO_MEETINGS_ENABLED",
 } as const;
 
 export type CronJob = keyof typeof CRON_JOBS;

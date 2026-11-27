@@ -9,7 +9,7 @@ import {
 
 const G = "https://www.googleapis.com/auth/";
 
-test("Google: gmail.modify cubre leer y enviar; falta Drive", () => {
+test("Google: gmail.modify cubre leer, enviar y borradores; falta Drive", () => {
   const status = capabilityStatus("google", [
     "email",
     `${G}gmail.modify`,
@@ -19,6 +19,7 @@ test("Google: gmail.modify cubre leer y enviar; falta Drive", () => {
   assert.deepEqual(byId, {
     gmail_send: true,
     gmail_read: true,
+    gmail_drafts: true,
     calendar: true,
     drive: false,
   });
