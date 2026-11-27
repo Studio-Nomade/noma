@@ -385,3 +385,15 @@ export function parseClientRelayCommand(
     text: body.slice(0, 4000),
   };
 }
+
+/**
+ * Quita las líneas «ENVIAR AHORA» (urgencias) antes de leer el comando: el
+ * equipo suele escribirla arriba de «Entrega 01». Se detecta aparte con
+ * `wantsImmediateSend`, sobre el texto original.
+ */
+export function stripSendNowLines(text: string | null | undefined) {
+  return (text ?? "")
+    .split("\n")
+    .filter((line) => !/^\s*[*_]*\s*enviar\s+ahora\s*[*_.!:]*\s*$/i.test(line))
+    .join("\n");
+}

@@ -52,6 +52,7 @@ import {
   parseCommentCommand,
   parseConsultaCommand,
   parseDeliveryCommand,
+  stripSendNowLines,
   type CommentCommand,
 } from "./delivery-command";
 import { ROUNDS_FIELD } from "@/features/reports/metrics";
@@ -128,13 +129,18 @@ type Command =
 /** Qué hace Noma con una story de Asana (null: nada). Módulo puro. */
 export function storyCommand(story: AsanaStory): Command | null {
   if (story.resource_subtype === "comment_added") {
-    const relay = parseClientRelayCommand(story.text);
+    // «ENVIAR AHORA» puede ir en cualquier línea, también arriba del comando.
+    const text = stripSendNowLines(story.text);
+    const html = story.html_text
+      ? story.html_text.replace(/enviar\s+ahora\s*(<br\s*\/?>)?/gi, "")
+      : story.html_text;
+    const relay = parseClientRelayCommand(text);
     if (relay) return { kind: "cliente", relay };
-    const delivery = parseDeliveryCommand(story.text, story.html_text);
+    const delivery = parseDeliveryCommand(text, html);
     if (delivery) return { kind: "delivery", delivery };
-    const consulta = parseConsultaCommand(story.text);
+    const consulta = parseConsultaCommand(text);
     if (consulta) return { kind: "consulta", consulta };
-    const comment = parseCommentCommand(story.text, story.html_text);
+    const comment = parseCommentCommand(text, html);
     if (comment && commentCommandActive(story.created_at)) {
       return { kind: "comentario", comment };
     }
