@@ -6,6 +6,7 @@ import {
   parseClientRelayCommand,
   parseConsultaCommand,
   parseDeliveryCommand,
+  stripSendNowLines,
 } from "./delivery-command";
 
 test("reconoce ENTREGA con cualquier número y ceros a la izquierda", () => {
@@ -274,4 +275,23 @@ test("COMENTARIO con «Adjunto:»", () => {
   );
   assert.deepEqual(parsed?.attachments, ["correos-v2.zip"]);
   assert.equal(parsed?.text, "Va el zip actualizado.");
+});
+
+test("«ENVIAR AHORA» arriba del comando no impide leerlo", () => {
+  const text = stripSendNowLines(
+    "ENVIAR AHORA\nEntrega 01:\nTestimonial: https://drive.google.com/file/d/x/view",
+  );
+  const parsed = parseDeliveryCommand(text);
+  assert.equal(parsed?.round, 1);
+  assert.equal(parsed?.links.length, 1);
+  assert.equal(parsed?.note, null);
+  assert.equal(
+    stripSendNowLines("Comentario\nTexto\n**Enviar ahora**"),
+    "Comentario\nTexto",
+  );
+  // En medio de una frase no se toca.
+  assert.equal(
+    stripSendNowLines("Hay que enviar ahora mismo"),
+    "Hay que enviar ahora mismo",
+  );
 });
