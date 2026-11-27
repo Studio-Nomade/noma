@@ -4,12 +4,12 @@ Cada proyecto de Asana se vincula a un canal de Slack y **solo el bot Noma** (`S
 
 ## Tablas (migración 0065)
 
-| Tabla | Para qué |
-|---|---|
-| `asana_slack_links` | Proyecto de Asana ↔ canal de Slack, prefijo de folio, eventos activos (`events`), `active`. |
-| `slack_task_threads` | Un hilo por tarea. Las subtareas usan el hilo de su solicitud raíz (hasta 3 niveles). |
-| `slack_notify_log` | Idempotencia: cada story se publica una vez aunque Asana reintente. También guarda la tarea, el tipo y el cuerpo, para agrupar en 60 s (migración 0066). |
-| `people_identities` | Persona por correo: usuario de Asana ↔ usuario de Slack. Se llena sola y se corrige a mano. |
+| Tabla                | Para qué                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `asana_slack_links`  | Proyecto de Asana ↔ canal de Slack, prefijo de folio, eventos activos (`events`), `active`.                                                              |
+| `slack_task_threads` | Sin uso desde el 27-11: los avisos ya no van en hilos. Se conserva por historial.                                                                        |
+| `slack_notify_log`   | Idempotencia: cada story se publica una vez aunque Asana reintente. También guarda la tarea, el tipo y el cuerpo, para agrupar en 60 s (migración 0066). |
+| `people_identities`  | Persona por correo: usuario de Asana ↔ usuario de Slack. Se llena sola y se corrige a mano.                                                              |
 
 ## Flujo
 
@@ -18,7 +18,7 @@ Cada proyecto de Asana se vincula a un canal de Slack y **solo el bot Noma** (`S
 1. Busca el vínculo activo del proyecto del webhook; sin vínculo no publica nada.
 2. Clasifica la story (`storyEventKind`) y revisa que el evento esté encendido en `events`.
 3. Reserva la clave `story:<gid>` en `slack_notify_log`. Si ya estaba, termina.
-4. Arma el mensaje y lo publica en el hilo de la tarea, o abre el hilo.
+4. Arma el mensaje y lo publica como **mensaje nuevo en el canal**. Desde el 27-11 no hay hilos, porque en un hilo el aviso se pierde. Si hay otro aviso de la misma tarea de hace menos de 60 s, se suma a ese mensaje, sin repetir líneas.
 5. Si la publicación falla, libera la clave para que un reintento lo envíe.
 
 Las menciones se traducen con `people_identities`, luego `NOMA_SLACK_USER_IDS` y luego `users.lookupByEmail`. Si no hay usuario de Slack, va el nombre en negrita, sin mención. Los comentarios de la cuenta de Noma también se avisan. Los comandos del flujo de correo (`ENTREGA`, `CONSULTA`, `CLIENTE`) siguen igual: en Slack se avisa el comentario si menciona a alguien, sin repetir el correo.
@@ -27,18 +27,18 @@ Las menciones se traducen con `people_identities`, luego `NOMA_SLACK_USER_IDS` y
 
 Mensajes cortos: una línea con el evento, la mención al responsable y «Abrir en Asana». Solo el comentario lleva un extracto (máx. 200 caracteres). Todos los eventos vienen encendidos por defecto y se apagan por vínculo en `events`.
 
-| Evento | Origen en Asana | Mensaje |
-|---|---|---|
-| `mention` | story `comment_added` con `data-asana-type="user"` | 💬 menciones · autor comentó en *tarea* · link + extracto |
-| `reopened` | story `marked_incomplete` | 🔁 Tarea reabierta · *tarea* por X · Estado · responsable · link |
-| `state_change` | story `enum_custom_field_changed` del campo **Estado** (con cambio real) | 🔄 *tarea* · Estado: Anterior → *Nuevo* · por X · responsable · link |
-| `assigned` | story `assigned` | 👤 @persona, te asignaron *tarea* · Entrega · link |
-| `completed` | story `marked_complete` | ✅ Tarea cerrada · *tarea* por X · link |
-| `new_task` | evento `task` `added` con el proyecto como padre (no subtareas) | 🆕 *tarea* · Responsable · Entrega · Prioridad · link (abre el hilo) |
+| Evento         | Origen en Asana                                                          | Mensaje                                                              |
+| -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `mention`      | story `comment_added` con `data-asana-type="user"`                       | 💬 menciones · autor comentó en _tarea_ · link + extracto            |
+| `reopened`     | story `marked_incomplete`                                                | 🔁 Tarea reabierta · _tarea_ por X · Estado · responsable · link     |
+| `state_change` | story `enum_custom_field_changed` del campo **Estado** (con cambio real) | 🔄 _tarea_ · Estado: Anterior → _Nuevo_ · por X · responsable · link |
+| `assigned`     | story `assigned`                                                         | 👤 @persona, te asignaron _tarea_ · Entrega · link                   |
+| `completed`    | story `marked_complete`                                                  | ✅ Tarea cerrada · _tarea_ por X · link                              |
+| `new_task`     | evento `task` `added` con el proyecto como padre (no subtareas)          | 🆕 _tarea_ · Responsable · Entrega · Prioridad · link                |
 
 **Agrupación (60 s):** si ya hubo un aviso de la misma tarea en el canal en los últimos 60 s, el evento nuevo se suma como otra línea a ese mensaje (`chat.update`) en vez de publicar otro. Por ejemplo, reabierta + Estado + comentario quedan en un solo mensaje.
 
-**Proyectos de correo (Grado 360, Equifax):** `new_task`, `state_change` y `completed` los avisa el flujo de solicitudes (solicitud nueva, entrega, ajustes, cierre), también por el bot y en el hilo (ver «Flujo de solicitudes por el bot»). El módulo suma ahí las menciones, las reaperturas y las asignaciones.
+**Proyectos de correo (Grado 360, Equifax):** `new_task`, `state_change` y `completed` los avisa el flujo de solicitudes (solicitud nueva, entrega, ajustes, cierre), también por el bot y como mensajes nuevos en el canal (ver «Flujo de solicitudes por el bot»). El módulo suma ahí las menciones, las reaperturas y las asignaciones.
 
 `marked_incomplete` y el evento `task` `added` se sumaron a los filtros del webhook (`WEBHOOK_FILTERS`). El mantenimiento de webhooks actualiza los filtros de los webhooks ya registrados.
 
@@ -70,15 +70,15 @@ Los filtros de los webhooks ya registrados los mantiene al día `syncWebhookFilt
 
 Los avisos del flujo de correo (`notifyNewClientRequest` y `notifyTeamEvent`) reciben la tarea de Asana (`thread: { projectGid, taskGid }`):
 
-- **Proyecto con vínculo activo** (Grado 360, Equifax): el bot Noma publica en el canal vinculado, en el hilo de la solicitud. El aviso de solicitud nueva abre el hilo, con el mismo contenido de siempre (folio, cliente final, canal, prioridad, entrega, quién pide, «Sin responsable» y «Abrir en Asana»). Entrega, ajustes, aprobación de pieza y cierre caen en ese hilo y se agrupan en 60 s con los demás avisos de la tarea; por ejemplo, el cliente pide ajustes y Noma reabre la tarea.
+- **Proyecto con vínculo activo** (Grado 360, Equifax): el bot Noma publica en el canal vinculado, siempre como mensaje nuevo. El aviso de solicitud nueva mantiene el contenido de siempre: folio, cliente final, canal, prioridad, entrega, quién pide, «Sin responsable» y «Abrir en Asana». Entrega, ajustes, aprobación de pieza y cierre también son mensajes nuevos y se agrupan en 60 s con los demás avisos de la tarea; por ejemplo, el cliente pide ajustes y Noma reabre la tarea.
 - **Sin vínculo, o si el bot falla:** el webhook del canal (`slack_webhook_env`) de siempre. Cuando todos los canales de correo estén vinculados, esa columna y las variables de webhook se pueden retirar.
 
-Por eso, en los proyectos de correo el módulo no repite `new_task`, `state_change` ni `completed`: esos avisos los da el flujo de solicitudes, con su contenido propio y en el mismo hilo.
+Por eso, en los proyectos de correo el módulo no repite `new_task`, `state_change` ni `completed`: esos avisos los da el flujo de solicitudes, con su contenido propio.
 
 ## Horario hábil (avisos internos)
 
 Los avisos internos solo se publican en horario hábil: lunes a viernes de 9:00 a 18:00, Santiago, sin los feriados de `NOMA_BUSINESS_HOLIDAYS`, igual que las entregas.
 
 - **Fuera de ese horario** el aviso queda en cola en su fila de `slack_notify_log` (`deliver_at` y `payload`, migración 0068) y no se publica.
-- **A las 08:55 del siguiente día hábil**, `flushPendingSlackNotices` publica un mensaje por tarea con todos sus eventos en orden, en el hilo de la solicitud. Lo llaman el pg_cron de `scheduled-deliveries`, el cron `slack-notify` y cada webhook de Asana.
+- **A las 08:55 del siguiente día hábil**, `flushPendingSlackNotices` publica un mensaje nuevo por tarea con todos sus eventos en orden y sin repetir líneas. Lo llaman el pg_cron de `scheduled-deliveries`, el cron `slack-notify` y cada webhook de Asana, a veces al mismo tiempo. Por eso cada pasada **reserva** las filas antes de publicar: `deliverAt` pasa a una concesión de 10 minutos y solo quien hace la reserva publica. Si la publicación falla, la fila vuelve a la cola. Antes del 27-11 no había reserva, y el mismo aviso salía varias veces.
 - **Qué cubre:** los avisos del módulo y los del flujo de solicitudes que van por el bot. La reconciliación del cron de un sábado también queda en cola.
