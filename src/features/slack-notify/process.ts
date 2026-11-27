@@ -1,9 +1,19 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, isNotNull, isNull, lte } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+} from "drizzle-orm";
 import { db } from "@/db";
-import { asanaSlackLinks, slackNotifyLog, slackTaskThreads } from "@/db/schema";
+import { asanaSlackLinks, slackNotifyLog } from "@/db/schema";
 import {
   getStory,
   getTaskAssignee,
@@ -204,12 +214,15 @@ async function publish(input: {
 
   if (recent?.slackTs && recent.body) {
     const body = groupedBody(recent.body, message.mrkdwn);
-    await updateBotMessage({
-      channel: link.slackChannelId,
-      ts: recent.slackTs,
-      text: message.text,
-      mrkdwn: body,
-    });
+    // Si la línea ya estaba (mismo aviso), no se toca el mensaje.
+    if (body !== recent.body) {
+      await updateBotMessage({
+        channel: link.slackChannelId,
+        ts: recent.slackTs,
+        text: message.text,
+        mrkdwn: body,
+      });
+    }
     // El cuerpo agrupado queda en la fila que abrió el mensaje; la del evento
     // nuevo solo registra que ya se publicó (sin cuerpo: no abre otra tanda).
     await db
@@ -223,19 +236,12 @@ async function publish(input: {
     return "agrupado";
   }
 
-  const [thread] = await db
-    .select()
-    .from(slackTaskThreads)
-    .where(eq(slackTaskThreads.asanaTaskGid, ctx.rootGid))
-    .limit(1);
-  // Si el proyecto cambió de canal, el hilo viejo no sirve: se abre otro.
-  const threadTs =
-    thread?.slackChannelId === link.slackChannelId ? thread.threadTs : null;
+  // Cada aviso es un mensaje nuevo en el canal (sin hilos: en un hilo se
+  // pierde). Decisión de Sebastián, 27-11.
   const posted = await postBotMessage({
     channel: link.slackChannelId,
     text: message.text,
     mrkdwn: message.mrkdwn,
-    threadTs,
   });
   await db
     .update(slackNotifyLog)
@@ -245,19 +251,6 @@ async function publish(input: {
       body: message.mrkdwn,
     })
     .where(eq(slackNotifyLog.eventKey, input.eventKey));
-  if (!threadTs) {
-    await db
-      .insert(slackTaskThreads)
-      .values({
-        asanaTaskGid: ctx.rootGid,
-        slackChannelId: posted.channel,
-        threadTs: posted.ts,
-      })
-      .onConflictDoUpdate({
-        target: slackTaskThreads.asanaTaskGid,
-        set: { slackChannelId: posted.channel, threadTs: posted.ts },
-      });
-  }
   await db
     .update(asanaSlackLinks)
     .set({ lastNotifiedAt: new Date() })
@@ -401,7 +394,7 @@ export function notifyAsanaStory(input: {
   });
 }
 
-/** Tarea nueva en el proyecto: abre su hilo en el canal vinculado. */
+/** Tarea nueva en el proyecto: aviso en el canal vinculado. */
 export function notifyNewTask(input: {
   taskGid: string;
   projectGid: string;
@@ -426,8 +419,8 @@ export function notifyNewTask(input: {
 
 /**
  * Avisos del flujo de solicitudes (solicitud nueva, entrega, ajustes,
- * aprobación, cierre) como el bot Noma, en el hilo de la solicitud dentro del
- * canal vinculado al proyecto, con la misma agrupación de 60 s. Devuelve
+ * aprobación, cierre) como el bot Noma, como mensaje nuevo en el canal
+ * vinculado al proyecto (sin hilos), con la misma agrupación de 60 s por tarea. Devuelve
  * false si el proyecto no tiene vínculo activo (o falla): quien llama usa el
  * webhook de Slack de siempre. Nunca lanza.
  */
@@ -534,6 +527,20 @@ export async function postTeamNoticeToChannel(input: {
  * hilo de la solicitud. Lo llaman el pg_cron de las 08:55
  * (scheduled-deliveries), el cron slack-notify y cada webhook de Asana.
  */
+/** Concesión de una fila reservada por una pasada de la cola. */
+const LEASE_MS = 10 * 60_000;
+
+/** Junta líneas de avisos sin repetir ninguna. */
+function uniqueLines(bodies: string[]) {
+  const lines: string[] = [];
+  for (const body of bodies) {
+    for (const line of body.split("\n")) {
+      if (line.trim() && !lines.includes(line)) lines.push(line);
+    }
+  }
+  return lines.join("\n");
+}
+
 export async function flushPendingSlackNotices(
   options: { deadline?: number; now?: Date } = {},
 ) {
@@ -561,28 +568,39 @@ export async function flushPendingSlackNotices(
     groups.set(key, [...(groups.get(key) ?? []), row]);
   }
 
-  for (const group of groups.values()) {
+  for (const candidates of groups.values()) {
     if (options.deadline && Date.now() > options.deadline) break;
+    // Candado: la cola la vacían a la vez el cron de las 08:55, el de Slack y
+    // los webhooks. Cada fila se reserva (deliverAt pasa a una «concesión» de
+    // 10 minutos) antes de publicar: solo quien la reserva la publica. Si la
+    // publicación falla, vuelve a la cola.
+    const group = await db
+      .update(slackNotifyLog)
+      .set({ deliverAt: new Date(now.getTime() + LEASE_MS) })
+      .where(
+        and(
+          inArray(
+            slackNotifyLog.eventKey,
+            candidates.map((row) => row.eventKey),
+          ),
+          isNull(slackNotifyLog.slackTs),
+          lte(slackNotifyLog.deliverAt, now),
+        ),
+      )
+      .returning();
+    if (!group.length) continue;
+    group.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const [first] = group;
     const channel = first.slackChannelId!;
-    const rootGid = first.payload!.rootGid;
-    const body = group
-      .map((row) => row.payload!.mrkdwn)
-      .join("\n")
-      .slice(0, 2900);
+    const body = uniqueLines(group.map((row) => row.payload!.mrkdwn)).slice(
+      0,
+      2900,
+    );
     try {
-      const [thread] = await db
-        .select()
-        .from(slackTaskThreads)
-        .where(eq(slackTaskThreads.asanaTaskGid, rootGid))
-        .limit(1);
-      const threadTs =
-        thread?.slackChannelId === channel ? thread.threadTs : null;
       const posted = await postBotMessage({
         channel,
         text: first.payload!.text,
         mrkdwn: body,
-        threadTs,
       });
       for (const [index, row] of group.entries()) {
         await db
@@ -596,25 +614,24 @@ export async function flushPendingSlackNotices(
           })
           .where(eq(slackNotifyLog.eventKey, row.eventKey));
       }
-      // Los avisos de canal (sin tarea) no abren hilo de tarea.
-      if (!threadTs && rootGid) {
-        await db
-          .insert(slackTaskThreads)
-          .values({
-            asanaTaskGid: rootGid,
-            slackChannelId: posted.channel,
-            threadTs: posted.ts,
-          })
-          .onConflictDoUpdate({
-            target: slackTaskThreads.asanaTaskGid,
-            set: { slackChannelId: posted.channel, threadTs: posted.ts },
-          });
-      }
       result.sent += 1;
     } catch (error) {
-      // Queda en cola para la siguiente pasada.
+      // No salió: vuelve a la cola para la siguiente pasada.
       result.failed += 1;
       console.error("[slack-notify:cola]", first.eventKey, error);
+      await db
+        .update(slackNotifyLog)
+        .set({ deliverAt: now })
+        .where(
+          and(
+            inArray(
+              slackNotifyLog.eventKey,
+              group.map((row) => row.eventKey),
+            ),
+            isNull(slackNotifyLog.slackTs),
+          ),
+        )
+        .catch(() => undefined);
     }
   }
   return result;

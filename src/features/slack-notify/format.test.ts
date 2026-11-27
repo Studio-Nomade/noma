@@ -211,4 +211,7 @@ test("mensajes cortos de los eventos nuevos", () => {
     "🆕 *Pieza* · Responsable: _sin responsable_ · Prioridad: *Alta* · <https://app.asana.com/0/1/2/f|Abrir en Asana>",
   );
   assert.equal(groupedBody("a", "b"), "a\nb");
+  // El mismo aviso no se repite en el mensaje agrupado.
+  assert.equal(groupedBody("a\nb", "b"), "a\nb");
+  assert.equal(groupedBody("a", "a\nc"), "a\nc");
 });

@@ -361,8 +361,13 @@ export function newTaskMessage(input: {
  */
 export const GROUP_WINDOW_MS = 60_000;
 
+/** Agrega las líneas nuevas al mensaje agrupado, sin repetir ninguna. */
 export function groupedBody(previous: string, next: string) {
-  return `${previous}\n${next}`.slice(0, 2900);
+  const lines = previous.split("\n");
+  for (const line of next.split("\n")) {
+    if (line.trim() && !lines.includes(line)) lines.push(line);
+  }
+  return lines.join("\n").slice(0, 2900);
 }
 
 /** Eventos activos del vínculo (los que falten toman el valor por defecto). */
